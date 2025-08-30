@@ -1,0 +1,4 @@
+# .env files
+app/.env
+# Project exclude paths
+/.venv/
