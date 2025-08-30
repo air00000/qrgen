@@ -33,20 +33,22 @@ app/
 -----------------------------------------------------------
 
 # Главный сценарий - создание QR
+app/handlers/qr.py
   - qr_entry(update, context) - точка входа, переходит к запросу названия
   - ask_nazvanie(update, context) — Запрос названия
   - ask_price(update, context) — Запрос цены
   - ask_photo(update, context) — Запрос фото
   - ask_url(update, context) — Запрос url
   соответствующие функции on_... сохраняют данные
+возвращает pdf
 
 -----------------------------------------------------------
 
 # Figma
 app/services/figma.py
-  - get_template_json() — GET /files/{TEMPLATE_FILE_KEY} → JSON документа.
+  - get_template_json() — GET /files/{TEMPLATE_FILE_KEY} → JSON.
   - find_node(file_json, page_name, node_name) — ищет узел по имени на нужной странице.
-  - export_frame_as_png(file_key, node_id, scale=CFG.SCALE_FACTOR) — экспортирует кадр в PNG (байты) через /images.
+  - export_frame_as_png(file_key, node_id, scale=CFG.SCALE_FACTOR) — экспортирует кадр в PNG через /images.
 
 -----------------------------------------------------------
 
