@@ -1,6 +1,6 @@
 # Зависимости
 ```text
-pip install -r requirements.txt
+pip install -r app/requirements.txt
 ```
 
 -----------------------------------------------------------
