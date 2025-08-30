@@ -2,3 +2,4 @@
 app/.env
 # Project exclude paths
 /.venv/
+.idea/
