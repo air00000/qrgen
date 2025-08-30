@@ -5,6 +5,14 @@ pip install -r app/requirements.txt
 
 -----------------------------------------------------------
 
+# Запуск
+Добавить .env в папку App
+```text
+python app/main.py
+```
+
+-----------------------------------------------------------
+
 # ENV
 ```text
 TELEGRAM_BOT_TOKEN=xxx
