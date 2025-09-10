@@ -1,55 +1,54 @@
 # app/api.py
 from __future__ import annotations
 
-import io
 import re
 import tempfile
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+# Локальный импорт конфигурации и бизнес-логики
 try:
-    # текущий код проекта
-    from .config import CFG  # type: ignore
-    from .services.pdf import create_pdf  # type: ignore
-except Exception as e:
-    # на случай запуска как модуля без пакета
     from app.config import CFG  # type: ignore
     from app.services.pdf import create_pdf  # type: ignore
+    from app.services.keystore import contains as key_contains  # type: ignore
+except Exception:
+    # На случай альтернативной схемы импортов
+    from .config import CFG  # type: ignore
+    from .services.pdf import create_pdf  # type: ignore
+    from .services.keystore import contains as key_contains  # type: ignore
+
 
 app = FastAPI(
     title="QRGen API",
-    version="1.0.0",
-    description="HTTP API, дублирующее функционал бота: генерирует PDF-снимок с QR-кодом."
+    version="2.0.0",
+    description="HTTP API для генерации PDF с QR-кодом (QR генерируется внутри сервиса)."
 )
 
-# По желанию: открыть CORS (можно сузить доменами)
+# CORS — по умолчанию открыт; при необходимости сузить доменами
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # ← при необходимости заменить на свои домены
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Простейшая токен-аутентификация через заголовок X-API-Key (опционально)
-def require_api_key(x_api_key: Optional[str] = None):
-    # Задайте API_KEY в .env/.config (например, API_AUTH_TOKEN)
-    api_key_env = getattr(CFG, "API_AUTH_TOKEN", None)
-    if api_key_env:
-        from fastapi import Header
-        def checker(x_api_key: Optional[str] = Header(None)):
-            if not x_api_key or x_api_key != api_key_env:
-                raise HTTPException(status_code=401, detail="Invalid API key")
-        return checker
-    # если ключ не задан — не проверяем
-    return lambda: None
-
-
 URL_RE = re.compile(r"^https?://", re.IGNORECASE)
+
+
+def require_api_key():
+    """
+    Зависимость FastAPI: проверка заголовка X-API-Key по общему пулу ключей.
+    Ключи управляются админом через бота и хранятся в services/keystore.
+    """
+    async def checker(x_api_key: Optional[str] = Header(default=None)):
+        if not x_api_key or not key_contains(x_api_key):
+            raise HTTPException(status_code=401, detail="Invalid API key")
+    return checker
 
 
 @app.get("/health")
@@ -57,28 +56,31 @@ def health():
     return {"status": "ok"}
 
 
-@app.post("/generate", response_class=FileResponse, dependencies=[Depends(require_api_key())])
+@app.post("/generate", dependencies=[Depends(require_api_key())])
 async def generate(
-    nazvanie: str = Form(..., description="Название"),
+    nazvanie: str = Form(..., description="Название товара"),
     price: str = Form(..., description="Цена (строкой, как в боте)"),
     url: str = Form(..., description="URL для QR"),
-    photo: UploadFile = File(..., description="Фото для вставки"),
-    download: bool = Form(False, description="Если true — принудительно скачивать файл"),
+    photo: UploadFile = File(..., description="Фото товара (jpeg/png)"),
+    download: bool = Form(False, description="Если true — отправить как attachment"),
 ):
-    # Валидация входных данных в стиле бота
+    """
+    Принимает multipart/form-data и сразу отдаёт PDF-файл.
+    """
     if not URL_RE.match(url):
         raise HTTPException(status_code=422, detail="url должен начинаться с http:// или https://")
 
-    # Временный файл под фото
+    # Сохраняем присланное фото во временный файл
+    suffix = Path(photo.filename or "").suffix or ".jpg"
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(photo.filename or "").suffix or ".jpg") as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             content = await photo.read()
             if not content:
                 raise HTTPException(status_code=400, detail="Файл фото пустой")
             tmp.write(content)
             photo_path = Path(tmp.name)
 
-        # Вызов существующей бизнес-логики проекта:
+        # Основная бизнес-логика сборки PDF (сигнатура сохранена)
         # create_pdf(nazvanie, price, photo_path, url) -> (pdf_path, processed_photo_path, qr_path)
         pdf_path, processed_photo_path, qr_path = create_pdf(nazvanie, price, str(photo_path), url)
 
@@ -96,10 +98,9 @@ async def generate(
     except HTTPException:
         raise
     except Exception as e:
-        # Пробрасываем причину в ответ (для отладки можно вернуть trace, но тут коротко)
         raise HTTPException(status_code=500, detail=f"Generation failed: {e}")
     finally:
-        # Чистка временного файла фото
+        # Удаляем временный файл с исходным фото
         try:
             if 'photo_path' in locals() and photo_path.exists():
                 photo_path.unlink(missing_ok=True)
@@ -115,14 +116,18 @@ async def generate_json(
     photo: UploadFile = File(...),
 ):
     """
-    Вариант, который возвращает JSON с путями (если вы хотите потом забрать файл отдельным запросом статики).
-    По умолчанию лучше использовать /generate, который сразу отдаёт PDF.
+    Возвращает JSON с путями к файлам на диске (если у вас есть статика/файловое хранилище).
+    Для большинства кейсов лучше пользоваться /generate, который отдаёт PDF напрямую.
     """
     if not URL_RE.match(url):
         raise HTTPException(status_code=422, detail="url должен начинаться с http:// или https://")
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(photo.filename or "").suffix or ".jpg") as tmp:
-        tmp.write(await photo.read())
+    suffix = Path(photo.filename or "").suffix or ".jpg"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        content = await photo.read()
+        if not content:
+            raise HTTPException(status_code=400, detail="Файл фото пустой")
+        tmp.write(content)
         photo_path = Path(tmp.name)
 
     try:

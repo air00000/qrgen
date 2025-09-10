@@ -5,6 +5,7 @@ from pytz import timezone
 load_dotenv()
 
 class CFG:
+    KEYS_PATH = os.getenv("APIKEYS")
     TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
     FIGMA_PAT = os.getenv("FIGMA_PAT")
     TEMPLATE_FILE_KEY = os.getenv("TEMPLATE_FILE_KEY")
@@ -23,3 +24,8 @@ class CFG:
     FIGMA_API_URL = "https://api.figma.com/v1"
     QR_ENDPOINT = "https://api.qrtiger.com/api/qr/static"
     TZ = timezone(os.getenv("TZ", "Europe/Amsterdam"))
+    _ADMIN_IDS_RAW = os.getenv("ADMINS", "")
+    try:
+        ADMIN_IDS = {int(x.strip()) for x in _ADMIN_IDS_RAW.split(",") if x.strip()}
+    except ValueError:
+        ADMIN_IDS = set()

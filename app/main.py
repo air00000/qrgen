@@ -1,8 +1,10 @@
+# app/main.py
 import logging
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 from config import CFG
 from handlers.menu import start, menu_cb
 from handlers.qr import qr_conv, qr_back_cb, qr_menu_cb
+from handlers.keys import keys_conv, extra_handlers
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -15,9 +17,12 @@ def main():
     app.add_handler(CallbackQueryHandler(menu_cb, pattern=r"^MENU$"))
 
     app.add_handler(qr_conv)
-
     app.add_handler(CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"))
     app.add_handler(CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$"))
+
+    app.add_handler(keys_conv)
+    for h in extra_handlers:
+        app.add_handler(h)
 
     app.run_polling()
 

@@ -6,11 +6,11 @@ from telegram.ext import (
     ContextTypes, ConversationHandler, CallbackQueryHandler,
     MessageHandler, CommandHandler, filters
 )
-from keyboards.qr import main_menu_kb, menu_back_kb
-from keyboards.common import with_menu_back
-from utils.state_stack import push_state, pop_state, clear_stack
-from utils.io import ensure_dirs, cleanup_paths
-from services.pdf import create_pdf
+from app.keyboards.qr import main_menu_kb, menu_back_kb
+from app.keyboards.common import with_menu_back
+from app.utils.state_stack import push_state, pop_state, clear_stack
+from app.utils.io import ensure_dirs, cleanup_paths
+from app.services.pdf import create_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def qr_menu_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer("Возврат в главное меню")
     clear_stack(context.user_data)
-    from handlers.menu import start
+    from app.handlers.menu import start
     await start(update, context)
     return ConversationHandler.END
 
