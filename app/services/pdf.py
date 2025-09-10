@@ -7,9 +7,9 @@ from reportlab.lib.colors import HexColor
 from PIL import Image, ImageDraw
 from pytz import timezone
 
-from config import CFG
-from services.figma import get_template_json, find_node, export_frame_as_png
-from services.qrtiger import generate_qr
+from app.config import CFG
+from app.services.figma import get_template_json, find_node, export_frame_as_png
+from app.services.qrtiger import generate_qr
 
 pdfmetrics.registerFont(TTFont('Inter-SemiBold', os.path.join(CFG.FONTS_DIR, 'Inter_18pt-SemiBold.ttf')))
 pdfmetrics.registerFont(TTFont('Inter-Medium',   os.path.join(CFG.FONTS_DIR, 'Inter_18pt-Medium.ttf')))
