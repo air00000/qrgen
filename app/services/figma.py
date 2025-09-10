@@ -1,5 +1,5 @@
 import requests, logging
-from config import CFG
+from app.config import CFG
 
 log = logging.getLogger(__name__)
 

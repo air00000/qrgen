@@ -1,7 +1,7 @@
 import base64, requests
 from PIL import Image, ImageDraw
 import os, uuid
-from config import CFG
+from app.config import CFG
 
 def _rounded_mask(size, radius):
     m = Image.new("L", size, 0)
