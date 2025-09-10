@@ -11,15 +11,12 @@ from keyboards.common import with_menu_back
 from utils.state_stack import push_state, pop_state, clear_stack
 from utils.io import ensure_dirs, cleanup_paths
 from services.pdf import create_pdf
-from handlers.subscription import require_subscription
 
 logger = logging.getLogger(__name__)
 
 QR_NAZVANIE, QR_PRICE, QR_PHOTO, QR_URL = range(4)
 
 async def qr_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await require_subscription(update, context):
-        return
     ensure_dirs()
     clear_stack(context.user_data)
     await update.callback_query.answer()
