@@ -12,9 +12,9 @@ from telegram.ext import (
     filters,
 )
 
-from config import CFG
-from handlers.menu import start, menu_cb
-from handlers.qr import qr_conv, qr_back_cb, qr_menu_cb
+from app.config import CFG
+from app.handlers.menu import start, menu_cb
+from app.handlers.qr import qr_conv, qr_back_cb, qr_menu_cb
 from app.handlers.admin_api_keys import (
     admin_api_menu,
     handle_api_callbacks,

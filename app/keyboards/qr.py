@@ -1,5 +1,5 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from .common import with_menu_back
+from app.keyboards.common import with_menu_back
 
 def main_menu_kb(is_admin: bool = False):
     rows = [[InlineKeyboardButton("🧾 Создать QR / PDF", callback_data="QR:START")]]
