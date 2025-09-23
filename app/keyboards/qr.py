@@ -7,6 +7,14 @@ def main_menu_kb(is_admin: bool = False):
         rows.append([InlineKeyboardButton("🔐 API ключи", callback_data="KEYS:START")])
     return InlineKeyboardMarkup(rows)
 
+def photo_step_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("⏭ Пропустить", callback_data="QR:SKIP_PHOTO")],
+        [InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK"),
+         InlineKeyboardButton("🏠 Главное меню", callback_data="QR:MENU")]
+    ])
+
+
 def next_step_kb():
     return InlineKeyboardMarkup([[InlineKeyboardButton("Далее ▶️", callback_data="QR:NEXT")]])
 

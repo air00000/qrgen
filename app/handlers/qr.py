@@ -1,12 +1,14 @@
 import os, uuid, datetime, base64, logging
 
 import asyncio
+from pathlib import Path
+
 from telegram import Update
 from telegram.ext import (
     ContextTypes, ConversationHandler, CallbackQueryHandler,
     MessageHandler, CommandHandler, filters
 )
-from app.keyboards.qr import main_menu_kb, menu_back_kb
+from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb
 from app.keyboards.common import with_menu_back
 from app.utils.state_stack import push_state, pop_state, clear_stack
 from app.utils.io import ensure_dirs, cleanup_paths
@@ -34,8 +36,12 @@ async def ask_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def ask_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     push_state(context.user_data, QR_PHOTO)
-    txt = "Отправь фото товара или напиши «нет», если фото не нужно:"
-    await _edit_or_send(update, context, txt)
+    txt = "Отправь фото товара или нажми «Пропустить»:"
+    if update.callback_query:
+        await update.callback_query.message.edit_text(txt, reply_markup=photo_step_kb())
+    else:
+        await update.message.reply_text(txt, reply_markup=photo_step_kb())
+
 
 async def ask_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     push_state(context.user_data, QR_URL)
@@ -64,14 +70,19 @@ async def on_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return await ask_photo(update, context) or QR_PHOTO
 
 async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.text and update.message.text.lower() == "нет":
-        context.user_data["photo_path"] = None
+    if update.message.photo:
+        photo_file = await update.message.photo[-1].get_file()
+        tmp = os.path.join(
+            context.application.bot_data.get("temp_dir", "."),
+            f"temp_{uuid.uuid4()}.jpg"
+        )
+        await photo_file.download_to_drive(tmp)
+        context.user_data["photo_path"] = tmp
         return await ask_url(update, context) or QR_URL
-    photo_file = await update.message.photo[-1].get_file()
-    tmp = os.path.join(context.application.bot_data.get("temp_dir", "."), f"temp_{uuid.uuid4()}.jpg")
-    await photo_file.download_to_drive(tmp)
-    context.user_data["photo_path"] = tmp
-    return await ask_url(update, context) or QR_URL
+
+    await update.message.reply_text("Пожалуйста, отправь фото или нажми «Пропустить».")
+    return QR_PHOTO
+
 
 async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     nazvanie = context.user_data["nazvanie"]
@@ -92,6 +103,7 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_document(chat_id=update.message.chat_id, document=f)
         await update.message.reply_text("PDF готов!", reply_markup=main_menu_kb())
         clear_stack(context.user_data)
+        Path(pdf_path).unlink()
         return ConversationHandler.END
     except Exception as e:
         logger.exception("Ошибка генерации")
@@ -102,6 +114,7 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cleanup_paths(photo_path, processed_photo_path, qr_path)
         # template удаляется внутри сервиса
 
+
 # Кнопки меню/назад
 async def qr_menu_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer("Возврат в главное меню")
@@ -109,6 +122,12 @@ async def qr_menu_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from app.handlers.menu import start
     await start(update, context)
     return ConversationHandler.END
+
+async def on_skip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+    context.user_data["photo_path"] = None
+    return await ask_url(update, context) or QR_URL
+
 
 async def qr_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
@@ -141,9 +160,13 @@ qr_conv = ConversationHandler(
         QR_PRICE:    [MessageHandler(filters.TEXT & ~filters.COMMAND, on_price),
                        CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
                        CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")],
-        QR_PHOTO:    [MessageHandler(filters.PHOTO | (filters.TEXT & ~filters.COMMAND), on_photo),
-                       CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
-                       CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")],
+        QR_PHOTO: [
+            MessageHandler(filters.PHOTO, on_photo),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$"),
+            CallbackQueryHandler(on_skip_photo, pattern=r"^QR:SKIP_PHOTO$"),
+        ],
+
         QR_URL:      [MessageHandler(filters.TEXT & ~filters.COMMAND, on_url),
                        CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
                        CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")],

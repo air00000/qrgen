@@ -15,10 +15,7 @@ from telegram.ext import (
 from app.config import CFG
 from app.handlers.menu import start, menu_cb
 from app.handlers.qr import qr_conv, qr_back_cb, qr_menu_cb
-from app.handlers.admin_api_keys import (
-    admin_api_menu,
-    handle_api_callbacks,
-    handle_key_name_input,
+from app.handlers.admin_api_keys import ( api_keys_conv,
 )
 
 # Настройка логирования
@@ -49,13 +46,8 @@ def start_bot():
     app.add_handler(CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$"))
 
     # API-ключи для админа
-    app.add_handler(CallbackQueryHandler(admin_api_menu, pattern=r"^KEYS:START$"))  # ← новая строка!
-    app.add_handler(CallbackQueryHandler(handle_api_callbacks, pattern="^api_"))
-    app.add_handler(MessageHandler(
-        filters.TEXT & filters.User(CFG.ADMIN_IDS) & ~filters.COMMAND,
-        handle_key_name_input
-    ))
-    app.add_handler(CommandHandler("admin", admin_api_menu))
+    app.add_handler(api_keys_conv)
+
 
     # Запуск polling
     app.run_polling()
