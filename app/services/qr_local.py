@@ -5,7 +5,6 @@ from PIL import Image, ImageDraw
 import qrcode
 from qrcode.constants import ERROR_CORRECT_H
 
-# Стили: круглые модули; глаза подключим, если доступны в версии пакета
 try:
     from qrcode.image.styledpil import StyledPilImage
     from qrcode.image.styles.moduledrawers import RoundedModuleDrawer

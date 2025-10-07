@@ -21,10 +21,15 @@ class CFG:
     CORNER_RADIUS = 35
     QR_SIZE = 2000
     QR_RESIZE = (1368, 1368)
+    TARGET_WIDTH = 1304
+    TARGET_HEIGHT = 2838
     FIGMA_API_URL = "https://api.figma.com/v1"
     QR_ENDPOINT = "https://api.qrtiger.com/api/qr/static"
     TZ = timezone(os.getenv("TZ", "Europe/Amsterdam"))
     _ADMIN_IDS_RAW = os.getenv("ADMINS", "")
+    LOCAL_LOGO_PATH = 'app/assets/foti/logo.png'
+    aktiv_path = os.path.join(BASE_DIR, 'app/assets/fonts/aktivgroteskcorp_medium.ttf')
+    sfpro_path = os.path.join(BASE_DIR, 'app/assets/fonts/SFProText-Semibold.ttf')
     try:
         ADMIN_IDS = {int(x.strip()) for x in _ADMIN_IDS_RAW.split(",") if x.strip()}
     except ValueError:
