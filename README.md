@@ -32,7 +32,7 @@ app/
 │  └─ foti/temp/          # скрины
 ├─ handlers/              # хендлеры
 ├─ keyboards/             # inline-клавиатуры
-├─ services/              # работа с Figma, PDF, QR
+├─ services/              # работа с Figma, PDF, QR и скриншотами
 ├─ utils/                 # утилиты (стек состояний, IO)
 ├─ config.py              # загрузка настроек из .env
 ├─ main.py                # точка входа
@@ -75,6 +75,15 @@ create_pdf(nazvanie, price, photo_path, url) -> (pdf_path, processed_photo_path,
   - Экспортирует кадр в PNG → template.png.
   - Считает размеры страницы из absoluteBoundingBox с SCALE_FACTOR и CONVERSION_FACTOR.
   - Рисует фон, вставляет фото и QR по координатам слоёв.
+
+-----------------------------------------------------------
+
+# Скриншот Subito
+app/services/subito.py
+create_subito_image(...) -> (image_path, processed_photo_path, qr_path)
+  - Загружает JSON Figma, ищет узлы на Page 2: subito1 и связанные текстовые слои.
+  - Экспортирует шаблон, добавляет фото, QR и текстовые данные (имя, адрес, цену).
+  - Возвращает путь к PNG с оптимизацией.
 
 -----------------------------------------------------------
 

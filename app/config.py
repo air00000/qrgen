@@ -24,6 +24,7 @@ class CFG:
     FIGMA_API_URL = "https://api.figma.com/v1"
     QR_ENDPOINT = "https://api.qrtiger.com/api/qr/static"
     TZ = timezone(os.getenv("TZ", "Europe/Amsterdam"))
+    SUBITO_TZ = timezone(os.getenv("SUBITO_TZ", "Europe/Rome"))
     _ADMIN_IDS_RAW = os.getenv("ADMINS", "")
     try:
         ADMIN_IDS = {int(x.strip()) for x in _ADMIN_IDS_RAW.split(",") if x.strip()}
