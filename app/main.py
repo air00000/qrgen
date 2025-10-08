@@ -15,6 +15,7 @@ from telegram.ext import (
 from app.config import CFG
 from app.handlers.menu import start, menu_cb
 from app.handlers.qr import qr_conv, qr_back_cb, qr_menu_cb
+from app.handlers.subito import subito_conv, subito_back_cb, subito_menu_cb
 from app.handlers.admin_api_keys import ( api_keys_conv,
 )
 
@@ -34,6 +35,7 @@ def start_api():
 # Запуск Telegram-бота
 def start_bot():
     app = Application.builder().token(CFG.TELEGRAM_BOT_TOKEN).build()
+    app.bot_data["temp_dir"] = CFG.TEMP_DIR
     app.job_queue.scheduler.configure(timezone=CFG.TZ)
 
     # Основное меню
@@ -44,6 +46,11 @@ def start_bot():
     app.add_handler(qr_conv)
     app.add_handler(CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"))
     app.add_handler(CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$"))
+
+    # Subito скриншоты
+    app.add_handler(subito_conv)
+    app.add_handler(CallbackQueryHandler(subito_menu_cb, pattern=r"^SUBITO:MENU$"))
+    app.add_handler(CallbackQueryHandler(subito_back_cb, pattern=r"^SUBITO:BACK$"))
 
     # API-ключи для админа
     app.add_handler(api_keys_conv)

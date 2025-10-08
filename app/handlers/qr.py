@@ -38,9 +38,9 @@ async def ask_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     push_state(context.user_data, QR_PHOTO)
     txt = "Отправь фото товара или нажми «Пропустить»:"
     if update.callback_query:
-        await update.callback_query.message.edit_text(txt, reply_markup=photo_step_kb())
+        await update.callback_query.message.edit_text(txt, reply_markup=photo_step_kb("QR"))
     else:
-        await update.message.reply_text(txt, reply_markup=photo_step_kb())
+        await update.message.reply_text(txt, reply_markup=photo_step_kb("QR"))
 
 
 async def ask_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -48,14 +48,14 @@ async def ask_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _edit_or_send(update, context, "Введи URL для QR-кода:")
 
 async def _send(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-    kb = menu_back_kb()
+    kb = menu_back_kb("QR")
     if update.callback_query:
         await update.callback_query.message.edit_text(text, reply_markup=kb)
     else:
         await update.message.reply_text(text, reply_markup=kb)
 
 async def _edit_or_send(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-    kb = menu_back_kb()
+    kb = menu_back_kb("QR")
     if update.callback_query:
         await update.callback_query.message.edit_text(text, reply_markup=kb)
     else:
@@ -92,7 +92,7 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not url.startswith("http"):
         url = "https://" + url
 
-    await update.message.reply_text("Обрабатываю данные…", reply_markup=menu_back_kb())
+    await update.message.reply_text("Обрабатываю данные…", reply_markup=menu_back_kb("QR"))
 
     pdf_path = processed_photo_path = qr_path = None
     try:

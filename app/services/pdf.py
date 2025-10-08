@@ -1,12 +1,13 @@
 # app/services/pdf.py
 import os, uuid, datetime
+from io import BytesIO
 from pathlib import Path
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import HexColor
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 from app.config import CFG
 from app.services.figma import get_template_json, find_node, export_frame_as_png
@@ -21,6 +22,10 @@ pdfmetrics.registerFont(TTFont('SFProText-Semibold',  os.path.join(CFG.FONTS_DIR
 _ASSETS_DIR = Path(CFG.FONTS_DIR).parent  # app/assets
 _LOCAL_LOGO = _ASSETS_DIR / "foti" / "coin.png"
 _LOCAL_LOGO_PATH = str(_LOCAL_LOGO) if _LOCAL_LOGO.exists() else None
+
+_INTER_SEMIBOLD = os.path.join(CFG.FONTS_DIR, 'Inter_18pt-SemiBold.ttf')
+_INTER_MEDIUM = os.path.join(CFG.FONTS_DIR, 'Inter_18pt-Medium.ttf')
+_SFPRO_SEMIBOLD = os.path.join(CFG.FONTS_DIR, 'SFProText-Semibold.ttf')
 
 def _rounded_mask(size, radius):
     m = Image.new("L", size, 0)
@@ -44,8 +49,33 @@ def _process_photo(image_path, temp_dir):
 def _nl_time_str():
     return datetime.datetime.now(CFG.TZ).strftime("%H:%M")
 
-def create_pdf(nazvanie, price, photo_path, url):
-    os.makedirs(CFG.TEMP_DIR, exist_ok=True)
+
+def _load_font(path, size):
+    if os.path.exists(path):
+        return ImageFont.truetype(path, size)
+    return ImageFont.load_default()
+
+
+def _text_width(font: ImageFont.ImageFont, text: str) -> float:
+    if hasattr(font, "getlength"):
+        return font.getlength(text)
+    bbox = font.getbbox(text)
+    return bbox[2] - bbox[0]
+
+
+def _paste_to_node(base: Image.Image, overlay: Image.Image, frame_node: dict, target_node: dict):
+    frame_bbox = frame_node['absoluteBoundingBox']
+    target_bbox = target_node['absoluteBoundingBox']
+    width = int(target_bbox['width'] * CFG.SCALE_FACTOR)
+    height = int(target_bbox['height'] * CFG.SCALE_FACTOR)
+    x = int((target_bbox['x'] - frame_bbox['x']) * CFG.SCALE_FACTOR)
+    y = int((target_bbox['y'] - frame_bbox['y']) * CFG.SCALE_FACTOR)
+    overlay = overlay.resize((width, height), Image.Resampling.LANCZOS)
+    base.paste(overlay, (x, y), overlay)
+
+def create_pdf(nazvanie, price, photo_path, url, *, temp_dir=None):
+    temp_dir = temp_dir or CFG.TEMP_DIR
+    os.makedirs(temp_dir, exist_ok=True)
 
     # 1) Figma JSON + поиск узлов
     template_json = get_template_json()
@@ -76,7 +106,7 @@ def create_pdf(nazvanie, price, photo_path, url):
 
     # 2) Экспорт кадра из Figma как PNG
     template_png = export_frame_as_png(CFG.TEMPLATE_FILE_KEY, frame_node['id'])
-    template_path = os.path.join(CFG.TEMP_DIR, 'template.png')
+    template_path = os.path.join(temp_dir, 'template.png')
     with open(template_path, "wb") as f:
         f.write(template_png)
 
@@ -89,7 +119,7 @@ def create_pdf(nazvanie, price, photo_path, url):
     page_w  = frame_w * CFG.CONVERSION_FACTOR
     page_h  = frame_h * CFG.CONVERSION_FACTOR
 
-    pdf_path = os.path.join(CFG.TEMP_DIR, f"MARKTPLAATS_{uuid.uuid4()}.pdf")
+    pdf_path = os.path.join(temp_dir, f"MARKTPLAATS_{uuid.uuid4()}.pdf")
     c = canvas.Canvas(pdf_path, pagesize=(page_w, page_h))
 
     # Фон
@@ -98,7 +128,7 @@ def create_pdf(nazvanie, price, photo_path, url):
     # 4) Фото (если есть)
     processed_photo_path = None
     if photo_path and foto_node:
-        processed_photo_path = _process_photo(photo_path, CFG.TEMP_DIR)
+        processed_photo_path = _process_photo(photo_path, temp_dir)
         fx = (foto_node['absoluteBoundingBox']['x'] - frame_node['absoluteBoundingBox']['x']) * CFG.SCALE_FACTOR * CFG.CONVERSION_FACTOR
         fy = page_h - ((foto_node['absoluteBoundingBox']['y'] - frame_node['absoluteBoundingBox']['y']) + foto_node['absoluteBoundingBox']['height']) * CFG.SCALE_FACTOR * CFG.CONVERSION_FACTOR
         fw =  foto_node['absoluteBoundingBox']['width']  * CFG.SCALE_FACTOR * CFG.CONVERSION_FACTOR
@@ -113,7 +143,7 @@ def create_pdf(nazvanie, price, photo_path, url):
 
     qr_path = generate_qr(
         url,
-        str(CFG.TEMP_DIR),
+        str(temp_dir),
         target_size=(int(qw), int(qh)),
         color_dark="#4B6179",
         color_bg="#FFFFFF",
@@ -160,3 +190,99 @@ def create_pdf(nazvanie, price, photo_path, url):
         pass
 
     return pdf_path, processed_photo_path, qr_path
+
+
+def create_marktplaats_image(nazvanie, price, photo_path, url, *, temp_dir=None):
+    temp_dir = temp_dir or CFG.TEMP_DIR
+    os.makedirs(temp_dir, exist_ok=True)
+
+    template_json = get_template_json()
+    frame_name = 'Marktplaats'
+    layer_map = {
+        'nazvanie': '1NAZVANIE',
+        'price': '1PRICE',
+        'time': '1TIME',
+        'foto': '1FOTO',
+        'qr': '1QR',
+    }
+
+    frame_node = find_node(template_json, 'Page 2', frame_name)
+    if not frame_node:
+        raise RuntimeError(f"Узел не найден: {frame_name}")
+
+    nodes = {
+        key: find_node(template_json, 'Page 2', layer)
+        for key, layer in layer_map.items()
+    }
+
+    missing = [layer for key, layer in layer_map.items() if nodes.get(key) is None]
+    if missing:
+        raise RuntimeError(f"Не найдены узлы: {', '.join(missing)}")
+
+    template_png = export_frame_as_png(CFG.TEMPLATE_FILE_KEY, frame_node['id'])
+    template_img = Image.open(BytesIO(template_png)).convert("RGBA")
+
+    frame_w = int(frame_node['absoluteBoundingBox']['width'] * CFG.SCALE_FACTOR)
+    frame_h = int(frame_node['absoluteBoundingBox']['height'] * CFG.SCALE_FACTOR)
+    template_img = template_img.resize((frame_w, frame_h), Image.Resampling.LANCZOS)
+
+    result = Image.new("RGBA", (frame_w, frame_h), (255, 255, 255, 0))
+    result.paste(template_img, (0, 0))
+    draw = ImageDraw.Draw(result)
+
+    title_font = _load_font(_INTER_SEMIBOLD, int(96 * CFG.SCALE_FACTOR))
+    price_font = _load_font(_INTER_MEDIUM, int(96 * CFG.SCALE_FACTOR))
+    time_font = _load_font(_SFPRO_SEMIBOLD, int(108 * CFG.SCALE_FACTOR))
+
+    processed_photo_path = None
+    if photo_path and nodes['foto']:
+        processed_photo_path = _process_photo(photo_path, temp_dir)
+        photo_img = Image.open(processed_photo_path).convert("RGBA")
+        _paste_to_node(result, photo_img, frame_node, nodes['foto'])
+
+    qr_path = generate_qr(
+        url,
+        str(temp_dir),
+        target_size=(
+            int(nodes['qr']['absoluteBoundingBox']['width'] * CFG.SCALE_FACTOR),
+            int(nodes['qr']['absoluteBoundingBox']['height'] * CFG.SCALE_FACTOR),
+        ),
+        color_dark="#4B6179",
+        color_bg="#FFFFFF",
+        corner_radius=int(CFG.CORNER_RADIUS * CFG.SCALE_FACTOR),
+        logo_path=_LOCAL_LOGO_PATH,
+        center_badge_bg="#F0A05B",
+        center_badge_padding=1.18,
+    )
+
+    qr_img = Image.open(qr_path).convert("RGBA")
+    _paste_to_node(result, qr_img, frame_node, nodes['qr'])
+
+    frame_bbox = frame_node['absoluteBoundingBox']
+
+    def _offset(key):
+        bbox = nodes[key]['absoluteBoundingBox']
+        x = (bbox['x'] - frame_bbox['x']) * CFG.SCALE_FACTOR
+        y = (bbox['y'] - frame_bbox['y']) * CFG.SCALE_FACTOR + CFG.TEXT_OFFSET * CFG.SCALE_FACTOR
+        return x, y
+
+    title_x, title_y = _offset('nazvanie')
+    draw.text((title_x, title_y), nazvanie, font=title_font, fill="#1F262D")
+
+    price_text = f"€{price}"
+    price_x, price_y = _offset('price')
+    draw.text((price_x, price_y), price_text, font=price_font, fill="#838383")
+
+    time_text = _nl_time_str()
+    time_bbox = nodes['time']['absoluteBoundingBox']
+    time_x = (time_bbox['x'] - frame_bbox['x']) * CFG.SCALE_FACTOR
+    time_y = (time_bbox['y'] - frame_bbox['y']) * CFG.SCALE_FACTOR + CFG.TEXT_OFFSET * CFG.SCALE_FACTOR
+    time_width = time_bbox['width'] * CFG.SCALE_FACTOR
+    draw_x = time_x + (time_width - _text_width(time_font, time_text)) / 2
+    draw.text((draw_x, time_y), time_text, font=time_font, fill="#000000")
+
+    result = result.convert("RGB")
+    out_path = os.path.join(temp_dir, f"MARKTPLAATS_{uuid.uuid4()}.png")
+    result.save(out_path, format="PNG", optimize=True)
+
+    return out_path, processed_photo_path, qr_path
