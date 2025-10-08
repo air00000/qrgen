@@ -11,6 +11,43 @@ pip install -r app/requirements.txt
 python app/main.py
 ```
 
+## Только API (без Telegram-бота)
+```text
+uvicorn app.api:app --host 0.0.0.0 --port 8000 --reload
+```
+`app/main.py` запускает и Telegram-бота, и API одновременно. Если нужно протестировать
+только REST-эндпоинты, удобнее поднять отдельный процесс через `uvicorn`.
+
+### Быстрый тест эндпоинтов
+API требует действительный `X-API-Key`. Для локальной проверки можно временно
+добавить ключ напрямую в хранилище (см. `app/services/apikey.py`). После запуска
+сервера выполните запросы:
+
+```bash
+# PDF генерация (multipart-form)
+curl -X POST "http://localhost:8000/generate/" \
+  -H "X-API-Key: <ваш_ключ>" \
+  -F "title=Test" \
+  -F "price=10.00" \
+  -F "url=https://example.com" \
+  -F "photo=@/path/to/photo.jpg" \
+  -o subito.pdf
+
+# Скриншот Subito (JSON)
+curl -X POST "http://localhost:8000/generate/subito/" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: <ваш_ключ>" \
+  -d '{
+        "title": "Test",
+        "price": 10.0,
+        "url": "https://example.com",
+        "name": "Mario Rossi",
+        "address": "Via Roma 1, Milano",
+        "photo_base64": null
+      }' \
+  -o subito.png
+```
+
 -----------------------------------------------------------
 
 # ENV
