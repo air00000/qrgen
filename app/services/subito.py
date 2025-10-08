@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 from app.config import CFG
 from app.services.figma import export_frame_as_png, find_node, get_template_json
 from app.services.qr_local import generate_qr
-
+from app.utils.io import cleanup_paths
 
 TITLE_FONT_PATH = os.path.join(CFG.FONTS_DIR, "Inter_18pt-SemiBold.ttf")
 SMALL_FONT_PATH = os.path.join(CFG.FONTS_DIR, "Inter_18pt-Medium.ttf")
@@ -239,3 +239,37 @@ def create_subito_image(
     result.save(out_path, format="PNG", optimize=True)
 
     return out_path, processed_photo, qr_path
+
+def create_subito_pdf(
+    nazvanie: str,
+    price: float,
+    url: str,
+    *,
+    name: str = "",
+    address: str = "",
+    photo_path: Optional[str] = None,
+    temp_dir: Optional[str] = None,
+):
+    temp_dir = temp_dir or CFG.TEMP_DIR
+    os.makedirs(temp_dir, exist_ok=True)
+
+    image_path = processed_photo = qr_path = None
+    try:
+        image_path, processed_photo, qr_path = create_subito_image(
+            nazvanie,
+            price,
+            url,
+            name=name,
+            address=address,
+            photo_path=photo_path,
+            temp_dir=temp_dir,
+        )
+
+        pdf_path = os.path.join(temp_dir, f"SUBITO_{uuid.uuid4()}.pdf")
+        with Image.open(image_path) as img:
+            img.convert("RGB").save(pdf_path, format="PDF", resolution=96.0)
+
+        return pdf_path, image_path, processed_photo, qr_path
+    except Exception:
+        cleanup_paths(image_path, processed_photo, qr_path)
+        raise

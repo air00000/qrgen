@@ -24,12 +24,47 @@ API требует действительный `X-API-Key`. Для локаль
 сервера выполните запросы:
 
 ```bash
-# PDF генерация (multipart-form)
-curl -X POST "http://localhost:8000/generate/" \
+# Subito — PNG (multipart-form-data)
+curl -X POST "http://localhost:8000/generate/subito" \
   -H "X-API-Key: <ваш_ключ>" \
   -F "title=Test" \
   -F "price=10.00" \
   -F "url=https://example.com" \
+  -F "name=Mario Rossi" \
+  -F "address=Via Roma 1, Milano" \
+  -F "output=image" \
+  -F "photo=@/path/to/photo.jpg" \
+  -o subito.png
+
+# Subito — PDF (тот же эндпоинт, другой output)
+curl -X POST "http://localhost:8000/generate/subito" \
+  -H "X-API-Key: <ваш_ключ>" \
+  -F "title=Test" \
+  -F "price=10.00" \
+  -F "url=https://example.com" \
+  -F "output=pdf" \
+  -F "photo=@/path/to/photo.jpg" \
+  -o subito.pdf
+
+# Marktplaats — PNG
+curl -X POST "http://localhost:8000/generate/marktplaats" \
+  -H "X-API-Key: <ваш_ключ>" \
+  -F "title=Test" \
+  -F "price=10.00" \
+  -F "url=https://example.com" \
+  -F "output=image" \
+  -F "photo=@/path/to/photo.jpg" \
+  -o marktplaats.png
+
+# Marktplaats — PDF (значение output можно опустить, по умолчанию pdf)
+curl -X POST "http://localhost:8000/generate/marktplaats" \
+  -H "X-API-Key: <ваш_ключ>" \
+  -F "title=Test" \
+  -F "price=10.00" \
+  -F "url=https://example.com" \
+  -F "photo=@/path/to/photo.jpg" \
+  -o marktplaats.pdf
+=======
   -F "photo=@/path/to/photo.jpg" \
   -o subito.pdf
 
@@ -46,7 +81,6 @@ curl -X POST "http://localhost:8000/generate/subito/" \
         "photo_base64": null
       }' \
   -o subito.png
-```
 
 -----------------------------------------------------------
 
@@ -107,11 +141,26 @@ generate_qr(url, temp_dir) -> str
 
 # Сборка PDF
 app/services/pdf.py
-create_pdf(nazvanie, price, photo_path, url) -> (pdf_path, processed_photo_path, qr_path)
+create_pdf(nazvanie, price, photo_path, url, *, temp_dir=None) -> (pdf_path, processed_photo_path, qr_path)
   - Загружает JSON Figma, ищет узлы на Page 2: Marktplaats, 1NAZVANIE, 1PRICE, 1TIME, 1FOTO, 1QR.
   - Экспортирует кадр в PNG → template.png.
   - Считает размеры страницы из absoluteBoundingBox с SCALE_FACTOR и CONVERSION_FACTOR.
   - Рисует фон, вставляет фото и QR по координатам слоёв.
+
+create_marktplaats_image(...) -> (image_path, processed_photo_path, qr_path)
+  - Генерирует PNG-версию макета Marktplaats с теми же узлами, шрифтами и локальным QR.
+
+-----------------------------------------------------------
+
+# Скриншот Subito
+app/services/subito.py
+create_subito_image(...) -> (image_path, processed_photo_path, qr_path)
+  - Загружает JSON Figma, ищет узлы на Page 2: subito1 и связанные текстовые слои.
+  - Экспортирует шаблон, добавляет фото, QR и текстовые данные (имя, адрес, цену).
+  - Возвращает путь к PNG с оптимизацией.
+
+create_subito_pdf(...) -> (pdf_path, image_path, processed_photo_path, qr_path)
+  - Переиспользует генерацию PNG, затем упаковывает результат в PDF с сохранением размеров.
 
 -----------------------------------------------------------
 
