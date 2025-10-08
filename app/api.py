@@ -1,17 +1,47 @@
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Depends, Header
-from fastapi.responses import FileResponse
-import tempfile
-import shutil
 import os
+import shutil
+import tempfile
+import uuid
 
-from app.services.qr_local import generate_qr
-from app.services.pdf import create_pdf
-from app.services.apikey import get_all_keys  # ← добавим импорт
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
+
+from app.services.apikey import get_all_keys
+from app.services.pdf import create_pdf, create_marktplaats_image
+from app.services.subito import create_subito_image, create_subito_pdf
 
 app = FastAPI(title="QR Generator API")
 
 
-# ✅ Проверка API-ключа из заголовка
+def _cleanup_tmpdir(path: str) -> None:
+    shutil.rmtree(path, ignore_errors=True)
+
+
+def _parse_price(value: str) -> float:
+    try:
+        return float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid price format") from None
+
+
+def _normalize_url(url: str) -> str:
+    url = url.strip()
+    if not url.lower().startswith(("http://", "https://")):
+        return f"https://{url}"
+    return url
+
+
+def _save_upload(upload: UploadFile | None, directory: str) -> str | None:
+    if upload is None:
+        return None
+    filename = upload.filename or f"upload_{uuid.uuid4().hex}"
+    path = os.path.join(directory, filename)
+    with open(path, "wb") as buffer:
+        shutil.copyfileobj(upload.file, buffer)
+    return path
+
+
 async def validate_api_key(x_api_key: str = Header(...)):
     keys = get_all_keys()
     if x_api_key not in keys:
@@ -19,38 +49,120 @@ async def validate_api_key(x_api_key: str = Header(...)):
     return x_api_key
 
 
-@app.post("/generate/")
-async def generate_pdf_from_form(
+@app.post("/generate/subito")
+async def generate_subito(
     title: str = Form(...),
     price: str = Form(...),
     url: str = Form(...),
-    photo: UploadFile = File(...),
-    api_key: str = Depends(validate_api_key)  # 👈 вот тут проверяется ключ
+    name: str = Form(""),
+    address: str = Form(""),
+    output: str = Form("image"),
+    photo: UploadFile | None = File(None),
+    api_key: str = Depends(validate_api_key),
 ):
+    tmp_dir = tempfile.mkdtemp(prefix="qrgen_subito_")
     try:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            # Сохраняем фото
-            photo_path = os.path.join(tmp_dir, photo.filename)
-            with open(photo_path, "wb") as f:
-                shutil.copyfileobj(photo.file, f)
+        photo_path = _save_upload(photo, tmp_dir)
+        price_value = _parse_price(price)
+        safe_url = _normalize_url(url)
 
-            # Генерируем QR-код
-            qr_path = generate_qr(url, temp_dir=tmp_dir)
+        mode = output.lower()
+        if mode not in {"image", "pdf"}:
+            raise HTTPException(status_code=400, detail="output must be 'image' or 'pdf'")
 
-            # Создаем PDF
-            pdf_path, _, _ = create_pdf(
-                nazvanie=title,
-                price=price,
+        if mode == "image":
+            image_path, _, _ = create_subito_image(
+                title,
+                price_value,
+                safe_url,
+                name=name,
+                address=address,
                 photo_path=photo_path,
-                url=url
+                temp_dir=tmp_dir,
             )
-
-            # Возвращаем PDF
+            background = BackgroundTask(_cleanup_tmpdir, tmp_dir)
             return FileResponse(
-                path=pdf_path,
-                media_type="application/pdf",
-                filename=os.path.basename(pdf_path)
+                image_path,
+                media_type="image/png",
+                filename=os.path.basename(image_path),
+                background=background,
             )
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal error: {e}")
+        pdf_path, image_path, processed_photo, qr_path = create_subito_pdf(
+            title,
+            price_value,
+            safe_url,
+            name=name,
+            address=address,
+            photo_path=photo_path,
+            temp_dir=tmp_dir,
+        )
+        background = BackgroundTask(_cleanup_tmpdir, tmp_dir)
+        return FileResponse(
+            pdf_path,
+            media_type="application/pdf",
+            filename=os.path.basename(pdf_path),
+            background=background,
+        )
+    except HTTPException:
+        _cleanup_tmpdir(tmp_dir)
+        raise
+    except Exception as exc:
+        _cleanup_tmpdir(tmp_dir)
+        raise HTTPException(status_code=500, detail=f"Internal error: {exc}")
+
+
+@app.post("/generate/marktplaats")
+async def generate_marktplaats(
+    title: str = Form(...),
+    price: str = Form(...),
+    url: str = Form(...),
+    output: str = Form("pdf"),
+    photo: UploadFile | None = File(None),
+    api_key: str = Depends(validate_api_key),
+):
+    tmp_dir = tempfile.mkdtemp(prefix="qrgen_marktplaats_")
+    try:
+        photo_path = _save_upload(photo, tmp_dir)
+        safe_url = _normalize_url(url)
+
+        mode = output.lower()
+        if mode not in {"image", "pdf"}:
+            raise HTTPException(status_code=400, detail="output must be 'image' or 'pdf'")
+
+        if mode == "image":
+            image_path, _, _ = create_marktplaats_image(
+                title,
+                price,
+                photo_path,
+                safe_url,
+                temp_dir=tmp_dir,
+            )
+            background = BackgroundTask(_cleanup_tmpdir, tmp_dir)
+            return FileResponse(
+                image_path,
+                media_type="image/png",
+                filename=os.path.basename(image_path),
+                background=background,
+            )
+
+        pdf_path, _, _ = create_pdf(
+            title,
+            price,
+            photo_path,
+            safe_url,
+            temp_dir=tmp_dir,
+        )
+        background = BackgroundTask(_cleanup_tmpdir, tmp_dir)
+        return FileResponse(
+            pdf_path,
+            media_type="application/pdf",
+            filename=os.path.basename(pdf_path),
+            background=background,
+        )
+    except HTTPException:
+        _cleanup_tmpdir(tmp_dir)
+        raise
+    except Exception as exc:
+        _cleanup_tmpdir(tmp_dir)
+        raise HTTPException(status_code=500, detail=f"Internal error: {exc}")
