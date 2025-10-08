@@ -64,7 +64,23 @@ curl -X POST "http://localhost:8000/generate/marktplaats" \
   -F "url=https://example.com" \
   -F "photo=@/path/to/photo.jpg" \
   -o marktplaats.pdf
-```
+=======
+  -F "photo=@/path/to/photo.jpg" \
+  -o subito.pdf
+
+# Скриншот Subito (JSON)
+curl -X POST "http://localhost:8000/generate/subito/" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: <ваш_ключ>" \
+  -d '{
+        "title": "Test",
+        "price": 10.0,
+        "url": "https://example.com",
+        "name": "Mario Rossi",
+        "address": "Via Roma 1, Milano",
+        "photo_base64": null
+      }' \
+  -o subito.png
 
 -----------------------------------------------------------
 
@@ -145,6 +161,15 @@ create_subito_image(...) -> (image_path, processed_photo_path, qr_path)
 
 create_subito_pdf(...) -> (pdf_path, image_path, processed_photo_path, qr_path)
   - Переиспользует генерацию PNG, затем упаковывает результат в PDF с сохранением размеров.
+
+-----------------------------------------------------------
+
+# Скриншот Subito
+app/services/subito.py
+create_subito_image(...) -> (image_path, processed_photo_path, qr_path)
+  - Загружает JSON Figma, ищет узлы на Page 2: subito1 и связанные текстовые слои.
+  - Экспортирует шаблон, добавляет фото, QR и текстовые данные (имя, адрес, цену).
+  - Возвращает путь к PNG с оптимизацией.
 
 -----------------------------------------------------------
 
