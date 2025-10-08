@@ -11,7 +11,6 @@ from app.services.figma import export_frame_as_png, find_node, get_template_json
 from app.services.qr_local import generate_qr
 from app.utils.io import cleanup_paths
 
-
 TITLE_FONT_PATH = os.path.join(CFG.FONTS_DIR, "Inter_18pt-SemiBold.ttf")
 SMALL_FONT_PATH = os.path.join(CFG.FONTS_DIR, "Inter_18pt-Medium.ttf")
 TIME_FONT_PATH = os.path.join(CFG.FONTS_DIR, "SFProText-Semibold.ttf")
@@ -246,6 +245,7 @@ def create_subito_image(
     return out_path, processed_photo, qr_path
 
 
+
 def create_subito_pdf(
     nazvanie: str,
     price: float,
@@ -278,4 +278,3 @@ def create_subito_pdf(
         return pdf_path, image_path, processed_photo, qr_path
     except Exception:
         cleanup_paths(image_path, processed_photo, qr_path)
-        raise
