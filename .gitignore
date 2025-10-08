@@ -3,3 +3,4 @@ app/.env
 # Project exclude paths
 /.venv/
 .idea/
+app/assets/logos/subito_badge.png

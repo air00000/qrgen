@@ -15,6 +15,8 @@ class CFG:
     PHOTO_DIR = os.path.join(BASE_DIR, "assets", "foti")
     TEMP_DIR = os.path.join(PHOTO_DIR, "temp")
     FONTS_DIR = os.path.join(BASE_DIR, "assets", "fonts")
+    LOGOS_DIR = os.path.join(BASE_DIR, "assets", "logos")
+    SUBITO_BADGE_PATH = os.path.join(LOGOS_DIR, "subito_badge.png")
     CONVERSION_FACTOR = 72 / 96
     SCALE_FACTOR = 2
     TEXT_OFFSET = 2.5

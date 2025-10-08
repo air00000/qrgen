@@ -155,6 +155,8 @@ def create_subito_image(
         foto_img = Image.open(processed_photo).convert("RGBA")
         _paste_node_image(result, foto_img, frame_node, nodes["foto"])
 
+    badge_path = CFG.SUBITO_BADGE_PATH if os.path.exists(CFG.SUBITO_BADGE_PATH) else None
+
     qr_path = generate_qr(
         url,
         temp_dir,
@@ -165,8 +167,10 @@ def create_subito_image(
         color_dark="#FF6E69",
         color_bg="#FFFFFF",
         corner_radius=int(CFG.CORNER_RADIUS * CFG.SCALE_FACTOR),
-        logo_path=None,
+        logo_path=badge_path,
+        logo_scale=0.26,
         center_badge_bg=None,
+        eye_style="subito",
     )
 
     qr_img = Image.open(qr_path).convert("RGBA")
@@ -240,6 +244,8 @@ def create_subito_image(
 
     return out_path, processed_photo, qr_path
 
+
+
 def create_subito_pdf(
     nazvanie: str,
     price: float,
@@ -272,4 +278,3 @@ def create_subito_pdf(
         return pdf_path, image_path, processed_photo, qr_path
     except Exception:
         cleanup_paths(image_path, processed_photo, qr_path)
-        raise
