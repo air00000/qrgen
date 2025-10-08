@@ -11,6 +11,43 @@ pip install -r app/requirements.txt
 python app/main.py
 ```
 
+## Только API (без Telegram-бота)
+```text
+uvicorn app.api:app --host 0.0.0.0 --port 8000 --reload
+```
+`app/main.py` запускает и Telegram-бота, и API одновременно. Если нужно протестировать
+только REST-эндпоинты, удобнее поднять отдельный процесс через `uvicorn`.
+
+### Быстрый тест эндпоинтов
+API требует действительный `X-API-Key`. Для локальной проверки можно временно
+добавить ключ напрямую в хранилище (см. `app/services/apikey.py`). После запуска
+сервера выполните запросы:
+
+```bash
+# PDF генерация (multipart-form)
+curl -X POST "http://localhost:8000/generate/" \
+  -H "X-API-Key: <ваш_ключ>" \
+  -F "title=Test" \
+  -F "price=10.00" \
+  -F "url=https://example.com" \
+  -F "photo=@/path/to/photo.jpg" \
+  -o subito.pdf
+
+# Скриншот Subito (JSON)
+curl -X POST "http://localhost:8000/generate/subito/" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: <ваш_ключ>" \
+  -d '{
+        "title": "Test",
+        "price": 10.0,
+        "url": "https://example.com",
+        "name": "Mario Rossi",
+        "address": "Via Roma 1, Milano",
+        "photo_base64": null
+      }' \
+  -o subito.png
+```
+
 -----------------------------------------------------------
 
 # ENV
@@ -32,7 +69,7 @@ app/
 │  └─ foti/temp/          # скрины
 ├─ handlers/              # хендлеры
 ├─ keyboards/             # inline-клавиатуры
-├─ services/              # работа с Figma, PDF, QR
+├─ services/              # работа с Figma, PDF, QR и скриншотами
 ├─ utils/                 # утилиты (стек состояний, IO)
 ├─ config.py              # загрузка настроек из .env
 ├─ main.py                # точка входа
@@ -75,6 +112,15 @@ create_pdf(nazvanie, price, photo_path, url) -> (pdf_path, processed_photo_path,
   - Экспортирует кадр в PNG → template.png.
   - Считает размеры страницы из absoluteBoundingBox с SCALE_FACTOR и CONVERSION_FACTOR.
   - Рисует фон, вставляет фото и QR по координатам слоёв.
+
+-----------------------------------------------------------
+
+# Скриншот Subito
+app/services/subito.py
+create_subito_image(...) -> (image_path, processed_photo_path, qr_path)
+  - Загружает JSON Figma, ищет узлы на Page 2: subito1 и связанные текстовые слои.
+  - Экспортирует шаблон, добавляет фото, QR и текстовые данные (имя, адрес, цену).
+  - Возвращает путь к PNG с оптимизацией.
 
 -----------------------------------------------------------
 
