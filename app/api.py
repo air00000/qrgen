@@ -131,6 +131,7 @@ async def generate_marktplaats(
         if time_text and normalized_time is None:
             raise HTTPException(status_code=400, detail="time_text must be in HH:MM format")
 
+
         image_path, _, _ = create_marktplaats_image(
             title,
             price,

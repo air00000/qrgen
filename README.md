@@ -52,13 +52,16 @@ curl -X POST "http://localhost:8000/generate/marktplaats" \
   -F "title=Test" \
   -F "price=10.00" \
   -F "url=https://example.com" \
+
   -F "time_text=09:45" \
+
   -F "photo=@/path/to/photo.jpg" \
   -o marktplaats.png
 ```
 
 Эндпоинт Marktplaats больше не принимает параметр `output` и всегда возвращает PNG. Параметр
 `time_text` (ЧЧ:ММ) необязателен и позволяет указать время, которое появится на карточке.
+
 
 -----------------------------------------------------------
 
