@@ -12,7 +12,7 @@ from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb
 from app.keyboards.common import with_menu_back
 from app.utils.state_stack import push_state, pop_state, clear_stack
 from app.utils.io import ensure_dirs, cleanup_paths
-from app.services.pdf import create_pdf
+from app.services.pdf import create_marktplaats_image
 
 logger = logging.getLogger(__name__)
 
@@ -94,16 +94,20 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("Обрабатываю данные…", reply_markup=menu_back_kb("QR"))
 
-    pdf_path = processed_photo_path = qr_path = None
+    image_path = processed_photo_path = qr_path = None
     try:
-        pdf_path, processed_photo_path, qr_path = await asyncio.to_thread(
-            create_pdf, nazvanie, price, photo_path, url
+        image_path, processed_photo_path, qr_path = await asyncio.to_thread(
+            create_marktplaats_image, nazvanie, price, photo_path, url
         )
-        with open(pdf_path, "rb") as f:
-            await context.bot.send_document(chat_id=update.message.chat_id, document=f)
-        await update.message.reply_text("PDF готов!", reply_markup=main_menu_kb())
+        with open(image_path, "rb") as f:
+            await context.bot.send_document(
+                chat_id=update.message.chat_id,
+                document=f,
+                filename=os.path.basename(image_path),
+            )
+        await update.message.reply_text("PNG готов!", reply_markup=main_menu_kb())
         clear_stack(context.user_data)
-        Path(pdf_path).unlink()
+        Path(image_path).unlink()
         return ConversationHandler.END
     except Exception as e:
         logger.exception("Ошибка генерации")
