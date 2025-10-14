@@ -20,6 +20,14 @@ def photo_step_kb(prefix: str = "QR"):
     ])
 
 
+def skip_step_kb(prefix: str = "QR", *, action: str):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("⏭ Пропустить", callback_data=f"{prefix}:{action}")],
+        [InlineKeyboardButton("⬅️ Назад", callback_data=f"{prefix}:BACK"),
+         InlineKeyboardButton("🏠 Главное меню", callback_data=f"{prefix}:MENU")],
+    ])
+
+
 def next_step_kb(prefix: str = "QR"):
     return InlineKeyboardMarkup([[InlineKeyboardButton("Далее ▶️", callback_data=f"{prefix}:NEXT")]])
 

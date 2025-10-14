@@ -8,8 +8,9 @@ from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
 from app.services.apikey import get_all_keys
-from app.services.pdf import create_pdf, create_marktplaats_image
+from app.services.pdf import create_marktplaats_image
 from app.services.subito import create_subito_image, create_subito_pdf
+from app.utils.time import normalize_hhmm
 
 app = FastAPI(title="QR Generator API")
 
@@ -117,8 +118,8 @@ async def generate_marktplaats(
     title: str = Form(...),
     price: str = Form(...),
     url: str = Form(...),
-    output: str = Form("pdf"),
     photo: UploadFile | None = File(None),
+    time_text: str | None = Form(None),
     api_key: str = Depends(validate_api_key),
 ):
     tmp_dir = tempfile.mkdtemp(prefix="qrgen_marktplaats_")
@@ -126,38 +127,23 @@ async def generate_marktplaats(
         photo_path = _save_upload(photo, tmp_dir)
         safe_url = _normalize_url(url)
 
-        mode = output.lower()
-        if mode not in {"image", "pdf"}:
-            raise HTTPException(status_code=400, detail="output must be 'image' or 'pdf'")
+        normalized_time = normalize_hhmm(time_text)
+        if time_text and normalized_time is None:
+            raise HTTPException(status_code=400, detail="time_text must be in HH:MM format")
 
-        if mode == "image":
-            image_path, _, _ = create_marktplaats_image(
-                title,
-                price,
-                photo_path,
-                safe_url,
-                temp_dir=tmp_dir,
-            )
-            background = BackgroundTask(_cleanup_tmpdir, tmp_dir)
-            return FileResponse(
-                image_path,
-                media_type="image/png",
-                filename=os.path.basename(image_path),
-                background=background,
-            )
-
-        pdf_path, _, _ = create_pdf(
+        image_path, _, _ = create_marktplaats_image(
             title,
             price,
             photo_path,
             safe_url,
             temp_dir=tmp_dir,
+            time_text=normalized_time,
         )
         background = BackgroundTask(_cleanup_tmpdir, tmp_dir)
         return FileResponse(
-            pdf_path,
-            media_type="application/pdf",
-            filename=os.path.basename(pdf_path),
+            image_path,
+            media_type="image/png",
+            filename=os.path.basename(image_path),
             background=background,
         )
     except HTTPException:
