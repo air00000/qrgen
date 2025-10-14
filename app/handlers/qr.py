@@ -8,15 +8,17 @@ from telegram.ext import (
     ContextTypes, ConversationHandler, CallbackQueryHandler,
     MessageHandler, CommandHandler, filters
 )
-from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb
+from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, skip_step_kb
 from app.keyboards.common import with_menu_back
 from app.utils.state_stack import push_state, pop_state, clear_stack
 from app.utils.io import ensure_dirs, cleanup_paths
+from app.utils.time import normalize_hhmm
+
 from app.services.pdf import create_marktplaats_image
 
 logger = logging.getLogger(__name__)
 
-QR_NAZVANIE, QR_PRICE, QR_PHOTO, QR_URL = range(4)
+QR_NAZVANIE, QR_PRICE, QR_PHOTO, QR_URL, QR_TIME = range(5)
 
 async def qr_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ensure_dirs()
@@ -47,6 +49,17 @@ async def ask_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     push_state(context.user_data, QR_URL)
     await _edit_or_send(update, context, "Введи URL для QR-кода:")
 
+
+async def ask_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    push_state(context.user_data, QR_TIME)
+    text = "Введи время для карточки (формат ЧЧ:ММ) или нажми «Пропустить»."
+    kb = skip_step_kb("QR", action="SKIP_TIME")
+    if update.callback_query:
+        await update.callback_query.message.edit_text(text, reply_markup=kb)
+    else:
+        await update.message.reply_text(text, reply_markup=kb)
+
+
 async def _send(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
     kb = menu_back_kb("QR")
     if update.callback_query:
@@ -60,6 +73,15 @@ async def _edit_or_send(update: Update, context: ContextTypes.DEFAULT_TYPE, text
         await update.callback_query.message.edit_text(text, reply_markup=kb)
     else:
         await update.message.reply_text(text, reply_markup=kb)
+
+
+
+async def _show_processing(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    kb = menu_back_kb("QR")
+    if update.callback_query:
+        await update.callback_query.message.edit_text("Обрабатываю данные…", reply_markup=kb)
+    else:
+        await update.message.reply_text("Обрабатываю данные…", reply_markup=kb)
 
 async def on_nazvanie(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["nazvanie"] = update.message.text.strip()
@@ -85,38 +107,80 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    nazvanie = context.user_data["nazvanie"]
-    price = context.user_data["price"]
-    photo_path = context.user_data.get("photo_path")
     url = update.message.text.strip()
     if not url.startswith("http"):
         url = "https://" + url
+    context.user_data["url"] = url
+    context.user_data.pop("time_text", None)
+    return await ask_time(update, context) or QR_TIME
 
-    await update.message.reply_text("Обрабатываю данные…", reply_markup=menu_back_kb("QR"))
 
+async def on_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    normalized = normalize_hhmm(update.message.text)
+    if normalized is None:
+        await update.message.reply_text(
+            "Некорректное время. Укажи в формате ЧЧ:ММ, например 09:45, или нажми «Пропустить».",
+            reply_markup=menu_back_kb("QR"),
+        )
+        return QR_TIME
+
+    context.user_data["time_text"] = normalized
+    await _show_processing(update, context)
+    return await _generate_marktplaats(update, context)
+
+
+async def on_skip_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+    context.user_data["time_text"] = None
+    await _show_processing(update, context)
+    return await _generate_marktplaats(update, context)
+
+
+async def _generate_marktplaats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    nazvanie = context.user_data.get("nazvanie")
+    price = context.user_data.get("price")
+    photo_path = context.user_data.get("photo_path")
+    url = context.user_data.get("url")
+    time_text = context.user_data.get("time_text")
+
+    chat_id = update.effective_chat.id
     image_path = processed_photo_path = qr_path = None
     try:
         image_path, processed_photo_path, qr_path = await asyncio.to_thread(
-            create_marktplaats_image, nazvanie, price, photo_path, url
+            create_marktplaats_image,
+            nazvanie,
+            price,
+            photo_path,
+            url,
+            time_text=time_text,
         )
         with open(image_path, "rb") as f:
             await context.bot.send_document(
-                chat_id=update.message.chat_id,
+                chat_id=chat_id,
                 document=f,
                 filename=os.path.basename(image_path),
             )
-        await update.message.reply_text("PNG готов!", reply_markup=main_menu_kb())
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="PNG готов!",
+            reply_markup=main_menu_kb(),
+        )
         clear_stack(context.user_data)
-        Path(image_path).unlink()
+        if image_path:
+            Path(image_path).unlink(missing_ok=True)
+
         return ConversationHandler.END
     except Exception as e:
         logger.exception("Ошибка генерации")
-        await update.message.reply_text(f"Ошибка: {e}", reply_markup=main_menu_kb())
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"Ошибка: {e}",
+            reply_markup=main_menu_kb(),
+        )
         clear_stack(context.user_data)
         return ConversationHandler.END
     finally:
         cleanup_paths(photo_path, processed_photo_path, qr_path)
-        # template удаляется внутри сервиса
 
 
 # Кнопки меню/назад
@@ -153,6 +217,9 @@ async def qr_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if prev == QR_URL:
         await ask_url(update, context)
         return QR_URL
+    if prev == QR_TIME:
+        await ask_time(update, context)
+        return QR_TIME
 
 qr_conv = ConversationHandler(
     name="qr_flow",
@@ -174,6 +241,13 @@ qr_conv = ConversationHandler(
         QR_URL:      [MessageHandler(filters.TEXT & ~filters.COMMAND, on_url),
                        CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
                        CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")],
+
+        QR_TIME: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, on_time),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$"),
+            CallbackQueryHandler(on_skip_time, pattern=r"^QR:SKIP_TIME$"),
+        ],
     },
     fallbacks=[CommandHandler("start", qr_menu_cb)],
     allow_reentry=True,

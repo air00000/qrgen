@@ -52,11 +52,16 @@ curl -X POST "http://localhost:8000/generate/marktplaats" \
   -F "title=Test" \
   -F "price=10.00" \
   -F "url=https://example.com" \
+
+  -F "time_text=09:45" \
+
   -F "photo=@/path/to/photo.jpg" \
   -o marktplaats.png
 ```
 
-Эндпоинт Marktplaats больше не принимает параметр `output` и всегда возвращает PNG.
+Эндпоинт Marktplaats больше не принимает параметр `output` и всегда возвращает PNG. Параметр
+`time_text` (ЧЧ:ММ) необязателен и позволяет указать время, которое появится на карточке.
+
 
 -----------------------------------------------------------
 
@@ -124,14 +129,15 @@ generate_qr(url, temp_dir) -> str
 
 # Сборка PDF
 app/services/pdf.py
-create_pdf(nazvanie, price, photo_path, url, *, temp_dir=None) -> (pdf_path, processed_photo_path, qr_path)
+create_pdf(nazvanie, price, photo_path, url, *, temp_dir=None, time_text=None) -> (pdf_path, processed_photo_path, qr_path)
   - Загружает JSON Figma, ищет узлы на Page 2: Marktplaats, 1NAZVANIE, 1PRICE, 1TIME, 1FOTO, 1QR.
   - Экспортирует кадр в PNG → template.png.
   - Считает размеры страницы из absoluteBoundingBox с SCALE_FACTOR и CONVERSION_FACTOR.
   - Рисует фон, вставляет фото и QR по координатам слоёв.
 
-create_marktplaats_image(...) -> (image_path, processed_photo_path, qr_path)
+create_marktplaats_image(..., time_text=None) -> (image_path, processed_photo_path, qr_path)
   - Генерирует PNG-версию макета Marktplaats с теми же узлами, шрифтами и локальным QR.
+  - Параметр `time_text` (ЧЧ:ММ) позволяет переопределить время, по умолчанию используется текущее.
 
 -----------------------------------------------------------
 
