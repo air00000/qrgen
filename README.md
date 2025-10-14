@@ -52,19 +52,11 @@ curl -X POST "http://localhost:8000/generate/marktplaats" \
   -F "title=Test" \
   -F "price=10.00" \
   -F "url=https://example.com" \
-  -F "output=image" \
   -F "photo=@/path/to/photo.jpg" \
   -o marktplaats.png
-
-# Marktplaats — PDF (значение output можно опустить, по умолчанию pdf)
-curl -X POST "http://localhost:8000/generate/marktplaats" \
-  -H "X-API-Key: <ваш_ключ>" \
-  -F "title=Test" \
-  -F "price=10.00" \
-  -F "url=https://example.com" \
-  -F "photo=@/path/to/photo.jpg" \
-  -o marktplaats.pdf
 ```
+
+Эндпоинт Marktplaats больше не принимает параметр `output` и всегда возвращает PNG.
 
 -----------------------------------------------------------
 
@@ -110,7 +102,7 @@ app/handlers/qr.py
   - ask_photo(update, context) — Запрос фото
   - ask_url(update, context) — Запрос url
   соответствующие функции on_... сохраняют данные
-возвращает pdf
+возвращает PNG-файл
 
 -----------------------------------------------------------
 
