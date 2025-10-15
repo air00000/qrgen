@@ -38,6 +38,7 @@ def _rounded_mask(size: Tuple[int, int], radius: int) -> Image.Image:
     return m
 
 
+
 def _load_logo(logo_path: Optional[str]) -> Optional[Image.Image]:
     if logo_path and os.path.exists(logo_path):
         try:
@@ -45,6 +46,16 @@ def _load_logo(logo_path: Optional[str]) -> Optional[Image.Image]:
         except Exception:
             return None
     return None
+
+
+def _circular_crop(img: Image.Image) -> Image.Image:
+    mask = Image.new("L", img.size, 0)
+    draw = ImageDraw.Draw(mask)
+    draw.ellipse((0, 0, img.size[0] - 1, img.size[1] - 1), fill=255)
+    rounded = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    rounded.paste(img, (0, 0), mask)
+    return rounded
+
 
 
 def generate_qr(
@@ -59,6 +70,7 @@ def generate_qr(
     logo_scale: float = 0.22,             # доля стороны QR под логотип
     center_badge_bg: Optional[str] = None,  # например "#F0A05B" — круг под логотипом
     center_badge_padding: float = 1.12,      # круг немного больше логотипа
+    logo_make_circle: bool = False,
 ) -> str:
     """
     Полностью локальная генерация QR:
@@ -121,6 +133,9 @@ def generate_qr(
         lw = int(tw * logo_scale)
         lh = int(th * logo_scale)
         logo = logo.resize((lw, lh), Image.Resampling.LANCZOS)
+
+        if logo_make_circle:
+            logo = _circular_crop(logo)
 
         if center_badge_bg:
             pad = int(max(lw, lh) * center_badge_padding)
