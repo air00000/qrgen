@@ -167,6 +167,7 @@ async def _generate_marktplaats(update: Update, context: ContextTypes.DEFAULT_TY
         clear_stack(context.user_data)
         if image_path:
             Path(image_path).unlink(missing_ok=True)
+
         return ConversationHandler.END
     except Exception as e:
         logger.exception("Ошибка генерации")
