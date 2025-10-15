@@ -32,6 +32,7 @@ curl -X POST "http://localhost:8000/generate/subito" \
   -F "url=https://example.com" \
   -F "name=Mario Rossi" \
   -F "address=Via Roma 1, Milano" \
+  -F "time_text=18:30" \
   -F "output=image" \
   -F "photo=@/path/to/photo.jpg" \
   -o subito.png
@@ -42,6 +43,7 @@ curl -X POST "http://localhost:8000/generate/subito" \
   -F "title=Test" \
   -F "price=10.00" \
   -F "url=https://example.com" \
+  -F "time_text=21:15" \
   -F "output=pdf" \
   -F "photo=@/path/to/photo.jpg" \
   -o subito.pdf
@@ -52,25 +54,20 @@ curl -X POST "http://localhost:8000/generate/marktplaats" \
   -F "title=Test" \
   -F "price=10.00" \
   -F "url=https://example.com" \
-  -F "output=image" \
+  -F "time_text=09:45" \
   -F "photo=@/path/to/photo.jpg" \
   -o marktplaats.png
-
-# Marktplaats — PDF (значение output можно опустить, по умолчанию pdf)
-curl -X POST "http://localhost:8000/generate/marktplaats" \
-  -H "X-API-Key: <ваш_ключ>" \
-  -F "title=Test" \
-  -F "price=10.00" \
-  -F "url=https://example.com" \
-  -F "photo=@/path/to/photo.jpg" \
-  -o marktplaats.pdf
 ```
+
+Эндпоинт Marktplaats больше не принимает параметр `output` и всегда возвращает PNG. Параметр
+`time_text` (ЧЧ:ММ) необязателен и позволяет указать время, которое появится на карточке.
+Subito поддерживает такой же необязательный параметр `time_text` как в API, так и в Telegram-боте.
 
 -----------------------------------------------------------
 
 # Локальный бейдж Subito
 Чтобы логотип Subito отображался в центре QR-кода, добавьте файл
-`app/assets/logos/subito_badge.png` вручную (репозиторий его не содержит).
+`app/assets/foti/logo.png` вручную (репозиторий его не содержит).
 Если файла нет, генератор продолжит работать без бейджа.
 
 -----------------------------------------------------------
@@ -110,7 +107,7 @@ app/handlers/qr.py
   - ask_photo(update, context) — Запрос фото
   - ask_url(update, context) — Запрос url
   соответствующие функции on_... сохраняют данные
-возвращает pdf
+возвращает PNG-файл
 
 -----------------------------------------------------------
 
@@ -132,25 +129,27 @@ generate_qr(url, temp_dir) -> str
 
 # Сборка PDF
 app/services/pdf.py
-create_pdf(nazvanie, price, photo_path, url, *, temp_dir=None) -> (pdf_path, processed_photo_path, qr_path)
+create_pdf(nazvanie, price, photo_path, url, *, temp_dir=None, time_text=None) -> (pdf_path, processed_photo_path, qr_path)
   - Загружает JSON Figma, ищет узлы на Page 2: Marktplaats, 1NAZVANIE, 1PRICE, 1TIME, 1FOTO, 1QR.
   - Экспортирует кадр в PNG → template.png.
   - Считает размеры страницы из absoluteBoundingBox с SCALE_FACTOR и CONVERSION_FACTOR.
   - Рисует фон, вставляет фото и QR по координатам слоёв.
 
-create_marktplaats_image(...) -> (image_path, processed_photo_path, qr_path)
+create_marktplaats_image(..., time_text=None) -> (image_path, processed_photo_path, qr_path)
   - Генерирует PNG-версию макета Marktplaats с теми же узлами, шрифтами и локальным QR.
+  - Параметр `time_text` (ЧЧ:ММ) позволяет переопределить время, по умолчанию используется текущее.
 
 -----------------------------------------------------------
 
 # Скриншот Subito
 app/services/subito.py
-create_subito_image(...) -> (image_path, processed_photo_path, qr_path)
+create_subito_image(..., time_text=None) -> (image_path, processed_photo_path, qr_path)
   - Загружает JSON Figma, ищет узлы на Page 2: subito1 и связанные текстовые слои.
-  - Экспортирует шаблон, добавляет фото, QR и текстовые данные (имя, адрес, цену).
+  - Экспортирует шаблон, добавляет фото, QR (с логотипом `app/assets/foti/logo.png`) и текстовые данные.
+  - Необязательный параметр `time_text` (ЧЧ:ММ) позволяет указать время в блоке даты.
   - Возвращает путь к PNG с оптимизацией.
 
-create_subito_pdf(...) -> (pdf_path, image_path, processed_photo_path, qr_path)
+create_subito_pdf(..., time_text=None) -> (pdf_path, image_path, processed_photo_path, qr_path)
   - Переиспользует генерацию PNG, затем упаковывает результат в PDF с сохранением размеров.
 
 -----------------------------------------------------------
