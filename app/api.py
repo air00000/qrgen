@@ -59,6 +59,7 @@ async def generate_subito(
     address: str = Form(""),
     output: str = Form("image"),
     photo: UploadFile | None = File(None),
+    time_text: str | None = Form(None),
     api_key: str = Depends(validate_api_key),
 ):
     tmp_dir = tempfile.mkdtemp(prefix="qrgen_subito_")
@@ -66,6 +67,10 @@ async def generate_subito(
         photo_path = _save_upload(photo, tmp_dir)
         price_value = _parse_price(price)
         safe_url = _normalize_url(url)
+
+        normalized_time = normalize_hhmm(time_text)
+        if time_text and normalized_time is None:
+            raise HTTPException(status_code=400, detail="time_text must be in HH:MM format")
 
         mode = output.lower()
         if mode not in {"image", "pdf"}:
@@ -80,6 +85,7 @@ async def generate_subito(
                 address=address,
                 photo_path=photo_path,
                 temp_dir=tmp_dir,
+                time_text=normalized_time,
             )
             background = BackgroundTask(_cleanup_tmpdir, tmp_dir)
             return FileResponse(
@@ -97,6 +103,7 @@ async def generate_subito(
             address=address,
             photo_path=photo_path,
             temp_dir=tmp_dir,
+            time_text=normalized_time,
         )
         background = BackgroundTask(_cleanup_tmpdir, tmp_dir)
         return FileResponse(
@@ -130,7 +137,6 @@ async def generate_marktplaats(
         normalized_time = normalize_hhmm(time_text)
         if time_text and normalized_time is None:
             raise HTTPException(status_code=400, detail="time_text must be in HH:MM format")
-
 
         image_path, _, _ = create_marktplaats_image(
             title,

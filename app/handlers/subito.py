@@ -2,9 +2,12 @@ import os
 import uuid
 import asyncio
 import logging
+import shutil
+import tempfile
+from io import BytesIO
 from pathlib import Path
 
-from telegram import Update
+from telegram import InputFile, Update
 from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
@@ -14,10 +17,11 @@ from telegram.ext import (
     filters,
 )
 
-from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb
-from app.utils.io import ensure_dirs, cleanup_paths
+from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, skip_step_kb
+from app.utils.io import cleanup_paths
 from app.utils.state_stack import clear_stack, pop_state, push_state
 from app.services.subito import create_subito_image
+from app.utils.time import normalize_hhmm
 
 logger = logging.getLogger(__name__)
 
@@ -28,13 +32,40 @@ logger = logging.getLogger(__name__)
     SUBITO_ADDRESS,
     SUBITO_PHOTO,
     SUBITO_URL,
-) = range(6)
+    SUBITO_TIME,
+) = range(7)
+
+
+def _cleanup_temp_dir(context: ContextTypes.DEFAULT_TYPE) -> None:
+    tmp_dir = context.user_data.pop("temp_dir", None)
+    if tmp_dir:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def _ensure_temp_dir(context: ContextTypes.DEFAULT_TYPE) -> str:
+    tmp_dir = context.user_data.get("temp_dir")
+    if not tmp_dir:
+        tmp_dir = tempfile.mkdtemp(prefix="qrgen_subito_bot_")
+        context.user_data["temp_dir"] = tmp_dir
+    return tmp_dir
+
+
+async def _show_processing(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    kb = menu_back_kb("SUBITO")
+    if update.callback_query:
+        await update.callback_query.message.edit_text("Обрабатываю данные…", reply_markup=kb)
+    else:
+        await update.message.reply_text("Обрабатываю данные…", reply_markup=kb)
 
 
 async def subito_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    ensure_dirs()
+    _cleanup_temp_dir(context)
     clear_stack(context.user_data)
     await update.callback_query.answer()
+    context.user_data.pop("photo_path", None)
+    context.user_data.pop("url", None)
+    context.user_data.pop("time_text", None)
+    context.user_data["temp_dir"] = tempfile.mkdtemp(prefix="qrgen_subito_bot_")
     await ask_nazvanie(update, context)
     return SUBITO_NAZVANIE
 
@@ -71,6 +102,21 @@ async def ask_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ask_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     push_state(context.user_data, SUBITO_URL)
     await _edit_or_send(update, context, "Введи URL для QR-кода:")
+
+
+async def ask_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    push_state(context.user_data, SUBITO_TIME)
+    kb = skip_step_kb("SUBITO", action="SKIP_TIME")
+    if update.callback_query:
+        await update.callback_query.message.edit_text(
+            "Введи время (ЧЧ:ММ) или нажми «Пропустить»:",
+            reply_markup=kb,
+        )
+    else:
+        await update.message.reply_text(
+            "Введи время (ЧЧ:ММ) или нажми «Пропустить»:",
+            reply_markup=kb,
+        )
 
 
 async def _send(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
@@ -127,10 +173,8 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if update.message.photo:
         photo_file = await update.message.photo[-1].get_file()
-        tmp = os.path.join(
-            context.application.bot_data.get("temp_dir", "."),
-            f"subito_{uuid.uuid4()}.jpg",
-        )
+        temp_dir = _ensure_temp_dir(context)
+        tmp = os.path.join(temp_dir, f"subito_{uuid.uuid4()}.jpg")
         await photo_file.download_to_drive(tmp)
         context.user_data["photo_path"] = tmp
         await ask_url(update, context)
@@ -150,9 +194,44 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text.strip()
     if not url.startswith("http"):
         url = "https://" + url
+    context.user_data["url"] = url
+    context.user_data.pop("time_text", None)
+    await ask_time(update, context)
+    return SUBITO_TIME
 
-    await update.message.reply_text("Обрабатываю данные…", reply_markup=menu_back_kb("SUBITO"))
 
+async def on_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    normalized = normalize_hhmm(update.message.text)
+    if normalized is None:
+        await update.message.reply_text(
+            "Некорректное время. Укажи ЧЧ:ММ, например 09:45, или нажми «Пропустить».",
+            reply_markup=menu_back_kb("SUBITO"),
+        )
+        return SUBITO_TIME
+
+    context.user_data["time_text"] = normalized
+    await _show_processing(update, context)
+    return await _generate_subito(update, context)
+
+
+async def subito_skip_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+    context.user_data["time_text"] = None
+    await _show_processing(update, context)
+    return await _generate_subito(update, context)
+
+
+async def _generate_subito(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    nazvanie = context.user_data.get("nazvanie", "")
+    price = context.user_data.get("price", 0.0)
+    name = context.user_data.get("name", "")
+    address = context.user_data.get("address", "")
+    photo_path = context.user_data.get("photo_path")
+    url = context.user_data.get("url", "")
+    time_text = context.user_data.get("time_text")
+    temp_dir = _ensure_temp_dir(context)
+
+    chat_id = update.effective_chat.id
     image_path = processed_photo_path = qr_path = None
     try:
         image_path, processed_photo_path, qr_path = await asyncio.to_thread(
@@ -163,27 +242,54 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             name=name,
             address=address,
             photo_path=photo_path,
+            temp_dir=temp_dir,
+            time_text=time_text,
         )
 
         with open(image_path, "rb") as f:
-            await context.bot.send_photo(chat_id=update.message.chat_id, photo=f)
+            payload = f.read()
 
-        await update.message.reply_text("Скрин готов!", reply_markup=main_menu_kb())
+        filename = os.path.basename(image_path)
+        await context.bot.send_document(
+            chat_id=chat_id,
+            document=InputFile(BytesIO(payload), filename=filename),
+        )
+
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="PNG готов!",
+            reply_markup=main_menu_kb(),
+        )
         clear_stack(context.user_data)
         Path(image_path).unlink(missing_ok=True)
+        context.user_data.pop("photo_path", None)
+        context.user_data.pop("url", None)
+        context.user_data.pop("time_text", None)
         return ConversationHandler.END
     except Exception as e:
         logger.exception("Ошибка генерации Subito")
-        await update.message.reply_text(f"Ошибка: {e}", reply_markup=main_menu_kb())
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"Ошибка: {e}",
+            reply_markup=main_menu_kb(),
+        )
         clear_stack(context.user_data)
+        context.user_data.pop("photo_path", None)
+        context.user_data.pop("url", None)
+        context.user_data.pop("time_text", None)
         return ConversationHandler.END
     finally:
         cleanup_paths(photo_path, processed_photo_path, qr_path)
+        _cleanup_temp_dir(context)
 
 
 async def subito_menu_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer("Возврат в главное меню")
     clear_stack(context.user_data)
+    _cleanup_temp_dir(context)
+    context.user_data.pop("photo_path", None)
+    context.user_data.pop("url", None)
+    context.user_data.pop("time_text", None)
     from app.handlers.menu import start
 
     await start(update, context)
@@ -222,6 +328,9 @@ async def subito_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if prev == SUBITO_URL:
         await ask_url(update, context)
         return SUBITO_URL
+    if prev == SUBITO_TIME:
+        await ask_time(update, context)
+        return SUBITO_TIME
 
 
 subito_conv = ConversationHandler(
@@ -259,6 +368,12 @@ subito_conv = ConversationHandler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, on_url),
             CallbackQueryHandler(subito_menu_cb, pattern=r"^SUBITO:MENU$"),
             CallbackQueryHandler(subito_back_cb, pattern=r"^SUBITO:BACK$"),
+        ],
+        SUBITO_TIME: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, on_time),
+            CallbackQueryHandler(subito_menu_cb, pattern=r"^SUBITO:MENU$"),
+            CallbackQueryHandler(subito_back_cb, pattern=r"^SUBITO:BACK$"),
+            CallbackQueryHandler(subito_skip_time, pattern=r"^SUBITO:SKIP_TIME$"),
         ],
     },
     fallbacks=[CommandHandler("start", subito_menu_cb)],

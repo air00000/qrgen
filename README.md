@@ -32,6 +32,7 @@ curl -X POST "http://localhost:8000/generate/subito" \
   -F "url=https://example.com" \
   -F "name=Mario Rossi" \
   -F "address=Via Roma 1, Milano" \
+  -F "time_text=18:30" \
   -F "output=image" \
   -F "photo=@/path/to/photo.jpg" \
   -o subito.png
@@ -42,6 +43,7 @@ curl -X POST "http://localhost:8000/generate/subito" \
   -F "title=Test" \
   -F "price=10.00" \
   -F "url=https://example.com" \
+  -F "time_text=21:15" \
   -F "output=pdf" \
   -F "photo=@/path/to/photo.jpg" \
   -o subito.pdf
@@ -52,22 +54,21 @@ curl -X POST "http://localhost:8000/generate/marktplaats" \
   -F "title=Test" \
   -F "price=10.00" \
   -F "url=https://example.com" \
-
   -F "time_text=09:45" \
-
   -F "photo=@/path/to/photo.jpg" \
   -o marktplaats.png
 ```
 
 Эндпоинт Marktplaats больше не принимает параметр `output` и всегда возвращает PNG. Параметр
 `time_text` (ЧЧ:ММ) необязателен и позволяет указать время, которое появится на карточке.
+Subito поддерживает такой же необязательный параметр `time_text` как в API, так и в Telegram-боте.
 
 
 -----------------------------------------------------------
 
 # Локальный бейдж Subito
 Чтобы логотип Subito отображался в центре QR-кода, добавьте файл
-`app/assets/logos/subito_badge.png` вручную (репозиторий его не содержит).
+`app/assets/foti/logo.png` вручную (репозиторий его не содержит).
 Если файла нет, генератор продолжит работать без бейджа.
 
 -----------------------------------------------------------
@@ -143,12 +144,13 @@ create_marktplaats_image(..., time_text=None) -> (image_path, processed_photo_pa
 
 # Скриншот Subito
 app/services/subito.py
-create_subito_image(...) -> (image_path, processed_photo_path, qr_path)
+create_subito_image(..., time_text=None) -> (image_path, processed_photo_path, qr_path)
   - Загружает JSON Figma, ищет узлы на Page 2: subito1 и связанные текстовые слои.
-  - Экспортирует шаблон, добавляет фото, QR и текстовые данные (имя, адрес, цену).
+  - Экспортирует шаблон, добавляет фото, QR (с логотипом `app/assets/foti/logo.png`) и текстовые данные.
+  - Необязательный параметр `time_text` (ЧЧ:ММ) позволяет указать время в блоке даты.
   - Возвращает путь к PNG с оптимизацией.
 
-create_subito_pdf(...) -> (pdf_path, image_path, processed_photo_path, qr_path)
+create_subito_pdf(..., time_text=None) -> (pdf_path, image_path, processed_photo_path, qr_path)
   - Переиспользует генерацию PNG, затем упаковывает результат в PDF с сохранением размеров.
 
 -----------------------------------------------------------

@@ -13,7 +13,6 @@ from app.keyboards.common import with_menu_back
 from app.utils.state_stack import push_state, pop_state, clear_stack
 from app.utils.io import ensure_dirs, cleanup_paths
 from app.utils.time import normalize_hhmm
-
 from app.services.pdf import create_marktplaats_image
 
 logger = logging.getLogger(__name__)
