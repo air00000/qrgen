@@ -38,6 +38,7 @@ def _rounded_mask(size: Tuple[int, int], radius: int) -> Image.Image:
     return m
 
 
+
 def _load_logo(logo_path: Optional[str]) -> Optional[Image.Image]:
     if logo_path and os.path.exists(logo_path):
         try:
@@ -54,6 +55,7 @@ def _circular_crop(img: Image.Image) -> Image.Image:
     rounded = Image.new("RGBA", img.size, (0, 0, 0, 0))
     rounded.paste(img, (0, 0), mask)
     return rounded
+
 
 
 def generate_qr(
