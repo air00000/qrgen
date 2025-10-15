@@ -172,7 +172,6 @@ def create_subito_image(
         logo_path=center_logo,
         logo_scale=0.26,
         center_badge_bg=None,
-        eye_style="subito",
     )
 
     qr_img = Image.open(qr_path).convert("RGBA")
