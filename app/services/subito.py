@@ -14,6 +14,7 @@ from app.utils.io import cleanup_paths
 TITLE_FONT_PATH = os.path.join(CFG.FONTS_DIR, "Inter_18pt-SemiBold.ttf")
 SMALL_FONT_PATH = os.path.join(CFG.FONTS_DIR, "Inter_18pt-Medium.ttf")
 TIME_FONT_PATH = os.path.join(CFG.FONTS_DIR, "SFProText-Semibold.ttf")
+SUBITO_LOGO_PATH = os.path.join(CFG.PHOTO_DIR, "logo.png")
 
 TARGET_SIZE = (1304, 2838)
 FRAME_NAME = "subito1"
@@ -114,6 +115,7 @@ def create_subito_image(
     address: str = "",
     photo_path: Optional[str] = None,
     temp_dir: Optional[str] = None,
+    time_text: Optional[str] = None,
 ):
     temp_dir = temp_dir or CFG.TEMP_DIR
     os.makedirs(temp_dir, exist_ok=True)
@@ -155,7 +157,7 @@ def create_subito_image(
         foto_img = Image.open(processed_photo).convert("RGBA")
         _paste_node_image(result, foto_img, frame_node, nodes["foto"])
 
-    badge_path = CFG.SUBITO_BADGE_PATH if os.path.exists(CFG.SUBITO_BADGE_PATH) else None
+    center_logo = SUBITO_LOGO_PATH if os.path.exists(SUBITO_LOGO_PATH) else None
 
     qr_path = generate_qr(
         url,
@@ -167,10 +169,10 @@ def create_subito_image(
         color_dark="#FF6E69",
         color_bg="#FFFFFF",
         corner_radius=int(CFG.CORNER_RADIUS * CFG.SCALE_FACTOR),
-        logo_path=badge_path,
+        logo_path=center_logo,
         logo_scale=0.26,
         center_badge_bg=None,
-        eye_style="subito",
+        logo_make_circle=True,
     )
 
     qr_img = Image.open(qr_path).convert("RGBA")
@@ -187,7 +189,7 @@ def create_subito_image(
         return x, y
 
     price_text = f"€{price:.2f}"
-    time_text = _rome_time()
+    time_text = time_text or _rome_time()
 
     nx, ny = _offset("nazvanie")
     draw.text((nx, ny), nazvanie, font=nazv_font, fill="#1F262D")
@@ -255,6 +257,7 @@ def create_subito_pdf(
     address: str = "",
     photo_path: Optional[str] = None,
     temp_dir: Optional[str] = None,
+    time_text: Optional[str] = None,
 ):
     temp_dir = temp_dir or CFG.TEMP_DIR
     os.makedirs(temp_dir, exist_ok=True)
@@ -269,6 +272,7 @@ def create_subito_pdf(
             address=address,
             photo_path=photo_path,
             temp_dir=temp_dir,
+            time_text=time_text,
         )
 
         pdf_path = os.path.join(temp_dir, f"SUBITO_{uuid.uuid4()}.pdf")

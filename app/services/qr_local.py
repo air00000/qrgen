@@ -1,7 +1,7 @@
 # app/services/qr_local.py
 import os
 from typing import Optional, Tuple
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 import qrcode
 from qrcode.constants import ERROR_CORRECT_H
 
@@ -47,72 +47,19 @@ def _load_logo(logo_path: Optional[str]) -> Optional[Image.Image]:
     return None
 
 
-def _apply_subito_eye_style(
-    img: Image.Image,
-    *,
-    modules: int,
-    border: int,
-    bg_rgb: Tuple[int, int, int],
-) -> None:
-    """Custom eye styling for Subito: outer corners rounded except inner."""
+def _circular_crop(img: Image.Image) -> Image.Image:
+    side = min(img.size)
+    if img.size[0] != img.size[1]:
+        img = ImageOps.fit(img, (side, side), centering=(0.5, 0.5))
+    else:
+        img = img.copy()
 
-    if modules <= 0:
-        return
-
-    width, height = img.size
-    total = modules + 2 * border
-    if total <= 0:
-        return
-
-    module_w = width / total
-    module_h = height / total
-    eye_modules = 7
-
-    def _module_rect(mx: int, my: int) -> Tuple[int, int, int, int]:
-        x0 = int(round(mx * module_w))
-        y0 = int(round(my * module_h))
-        x1 = int(round((mx + eye_modules) * module_w))
-        y1 = int(round((my + eye_modules) * module_h))
-        return x0, y0, x1, y1
-
-    def _round_corners(region: Image.Image, keep_corner: str) -> Image.Image:
-        rw, rh = region.size
-        radius = int(round(min(module_w, module_h) * 2.5))
-        radius = max(1, min(radius, rw // 2, rh // 2))
-        if radius <= 1:
-            return region
-
-        patch = Image.new("RGBA", (radius * 2, radius * 2), bg_rgb + (255,))
-
-        def _apply(region_img: Image.Image, corner: str, start: int, end: int, px: int, py: int):
-            if corner == keep_corner:
-                return
-            if px < 0 or py < 0 or px + radius * 2 > region_img.width or py + radius * 2 > region_img.height:
-                return
-            mask = Image.new("L", (radius * 2, radius * 2), 255)
-            md = ImageDraw.Draw(mask)
-            md.pieslice((0, 0, radius * 2, radius * 2), start, end, fill=0)
-            region_img.paste(patch, (px, py), mask)
-
-        _apply(region, "tl", 180, 270, 0, 0)
-        _apply(region, "tr", 270, 360, region.width - radius * 2, 0)
-        _apply(region, "bl", 90, 180, 0, region.height - radius * 2)
-        _apply(region, "br", 0, 90, region.width - radius * 2, region.height - radius * 2)
-        return region
-
-    configs = [
-        (border, border, "br"),
-        (total - border - eye_modules, border, "bl"),
-        (border, total - border - eye_modules, "tr"),
-    ]
-
-    for mx, my, keep_corner in configs:
-        x0, y0, x1, y1 = _module_rect(mx, my)
-        if x1 <= x0 or y1 <= y0:
-            continue
-        region = img.crop((x0, y0, x1, y1))
-        region = _round_corners(region, keep_corner)
-        img.paste(region, (x0, y0))
+    mask = Image.new("L", (side, side), 0)
+    draw = ImageDraw.Draw(mask)
+    draw.ellipse((0, 0, side - 1, side - 1), fill=255)
+    rounded = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    rounded.paste(img, (0, 0), mask)
+    return rounded
 
 
 def generate_qr(
@@ -127,7 +74,7 @@ def generate_qr(
     logo_scale: float = 0.22,             # доля стороны QR под логотип
     center_badge_bg: Optional[str] = None,  # например "#F0A05B" — круг под логотипом
     center_badge_padding: float = 1.12,      # круг немного больше логотипа
-    eye_style: Optional[str] = None,
+    logo_make_circle: bool = False,
 ) -> str:
     """
     Полностью локальная генерация QR:
@@ -184,15 +131,15 @@ def generate_qr(
     # 3) Приводим к целевому размеру (после supersampling) — LANCZOS даёт лучший результат
     img = img.resize((tw, th), Image.Resampling.LANCZOS)
 
-    if eye_style == "subito":
-        _apply_subito_eye_style(img, modules=modules, border=border, bg_rgb=bg)
-
     # 4) Центральный круг + логотип (локальные файлы)
     logo = _load_logo(logo_path)
     if logo:
         lw = int(tw * logo_scale)
         lh = int(th * logo_scale)
         logo = logo.resize((lw, lh), Image.Resampling.LANCZOS)
+
+        if logo_make_circle:
+            logo = _circular_crop(logo)
 
         if center_badge_bg:
             pad = int(max(lw, lh) * center_badge_padding)
