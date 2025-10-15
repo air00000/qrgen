@@ -73,7 +73,7 @@ def _paste_to_node(base: Image.Image, overlay: Image.Image, frame_node: dict, ta
     overlay = overlay.resize((width, height), Image.Resampling.LANCZOS)
     base.paste(overlay, (x, y), overlay)
 
-def create_pdf(nazvanie, price, photo_path, url, *, temp_dir=None):
+def create_pdf(nazvanie, price, photo_path, url, *, temp_dir=None, time_text: str | None = None):
     temp_dir = temp_dir or CFG.TEMP_DIR
     os.makedirs(temp_dir, exist_ok=True)
 
@@ -111,7 +111,7 @@ def create_pdf(nazvanie, price, photo_path, url, *, temp_dir=None):
         f.write(template_png)
 
     # 3) Подготовка размеров страницы
-    time_text = _nl_time_str()
+    time_text = time_text if time_text else _nl_time_str()
     formatted_price = f"€{price}"
 
     frame_w = frame_node['absoluteBoundingBox']['width']  * CFG.SCALE_FACTOR
@@ -192,7 +192,15 @@ def create_pdf(nazvanie, price, photo_path, url, *, temp_dir=None):
     return pdf_path, processed_photo_path, qr_path
 
 
-def create_marktplaats_image(nazvanie, price, photo_path, url, *, temp_dir=None):
+def create_marktplaats_image(
+    nazvanie,
+    price,
+    photo_path,
+    url,
+    *,
+    temp_dir=None,
+    time_text: str | None = None,
+):
     temp_dir = temp_dir or CFG.TEMP_DIR
     os.makedirs(temp_dir, exist_ok=True)
 
@@ -273,7 +281,7 @@ def create_marktplaats_image(nazvanie, price, photo_path, url, *, temp_dir=None)
     price_x, price_y = _offset('price')
     draw.text((price_x, price_y), price_text, font=price_font, fill="#838383")
 
-    time_text = _nl_time_str()
+    time_text = time_text if time_text else _nl_time_str()
     time_bbox = nodes['time']['absoluteBoundingBox']
     time_x = (time_bbox['x'] - frame_bbox['x']) * CFG.SCALE_FACTOR
     time_y = (time_bbox['y'] - frame_bbox['y']) * CFG.SCALE_FACTOR + CFG.TEXT_OFFSET * CFG.SCALE_FACTOR
