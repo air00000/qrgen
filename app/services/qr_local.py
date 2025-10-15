@@ -1,7 +1,7 @@
 # app/services/qr_local.py
 import os
 from typing import Optional, Tuple
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 import qrcode
 from qrcode.constants import ERROR_CORRECT_H
 
@@ -38,7 +38,6 @@ def _rounded_mask(size: Tuple[int, int], radius: int) -> Image.Image:
     return m
 
 
-
 def _load_logo(logo_path: Optional[str]) -> Optional[Image.Image]:
     if logo_path and os.path.exists(logo_path):
         try:
@@ -49,13 +48,18 @@ def _load_logo(logo_path: Optional[str]) -> Optional[Image.Image]:
 
 
 def _circular_crop(img: Image.Image) -> Image.Image:
-    mask = Image.new("L", img.size, 0)
+    side = min(img.size)
+    if img.size[0] != img.size[1]:
+        img = ImageOps.fit(img, (side, side), centering=(0.5, 0.5))
+    else:
+        img = img.copy()
+
+    mask = Image.new("L", (side, side), 0)
     draw = ImageDraw.Draw(mask)
-    draw.ellipse((0, 0, img.size[0] - 1, img.size[1] - 1), fill=255)
-    rounded = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    draw.ellipse((0, 0, side - 1, side - 1), fill=255)
+    rounded = Image.new("RGBA", (side, side), (0, 0, 0, 0))
     rounded.paste(img, (0, 0), mask)
     return rounded
-
 
 
 def generate_qr(
