@@ -1,6 +1,5 @@
 # app/services/pdf.py
 import os, uuid, datetime
-from pathlib import Path
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import HexColor
@@ -10,17 +9,12 @@ from PIL import Image, ImageDraw
 
 from app.config import CFG
 from app.services.figma import get_template_json, find_node, export_frame_as_png
-from app.services.qr_local import generate_qr
+from app.services.qrtiger import generate_qr
 
 # Регистрируем шрифты
 pdfmetrics.registerFont(TTFont('Inter-SemiBold',      os.path.join(CFG.FONTS_DIR, 'Inter_18pt-SemiBold.ttf')))
 pdfmetrics.registerFont(TTFont('Inter-Medium',        os.path.join(CFG.FONTS_DIR, 'Inter_18pt-Medium.ttf')))
 pdfmetrics.registerFont(TTFont('SFProText-Semibold',  os.path.join(CFG.FONTS_DIR, 'SFProText-Semibold.ttf')))
-
-# Локальный логотип для QR (офлайн)
-_ASSETS_DIR = Path(CFG.FONTS_DIR).parent  # app/assets
-_LOCAL_LOGO = _ASSETS_DIR / "foti" / "coin.png"
-_LOCAL_LOGO_PATH = str(_LOCAL_LOGO) if _LOCAL_LOGO.exists() else None
 
 def _rounded_mask(size, radius):
     m = Image.new("L", size, 0)
@@ -105,23 +99,13 @@ def create_pdf(nazvanie, price, photo_path, url):
         fh =  foto_node['absoluteBoundingBox']['height'] * CFG.SCALE_FACTOR * CFG.CONVERSION_FACTOR
         c.drawImage(processed_photo_path, fx, fy, width=fw, height=fh, preserveAspectRatio=True, mask='auto')
 
-    # 5) QR — ПОЛНОСТЬЮ ЛОКАЛЬНО
+    # 5) QR — через QRTiger API
     qx = (qr_node['absoluteBoundingBox']['x'] - frame_node['absoluteBoundingBox']['x']) * CFG.SCALE_FACTOR * CFG.CONVERSION_FACTOR
     qy = page_h - ((qr_node['absoluteBoundingBox']['y'] - frame_node['absoluteBoundingBox']['y']) + qr_node['absoluteBoundingBox']['height']) * CFG.SCALE_FACTOR * CFG.CONVERSION_FACTOR
     qw =  qr_node['absoluteBoundingBox']['width']  * CFG.SCALE_FACTOR * CFG.CONVERSION_FACTOR
     qh =  qr_node['absoluteBoundingBox']['height'] * CFG.SCALE_FACTOR * CFG.CONVERSION_FACTOR
 
-    qr_path = generate_qr(
-        url,
-        str(CFG.TEMP_DIR),
-        target_size=(int(qw), int(qh)),
-        color_dark="#4B6179",
-        color_bg="#FFFFFF",
-        corner_radius=int(CFG.CORNER_RADIUS * CFG.SCALE_FACTOR),
-        logo_path=_LOCAL_LOGO_PATH,         # ← локальный файл (если есть)
-        center_badge_bg="#F0A05B",          # ← круг под логотипом (как на эталоне). Убери, если не нужен
-        center_badge_padding=1.18
-    )
+    qr_path = generate_qr(url, str(CFG.TEMP_DIR))
     c.drawImage(qr_path, qx, qy, width=qw, height=qh, preserveAspectRatio=True, mask='auto')
 
     # 6) Тексты
