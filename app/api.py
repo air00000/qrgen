@@ -4,7 +4,7 @@ import tempfile
 import shutil
 import os
 
-from app.services.qr_local import generate_qr
+from app.services.qrtiger import generate_qr
 from app.services.pdf import create_pdf
 from app.services.apikey import get_all_keys  # ← добавим импорт
 
