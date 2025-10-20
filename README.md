@@ -21,6 +21,14 @@ TEMPLATE_FILE_KEY=xxx
 QR_API_KEY=xxx
 LOGO_URL=https://i.ibb.co/ZRF7byfk/coin.png
 TZ=Europe/Amsterdam
+SUBITO_TZ=Europe/Rome         # опционально, таймзона для Subito
+OUTPUT_WIDTH=1304             # опционально, финальная ширина PNG
+OUTPUT_HEIGHT=2838            # опционально, финальная высота PNG
+QR_COLOR_DARK=#4B6179         # базовый цвет QR для Marktplaats
+QR_BACKGROUND_COLOR=#FFFFFF   # фон QR по умолчанию
+QR_PATTERN=pattern4           # паттерн точек
+QR_EYE_OUTER=eyeOuter2        # оформление углов
+QR_EYE_INNER=eyeInner2        # оформление центра
 ```
 -----------------------------------------------------------
 
@@ -32,7 +40,7 @@ app/
 │  └─ foti/temp/          # скрины
 ├─ handlers/              # хендлеры
 ├─ keyboards/             # inline-клавиатуры
-├─ services/              # работа с Figma, PDF, QR
+├─ services/              # работа с Figma, изображениями, QR
 ├─ utils/                 # утилиты (стек состояний, IO)
 ├─ config.py              # загрузка настроек из .env
 ├─ main.py                # точка входа
@@ -42,13 +50,14 @@ app/
 
 # Главный сценарий - создание QR
 app/handlers/qr.py
-  - qr_entry(update, context) - точка входа, переходит к запросу названия
-  - ask_nazvanie(update, context) — Запрос названия
-  - ask_price(update, context) — Запрос цены
-  - ask_photo(update, context) — Запрос фото
-  - ask_url(update, context) — Запрос url
-  соответствующие функции on_... сохраняют данные
-возвращает pdf
+  - qr_entry(update, context) — точка входа, показывает выбор шаблона (Marktplaats / Subito)
+  - ask_nazvanie/update... — запрос названия
+  - ask_price/update... — запрос цены
+  - ask_name/ask_address — дополнительные поля для шаблона Subito (можно пропустить)
+  - ask_photo — загрузка фото или пропуск
+  - ask_url — запрос ссылки для QR
+  соответствующие функции on_... сохраняют данные и передают их в генератор
+возвращает PNG картинку с объявлением
 
 -----------------------------------------------------------
 
@@ -68,13 +77,12 @@ generate_qr(url, temp_dir) -> str
 
 -----------------------------------------------------------
 
-# Сборка PDF
-app/services/pdf.py
-create_pdf(nazvanie, price, photo_path, url) -> (pdf_path, processed_photo_path, qr_path)
-  - Загружает JSON Figma, ищет узлы на Page 2: Marktplaats, 1NAZVANIE, 1PRICE, 1TIME, 1FOTO, 1QR.
-  - Экспортирует кадр в PNG → template.png.
-  - Считает размеры страницы из absoluteBoundingBox с SCALE_FACTOR и CONVERSION_FACTOR.
-  - Рисует фон, вставляет фото и QR по координатам слоёв.
+# Сборка изображений
+app/services/render.py
+generate_listing_image(template, nazvanie, price, photo_path, url, name="", address="") -> ImageResult
+  - Загружает JSON из Figma и ищет нужные узлы для выбранного шаблона
+  - Экспортирует фрейм в PNG, накладывает фото и QR, прорисовывает тексты
+  - Возвращает PNG и пути ко временным файлам для последующей очистки
 
 -----------------------------------------------------------
 

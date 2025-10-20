@@ -24,6 +24,14 @@ class CFG:
     FIGMA_API_URL = "https://api.figma.com/v1"
     QR_ENDPOINT = "https://api.qrtiger.com/api/qr/static"
     TZ = timezone(os.getenv("TZ", "Europe/Amsterdam"))
+    SUBITO_TZ = timezone(os.getenv("SUBITO_TZ", "Europe/Rome"))
+    OUTPUT_WIDTH = int(os.getenv("OUTPUT_WIDTH", 1304))
+    OUTPUT_HEIGHT = int(os.getenv("OUTPUT_HEIGHT", 2838))
+    QR_COLOR_DARK = os.getenv("QR_COLOR_DARK", "#4B6179")
+    QR_BACKGROUND_COLOR = os.getenv("QR_BACKGROUND_COLOR", "#FFFFFF")
+    QR_PATTERN = os.getenv("QR_PATTERN", "pattern4")
+    QR_EYE_OUTER = os.getenv("QR_EYE_OUTER", "eyeOuter2")
+    QR_EYE_INNER = os.getenv("QR_EYE_INNER", "eyeInner2")
     _ADMIN_IDS_RAW = os.getenv("ADMINS", "")
     try:
         ADMIN_IDS = {int(x.strip()) for x in _ADMIN_IDS_RAW.split(",") if x.strip()}
