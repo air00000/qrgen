@@ -1,28 +1,45 @@
-import base64, requests
+import base64
+import os
+import uuid
+
+import requests
 from PIL import Image, ImageDraw
-import os, uuid
+
 from app.config import CFG
+
 
 def _rounded_mask(size, radius):
     m = Image.new("L", size, 0)
     d = ImageDraw.Draw(m)
-    d.rounded_rectangle([(0,0), size], radius=radius, fill=255)
+    d.rounded_rectangle([(0, 0), size], radius=radius, fill=255)
     return m
 
-def generate_qr(url, temp_dir):
+
+def generate_qr(
+    url: str,
+    temp_dir: str,
+    *,
+    color_dark: str | None = None,
+    background_color: str | None = None,
+    pattern: str | None = None,
+    eye_outer: str | None = None,
+    eye_inner: str | None = None,
+    logo_url: str | None = None,
+):
+    os.makedirs(temp_dir, exist_ok=True)
     path = os.path.join(temp_dir, f"qr_{uuid.uuid4()}.png")
     headers = {"Authorization": f"Bearer {CFG.QR_API_KEY}", "Content-Type": "application/json"}
     payload = {
         "qrCategory": "url",
         "text": url,
         "size": CFG.QR_SIZE,
-        "colorDark": "#4B6179",
-        "backgroundColor": "#FFFFFF",
+        "colorDark": color_dark or CFG.QR_COLOR_DARK,
+        "backgroundColor": background_color or CFG.QR_BACKGROUND_COLOR,
         "transparentBkg": False,
-        "eye_outer": "eyeOuter2",
-        "eye_inner": "eyeInner2",
-        "qrData": "pattern4",
-        "logo": CFG.LOGO_URL,
+        "eye_outer": eye_outer or CFG.QR_EYE_OUTER,
+        "eye_inner": eye_inner or CFG.QR_EYE_INNER,
+        "qrData": pattern or CFG.QR_PATTERN,
+        "logo": CFG.LOGO_URL if logo_url is None else logo_url,
     }
     resp = requests.post(CFG.QR_ENDPOINT, json=payload, headers=headers)
     resp.raise_for_status()
