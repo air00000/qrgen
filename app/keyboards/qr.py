@@ -35,6 +35,12 @@ def skip_step_kb():
     """Совместимость со старыми импортами."""
     return photo_step_kb()
 
-def menu_back_kb():
+def menu_back_kb(*_legacy_args, **_legacy_kwargs):
+    """Return the standard back/menu keyboard.
+
+    Accepts and ignores any positional or keyword arguments to remain
+    compatible with older code that passed a section label or other unused
+    parameters (e.g. ``menu_back_kb("QR")``).
+    """
     return with_menu_back([], back_data="QR:BACK", menu_data="QR:MENU")
 
