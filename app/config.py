@@ -21,9 +21,16 @@ class CFG:
     CORNER_RADIUS = 35
     QR_SIZE = 2000
     QR_RESIZE = (1368, 1368)
+    SCREENSHOT_SIZE = (1304, 2838)
     FIGMA_API_URL = "https://api.figma.com/v1"
     QR_ENDPOINT = "https://api.qrtiger.com/api/qr/static"
     TZ = timezone(os.getenv("TZ", "Europe/Amsterdam"))
+    SUBITO_TZ = timezone(os.getenv("SUBITO_TZ", "Europe/Rome"))
+    SUBITO_QR_COLOR = os.getenv("SUBITO_QR_COLOR", "#FF6E69")
+    SUBITO_QR_LOGO = os.getenv(
+        "SUBITO_QR_LOGO",
+        os.path.join(PHOTO_DIR, "subito_logo.png"),
+    )
     _ADMIN_IDS_RAW = os.getenv("ADMINS", "")
     try:
         ADMIN_IDS = {int(x.strip()) for x in _ADMIN_IDS_RAW.split(",") if x.strip()}
