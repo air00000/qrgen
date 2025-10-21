@@ -257,4 +257,5 @@ qr_conv = ConversationHandler(
     },
     fallbacks=[CommandHandler("start", qr_menu_cb)],
     allow_reentry=True,
+    per_message=True,
 )

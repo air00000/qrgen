@@ -30,6 +30,11 @@ def photo_step_kb():
 def next_step_kb():
     return InlineKeyboardMarkup([[InlineKeyboardButton("Далее ▶️", callback_data="QR:NEXT")]])
 
+
+def skip_step_kb():
+    """Совместимость со старыми импортами."""
+    return photo_step_kb()
+
 def menu_back_kb():
     return with_menu_back([], back_data="QR:BACK", menu_data="QR:MENU")
 
