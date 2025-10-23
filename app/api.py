@@ -1,56 +1,81 @@
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Depends, Header
-from fastapi.responses import FileResponse
-import tempfile
-import shutil
-import os
+import base64
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi.responses import Response
+from pydantic import BaseModel
 
-from app.services.qr_local import generate_qr
-from app.services.pdf import create_pdf
-from app.services.apikey import get_all_keys  # ← добавим импорт
+from app.services.pdf import create_image_marktplaats, create_image_subito
 
 app = FastAPI(title="QR Generator API")
 
+# ======== JSON-модели (старый вариант) ========
+class ImageMarktplaats(BaseModel):
+    nazvanie: str
+    price: float
+    photo: str | None
+    url: str
 
-# ✅ Проверка API-ключа из заголовка
-async def validate_api_key(x_api_key: str = Header(...)):
-    keys = get_all_keys()
-    if x_api_key not in keys:
-        raise HTTPException(status_code=401, detail="Invalid or missing API key")
-    return x_api_key
+class ImageSubito(BaseModel):
+    nazvanie: str
+    price: float
+    photo: str | None
+    url: str
+    name: str | None = ""
+    address: str | None = ""
 
-
-@app.post("/generate/")
-async def generate_pdf_from_form(
-    title: str = Form(...),
-    price: str = Form(...),
-    url: str = Form(...),
-    photo: UploadFile = File(...),
-    api_key: str = Depends(validate_api_key)  # 👈 вот тут проверяется ключ
-):
+# ======== JSON эндпоинты ========
+@app.post("/generate_image_marktplaats")
+async def generate_image_marktplaats_endpoint(req: ImageMarktplaats):
     try:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            # Сохраняем фото
-            photo_path = os.path.join(tmp_dir, photo.filename)
-            with open(photo_path, "wb") as f:
-                shutil.copyfileobj(photo.file, f)
-
-            # Генерируем QR-код
-            qr_path = generate_qr(url, temp_dir=tmp_dir)
-
-            # Создаем PDF
-            pdf_path, _, _ = create_pdf(
-                nazvanie=title,
-                price=price,
-                photo_path=photo_path,
-                url=url
-            )
-
-            # Возвращаем PDF
-            return FileResponse(
-                path=pdf_path,
-                media_type="application/pdf",
-                filename=os.path.basename(pdf_path)
-            )
-
+        data = create_image_marktplaats(req.nazvanie, req.price, req.photo, req.url)
+        return Response(content=data, media_type="image/png")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_subito")
+async def generate_image_subito_endpoint(req: ImageSubito):
+    try:
+        data = create_image_subito(req.nazvanie, req.price, req.photo, req.url, req.name or "", req.address or "")
+        return Response(content=data, media_type="image/png")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ======== FORM эндпоинты (с загрузкой фото) ========
+@app.post("/generate_image_marktplaats_form")
+async def generate_image_marktplaats_form(
+    nazvanie: str = Form(...),
+    price: float = Form(...),
+    url: str = Form(...),
+    photo: UploadFile = File(None)
+):
+    """Загрузка фото через Swagger (multipart/form-data) для Marktplaats"""
+    try:
+        photo_b64 = None
+        if photo:
+            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
+
+        data = create_image_marktplaats(nazvanie, price, photo_b64, url)
+        return Response(content=data, media_type="image/png")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/generate_image_subito_form")
+async def generate_image_subito_form(
+    nazvanie: str = Form(...),
+    price: float = Form(...),
+    url: str = Form(...),
+    name: str = Form(""),
+    address: str = Form(""),
+    photo: UploadFile = File(None)
+):
+    """Загрузка фото через Swagger (multipart/form-data) для Subito"""
+    try:
+        photo_b64 = None
+        if photo:
+            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
+
+        data = create_image_subito(nazvanie, price, photo_b64, url, name, address)
+        return Response(content=data, media_type="image/png")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
