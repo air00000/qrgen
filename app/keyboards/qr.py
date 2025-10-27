@@ -16,12 +16,15 @@ def photo_step_kb():
         [InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK")],
     ])
 
-def service_select_kb():
-    """Клавиатура выбора типа скриншота"""
-    return InlineKeyboardMarkup([
+def service_select_kb(is_admin: bool = False):
+    """Клавиатура выбора типа скриншота (+ админ-кнопка при наличии прав)."""
+    rows = [
         [
             InlineKeyboardButton("📦 Marktplaats", callback_data="QR:START"),
             InlineKeyboardButton("🇮🇹 Subito", callback_data="QR:SUBITO"),
         ],
-        [InlineKeyboardButton("❌ Отмена", callback_data="QR:MENU")],
-    ])
+    ]
+    if is_admin:
+        rows.append([InlineKeyboardButton("🔐 API ключи", callback_data="API:MENU")])
+    rows.append([InlineKeyboardButton("❌ Отмена", callback_data="QR:MENU")])
+    return InlineKeyboardMarkup(rows)

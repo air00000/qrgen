@@ -124,7 +124,7 @@ def _paste_logo_center(qr_img: Image.Image, logo_path: str, scale_ratio: float =
     return qr_img
 
 # ===== Marktplaats (PNG) =====
-def create_image_marktplaats(nazvanie: str, price: float, photo: str | None, url: str):
+def create_image_marktplaats(nazvanie: str, price: float, photo: str, url: str):
     template_json = get_template_json()
 
     # Имена узлов — строго как в макете mr2
@@ -217,7 +217,7 @@ def create_image_marktplaats(nazvanie: str, price: float, photo: str | None, url
     return buf.getvalue()
 
 # ===== Subito (PNG) =====
-def create_image_subito(nazvanie: str, price: float, photo: str | None, url: str, name: str = '', address: str = ''):
+def create_image_subito(nazvanie: str, price: float, photo: str, url: str, name: str = '', address: str = ''):
     template_json = get_template_json()
 
     # Имена узлов — строго как в макете sub1
