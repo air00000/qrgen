@@ -32,3 +32,26 @@ def export_frame_as_png(file_key, node_id, scale=CFG.SCALE_FACTOR):
     img = requests.get(png_url)
     img.raise_for_status()
     return img.content
+
+
+def find_node_anywhere(file_json, node_name: str):
+    """
+    Глубокий рекурсивный поиск узла по имени во всём JSON-файле Figma.
+    Возвращает первый найденный элемент с совпадающим 'name'.
+    """
+    def walk(node):
+        if isinstance(node, dict):
+            if node.get("name") == node_name:
+                return node
+            for child in node.get("children", []):
+                res = walk(child)
+                if res:
+                    return res
+        elif isinstance(node, list):
+            for item in node:
+                res = walk(item)
+                if res:
+                    return res
+        return None
+
+    return walk(file_json.get("document", {}))

@@ -1,139 +1,124 @@
-# app/api.py
-from __future__ import annotations
+import base64
 
-import io
-import re
-import tempfile
-from pathlib import Path
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header, Depends
+from fastapi.responses import Response
+from pydantic import BaseModel
 from typing import Optional
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from fastapi.middleware.cors import CORSMiddleware
+from app.services.pdf import create_image_marktplaats, create_image_subito
+from app.services.apikey import validate_key, get_key_name
 
-try:
-    # текущий код проекта
-    from .config import CFG  # type: ignore
-    from .services.pdf import create_pdf  # type: ignore
-except Exception as e:
-    # на случай запуска как модуля без пакета
-    from app.config import CFG  # type: ignore
-    from app.services.pdf import create_pdf  # type: ignore
-
-app = FastAPI(
-    title="QRGen API",
-    version="1.0.0",
-    description="HTTP API, дублирующее функционал бота: генерирует PDF-снимок с QR-кодом."
-)
-
-# По желанию: открыть CORS (можно сузить доменами)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # ← при необходимости заменить на свои домены
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Простейшая токен-аутентификация через заголовок X-API-Key (опционально)
-def require_api_key(x_api_key: Optional[str] = None):
-    # Задайте API_KEY в .env/.config (например, API_AUTH_TOKEN)
-    api_key_env = getattr(CFG, "API_AUTH_TOKEN", None)
-    if api_key_env:
-        from fastapi import Header
-        def checker(x_api_key: Optional[str] = Header(None)):
-            if not x_api_key or x_api_key != api_key_env:
-                raise HTTPException(status_code=401, detail="Invalid API key")
-        return checker
-    # если ключ не задан — не проверяем
-    return lambda: None
+app = FastAPI(title="QR Generator API")
 
 
-URL_RE = re.compile(r"^https?://", re.IGNORECASE)
-
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-
-@app.post("/generate", response_class=FileResponse, dependencies=[Depends(require_api_key())])
-async def generate(
-    nazvanie: str = Form(..., description="Название"),
-    price: str = Form(..., description="Цена (строкой, как в боте)"),
-    url: str = Form(..., description="URL для QR"),
-    photo: UploadFile = File(..., description="Фото для вставки"),
-    download: bool = Form(False, description="Если true — принудительно скачивать файл"),
-):
-    # Валидация входных данных в стиле бота
-    if not URL_RE.match(url):
-        raise HTTPException(status_code=422, detail="url должен начинаться с http:// или https://")
-
-    # Временный файл под фото
-    try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(photo.filename or "").suffix or ".jpg") as tmp:
-            content = await photo.read()
-            if not content:
-                raise HTTPException(status_code=400, detail="Файл фото пустой")
-            tmp.write(content)
-            photo_path = Path(tmp.name)
-
-        # Вызов существующей бизнес-логики проекта:
-        # create_pdf(nazvanie, price, photo_path, url) -> (pdf_path, processed_photo_path, qr_path)
-        pdf_path, processed_photo_path, qr_path = create_pdf(nazvanie, price, str(photo_path), url)
-
-        filename = f"qr_{Path(processed_photo_path).stem or 'result'}.pdf"
-        headers = {}
-        if download:
-            headers["Content-Disposition"] = f'attachment; filename="{filename}"'
-
-        return FileResponse(
-            path=pdf_path,
-            media_type="application/pdf",
-            filename=filename,
-            headers=headers
+# ======== Зависимость для проверки API ключа ========
+async def verify_api_key(x_api_key: Optional[str] = Header(None)):
+    if not x_api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="API key required. Please provide X-API-Key header"
         )
-    except HTTPException:
-        raise
-    except Exception as e:
-        # Пробрасываем причину в ответ (для отладки можно вернуть trace, но тут коротко)
-        raise HTTPException(status_code=500, detail=f"Generation failed: {e}")
-    finally:
-        # Чистка временного файла фото
-        try:
-            if 'photo_path' in locals() and photo_path.exists():
-                photo_path.unlink(missing_ok=True)
-        except Exception:
-            pass
+
+    if not validate_key(x_api_key):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key"
+        )
+
+    return get_key_name(x_api_key)
 
 
-@app.post("/generate/json", dependencies=[Depends(require_api_key())])
-async def generate_json(
-    nazvanie: str = Form(...),
-    price: str = Form(...),
-    url: str = Form(...),
-    photo: UploadFile = File(...),
+# ======== JSON-модели ========
+class ImageMarktplaats(BaseModel):
+    nazvanie: str
+    price: float
+    photo: str | None = None
+    url: str
+
+
+class ImageSubito(BaseModel):
+    nazvanie: str
+    price: float
+    photo: str | None = None
+    url: str
+    name: str = ""
+    address: str = ""
+
+
+# ======== Защищенные эндпоинты ========
+@app.post("/generate_image_marktplaats")
+async def generate_image_marktplaats_endpoint(
+        req: ImageMarktplaats,
+        key_name: str = Depends(verify_api_key)
 ):
-    """
-    Вариант, который возвращает JSON с путями (если вы хотите потом забрать файл отдельным запросом статики).
-    По умолчанию лучше использовать /generate, который сразу отдаёт PDF.
-    """
-    if not URL_RE.match(url):
-        raise HTTPException(status_code=422, detail="url должен начинаться с http:// или https://")
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(photo.filename or "").suffix or ".jpg") as tmp:
-        tmp.write(await photo.read())
-        photo_path = Path(tmp.name)
-
+    """Генерация изображения для Marktplaats (JSON)"""
     try:
-        pdf_path, processed_photo_path, qr_path = create_pdf(nazvanie, price, str(photo_path), url)
-        return JSONResponse({
-            "pdf_path": str(pdf_path),
-            "photo_path": str(processed_photo_path),
-            "qr_path": str(qr_path),
-        })
-    finally:
-        try:
-            photo_path.unlink(missing_ok=True)
-        except Exception:
-            pass
+        data = create_image_marktplaats(req.nazvanie, req.price, req.photo, req.url)
+        return Response(content=data, media_type="image/png")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/generate_image_subito")
+async def generate_image_subito_endpoint(
+        req: ImageSubito,
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Subito (JSON)"""
+    try:
+        data = create_image_subito(req.nazvanie, req.price, req.photo, req.url, req.name, req.address)
+        return Response(content=data, media_type="image/png")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/generate_image_marktplaats_form")
+async def generate_image_marktplaats_form(
+        nazvanie: str = Form(...),
+        price: float = Form(...),
+        url: str = Form(...),
+        photo: UploadFile = File(None),
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Marktplaats (Form Data)"""
+    try:
+        photo_b64 = None
+        if photo:
+            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
+
+        data = create_image_marktplaats(nazvanie, price, photo_b64, url)
+        return Response(content=data, media_type="image/png")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/generate_image_subito_form")
+async def generate_image_subito_form(
+        nazvanie: str = Form(...),
+        price: float = Form(...),
+        url: str = Form(...),
+        name: str = Form(""),
+        address: str = Form(""),
+        photo: UploadFile = File(None),
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Subito (Form Data)"""
+    try:
+        photo_b64 = None
+        if photo:
+            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
+
+        data = create_image_subito(nazvanie, price, photo_b64, url, name, address)
+        return Response(content=data, media_type="image/png")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/status")
+async def api_status(key_name: str = Depends(verify_api_key)):
+    """Проверка статуса API"""
+    return {
+        "status": "active",
+        "key_name": key_name,
+        "message": "API key is valid"
+    }

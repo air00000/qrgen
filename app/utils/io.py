@@ -1,5 +1,5 @@
 import os
-from config import CFG
+from app.config import CFG
 
 def ensure_dirs():
     os.makedirs(CFG.PHOTO_DIR, exist_ok=True)
