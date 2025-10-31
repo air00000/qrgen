@@ -1,41 +1,57 @@
 import base64
+
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header, Depends
 from fastapi.responses import Response
 from pydantic import BaseModel
+from typing import Optional
 
 from app.services.pdf import create_image_marktplaats, create_image_subito
-from app.services.apikey import verify_key
+from app.services.apikey import validate_key, get_key_name
 
 app = FastAPI(title="QR Generator API")
 
 
-def api_key_auth(x_api_key: str = Header(default=None, alias="X-API-Key")):
-    """Авторизация по API ключу через заголовок X-API-Key"""
-    if not x_api_key or not verify_key(x_api_key):
-        raise HTTPException(status_code=401, detail="Invalid or missing API key")
-    return True
+# ======== Зависимость для проверки API ключа ========
+async def verify_api_key(x_api_key: Optional[str] = Header(None)):
+    if not x_api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="API key required. Please provide X-API-Key header"
+        )
+
+    if not validate_key(x_api_key):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key"
+        )
+
+    return get_key_name(x_api_key)
 
 
 # ======== JSON-модели ========
 class ImageMarktplaats(BaseModel):
     nazvanie: str
     price: float
-    photo: str
+    photo: str | None = None
     url: str
 
 
 class ImageSubito(BaseModel):
     nazvanie: str
     price: float
-    photo: str
+    photo: str | None = None
     url: str
     name: str = ""
     address: str = ""
 
 
-# ======== JSON эндпоинты ========
-@app.post("/generate_image_marktplaats", dependencies=[Depends(api_key_auth)])
-async def generate_image_marktplaats_endpoint(req: ImageMarktplaats):
+# ======== Защищенные эндпоинты ========
+@app.post("/generate_image_marktplaats")
+async def generate_image_marktplaats_endpoint(
+        req: ImageMarktplaats,
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Marktplaats (JSON)"""
     try:
         data = create_image_marktplaats(req.nazvanie, req.price, req.photo, req.url)
         return Response(content=data, media_type="image/png")
@@ -43,25 +59,28 @@ async def generate_image_marktplaats_endpoint(req: ImageMarktplaats):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/generate_image_subito", dependencies=[Depends(api_key_auth)])
-async def generate_image_subito_endpoint(req: ImageSubito):
+@app.post("/generate_image_subito")
+async def generate_image_subito_endpoint(
+        req: ImageSubito,
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Subito (JSON)"""
     try:
-        data = create_image_subito(
-            req.nazvanie, req.price, req.photo, req.url, req.name or "", req.address or ""
-        )
+        data = create_image_subito(req.nazvanie, req.price, req.photo, req.url, req.name, req.address)
         return Response(content=data, media_type="image/png")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ======== FORM эндпоинты ========
-@app.post("/generate_image_marktplaats_form", dependencies=[Depends(api_key_auth)])
+@app.post("/generate_image_marktplaats_form")
 async def generate_image_marktplaats_form(
-    nazvanie: str = Form(...),
-    price: float = Form(...),
-    url: str = Form(...),
-    photo: UploadFile = File(None)
+        nazvanie: str = Form(...),
+        price: float = Form(...),
+        url: str = Form(...),
+        photo: UploadFile = File(None),
+        key_name: str = Depends(verify_api_key)
 ):
+    """Генерация изображения для Marktplaats (Form Data)"""
     try:
         photo_b64 = None
         if photo:
@@ -73,15 +92,17 @@ async def generate_image_marktplaats_form(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/generate_image_subito_form", dependencies=[Depends(api_key_auth)])
+@app.post("/generate_image_subito_form")
 async def generate_image_subito_form(
-    nazvanie: str = Form(...),
-    price: float = Form(...),
-    url: str = Form(...),
-    name: str = Form(""),
-    address: str = Form(""),
-    photo: UploadFile = File(None)
+        nazvanie: str = Form(...),
+        price: float = Form(...),
+        url: str = Form(...),
+        name: str = Form(""),
+        address: str = Form(""),
+        photo: UploadFile = File(None),
+        key_name: str = Depends(verify_api_key)
 ):
+    """Генерация изображения для Subito (Form Data)"""
     try:
         photo_b64 = None
         if photo:
@@ -91,3 +112,13 @@ async def generate_image_subito_form(
         return Response(content=data, media_type="image/png")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/status")
+async def api_status(key_name: str = Depends(verify_api_key)):
+    """Проверка статуса API"""
+    return {
+        "status": "active",
+        "key_name": key_name,
+        "message": "API key is valid"
+    }
