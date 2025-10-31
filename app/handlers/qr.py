@@ -179,26 +179,87 @@ qr_conv = ConversationHandler(
         CallbackQueryHandler(qr_entry_subito, pattern=r"^QR:SUBITO$"),
     ],
     states={
-        QR_NAZVANIE: [MessageHandler(filters.TEXT & ~filters.COMMAND, on_nazvanie),
-                      CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
-                      CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")],
-        QR_PRICE:    [MessageHandler(filters.TEXT & ~filters.COMMAND, on_price),
-                      CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
-                      CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")],
-        QR_NAME:     [MessageHandler(filters.TEXT & ~filters.COMMAND, on_name),
-                      CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
-                      CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")],
-        QR_ADDRESS:  [MessageHandler(filters.TEXT & ~filters.COMMAND, on_address),
-                      CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
-                      CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")],
-        QR_PHOTO:    [MessageHandler(filters.PHOTO, on_photo),
-                      CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
-                      CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$"),
-                      CallbackQueryHandler(on_skip_photo, pattern=r"^QR:SKIP_PHOTO$")],
-        QR_URL:      [MessageHandler(filters.TEXT & ~filters.COMMAND, on_url),
-                      CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
-                      CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")],
+        QR_NAZVANIE: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, on_nazvanie),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
+        ],
+        QR_PRICE: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, on_price),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
+        ],
+        QR_NAME: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, on_name),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
+        ],
+        QR_ADDRESS: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, on_address),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
+        ],
+        QR_PHOTO: [
+            MessageHandler(filters.PHOTO, on_photo),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$"),
+            CallbackQueryHandler(on_skip_photo, pattern=r"^QR:SKIP_PHOTO$")
+        ],
+        QR_URL: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, on_url),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
+        ],
     },
     fallbacks=[CommandHandler("start", qr_menu_cb)],
     allow_reentry=True,
 )
+
+
+async def qr_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик кнопки Назад для QR flow"""
+    await update.callback_query.answer()
+
+    # Логирование для отладки
+    logger.info(f"Back button pressed. Current stack: {context.user_data.get('state_stack', [])}")
+
+    # Извлекаем текущее состояние
+    current_state = pop_state(context.user_data)
+    logger.info(f"Popped current state: {current_state}")
+
+    # Получаем предыдущее состояние
+    prev_state = pop_state(context.user_data)
+    logger.info(f"Previous state: {prev_state}")
+
+    if prev_state is None:
+        logger.info("No previous state, going to menu")
+        return await qr_menu_cb(update, context)
+
+    # Возвращаемся к предыдущему состоянию
+    if prev_state == QR_NAZVANIE:
+        logger.info("Returning to nazvanie")
+        await ask_nazvanie(update, context)
+        return QR_NAZVANIE
+    elif prev_state == QR_PRICE:
+        logger.info("Returning to price")
+        await ask_price(update, context)
+        return QR_PRICE
+    elif prev_state == QR_NAME:
+        logger.info("Returning to name")
+        await ask_name(update, context)
+        return QR_NAME
+    elif prev_state == QR_ADDRESS:
+        logger.info("Returning to address")
+        await ask_address(update, context)
+        return QR_ADDRESS
+    elif prev_state == QR_PHOTO:
+        logger.info("Returning to photo")
+        await ask_photo(update, context)
+        return QR_PHOTO
+    elif prev_state == QR_URL:
+        logger.info("Returning to URL")
+        await ask_url(update, context)
+        return QR_URL
+    else:
+        logger.info(f"Unknown state {prev_state}, going to menu")
+        return await qr_menu_cb(update, context)

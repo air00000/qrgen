@@ -310,6 +310,44 @@ async def api_menu_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+async def api_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Кнопка Назад для API keys flow"""
+    await update.callback_query.answer()
+
+    # Извлекаем текущее состояние
+    current_state = pop_state(context.user_data)
+
+    # Получаем предыдущее состояние
+    prev_state = pop_state(context.user_data)
+
+    if prev_state is None or prev_state == API_MENU:
+        return await show_api_menu(update, context)
+    elif prev_state == API_LIST:
+        return await show_keys_list(update, context)
+    elif prev_state == API_EDIT_MENU:
+        return await show_edit_menu(update, context)
+    elif prev_state == API_DELETE_MENU:
+        return await show_delete_menu(update, context)
+    elif prev_state == API_VIEW_KEY:
+        key = context.user_data.get("current_key")
+        if key:
+            return await show_key_details(update, context, key)
+        else:
+            return await show_api_menu(update, context)
+    elif prev_state == API_WAIT_NAME:
+        return await ask_key_name(update, context)
+    elif prev_state == API_WAIT_NEW_NAME:
+        return await on_edit_name_cb(update, context)
+    else:
+        return await show_api_menu(update, context)
+
+
+async def api_edit_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Специальный обработчик Назад для редактирования"""
+    await update.callback_query.answer()
+    return await show_edit_menu(update, context)
+
+
 # ===== Conversation Handler =====
 
 api_keys_conv = ConversationHandler(
