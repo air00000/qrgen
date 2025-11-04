@@ -1,4 +1,5 @@
 import base64
+import io
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header, Depends
 from fastapi.responses import Response
@@ -9,7 +10,6 @@ from app.services.pdf import create_image_marktplaats, create_image_subito
 from app.services.apikey import validate_key, get_key_name
 
 app = FastAPI(title="QR Generator API")
-
 
 # ======== Зависимость для проверки API ключа ========
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
@@ -27,14 +27,12 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None)):
 
     return get_key_name(x_api_key)
 
-
 # ======== JSON-модели ========
 class ImageMarktplaats(BaseModel):
     nazvanie: str
     price: float
     photo: str | None = None
     url: str
-
 
 class ImageSubito(BaseModel):
     nazvanie: str
@@ -44,7 +42,6 @@ class ImageSubito(BaseModel):
     name: str = ""
     address: str = ""
 
-
 # ======== Защищенные эндпоинты ========
 @app.post("/generate_image_marktplaats")
 async def generate_image_marktplaats_endpoint(
@@ -53,11 +50,10 @@ async def generate_image_marktplaats_endpoint(
 ):
     """Генерация изображения для Marktplaats (JSON)"""
     try:
-        data = create_image_marktplaats(req.nazvanie, req.price, req.photo, req.url)
-        return Response(content=data, media_type="image/png")
+        image_data = create_image_marktplaats(req.nazvanie, req.price, req.photo, req.url)
+        return Response(content=image_data, media_type="image/png")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.post("/generate_image_subito")
 async def generate_image_subito_endpoint(
@@ -66,11 +62,10 @@ async def generate_image_subito_endpoint(
 ):
     """Генерация изображения для Subito (JSON)"""
     try:
-        data = create_image_subito(req.nazvanie, req.price, req.photo, req.url, req.name, req.address)
-        return Response(content=data, media_type="image/png")
+        image_data = create_image_subito(req.nazvanie, req.price, req.photo, req.url, req.name, req.address)
+        return Response(content=image_data, media_type="image/png")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.post("/generate_image_marktplaats_form")
 async def generate_image_marktplaats_form(
@@ -86,11 +81,10 @@ async def generate_image_marktplaats_form(
         if photo:
             photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
 
-        data = create_image_marktplaats(nazvanie, price, photo_b64, url)
-        return Response(content=data, media_type="image/png")
+        image_data = create_image_marktplaats(nazvanie, price, photo_b64, url)
+        return Response(content=image_data, media_type="image/png")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.post("/generate_image_subito_form")
 async def generate_image_subito_form(
@@ -108,11 +102,10 @@ async def generate_image_subito_form(
         if photo:
             photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
 
-        data = create_image_subito(nazvanie, price, photo_b64, url, name, address)
-        return Response(content=data, media_type="image/png")
+        image_data = create_image_subito(nazvanie, price, photo_b64, url, name, address)
+        return Response(content=image_data, media_type="image/png")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.get("/api/status")
 async def api_status(key_name: str = Depends(verify_api_key)):

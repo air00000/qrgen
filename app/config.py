@@ -13,12 +13,11 @@ class CFG:
     LOGO_URL = os.getenv("LOGO_URL")
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     PHOTO_DIR = os.path.join(BASE_DIR, "assets", "foti")
-    TEMP_DIR = os.path.join(PHOTO_DIR, "temp")
     FONTS_DIR = os.path.join(BASE_DIR, "assets", "fonts")
     CONVERSION_FACTOR = 72 / 96
     SCALE_FACTOR = 2
     TEXT_OFFSET = 2.5
-    CORNER_RADIUS = 35
+    CORNER_RADIUS = 15
     QR_SIZE = 2000
     QR_RESIZE = (1368, 1368)
     FIGMA_API_URL = "https://api.figma.com/v1"
