@@ -1,3 +1,4 @@
+# app/keyboards/qr.py
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 def main_menu_kb():
@@ -22,6 +23,9 @@ def service_select_kb(is_admin: bool = False):
         [
             InlineKeyboardButton("📦 Marktplaats", callback_data="QR:START"),
             InlineKeyboardButton("🇮🇹 Subito", callback_data="QR:SUBITO"),
+        ],
+        [
+            InlineKeyboardButton("🇪🇺 Wallapop", callback_data="QR:WALLAPOP"),
         ],
     ]
     if is_admin:

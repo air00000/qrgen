@@ -1,3 +1,4 @@
+# app/api.py
 import base64
 import io
 
@@ -6,7 +7,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Optional
 
-from app.services.pdf import create_image_marktplaats, create_image_subito
+from app.services.pdf import create_image_marktplaats, create_image_subito, create_image_wallapop
 from app.services.apikey import validate_key, get_key_name
 
 app = FastAPI(title="QR Generator API")
@@ -42,6 +43,12 @@ class ImageSubito(BaseModel):
     name: str = ""
     address: str = ""
 
+class ImageWallapop(BaseModel):
+    lang: str
+    nazvanie: str
+    price: float
+    photo: str | None = None
+
 # ======== Защищенные эндпоинты ========
 @app.post("/generate_image_marktplaats")
 async def generate_image_marktplaats_endpoint(
@@ -63,6 +70,18 @@ async def generate_image_subito_endpoint(
     """Генерация изображения для Subito (JSON)"""
     try:
         image_data = create_image_subito(req.nazvanie, req.price, req.photo, req.url, req.name, req.address)
+        return Response(content=image_data, media_type="image/png")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_wallapop")
+async def generate_image_wallapop_endpoint(
+        req: ImageWallapop,
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Wallapop (JSON)"""
+    try:
+        image_data = create_image_wallapop(req.lang, req.nazvanie, req.price, req.photo)
         return Response(content=image_data, media_type="image/png")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -103,6 +122,25 @@ async def generate_image_subito_form(
             photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
 
         image_data = create_image_subito(nazvanie, price, photo_b64, url, name, address)
+        return Response(content=image_data, media_type="image/png")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_wallapop_form")
+async def generate_image_wallapop_form(
+        lang: str = Form(...),
+        nazvanie: str = Form(...),
+        price: float = Form(...),
+        photo: UploadFile = File(None),
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Wallapop (Form Data)"""
+    try:
+        photo_b64 = None
+        if photo:
+            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
+
+        image_data = create_image_wallapop(lang, nazvanie, price, photo_b64)
         return Response(content=image_data, media_type="image/png")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

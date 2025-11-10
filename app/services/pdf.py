@@ -1,3 +1,4 @@
+# app/services/pdf.py
 import os
 import io
 import uuid
@@ -319,24 +320,150 @@ def create_image_subito(nazvanie: str, price: float, photo: str, url: str, name:
     return buf.getvalue()
 
 
-# ===== Обёртки для бота (обновлённые) =====
-def create_pdf(nazvanie, price, photo_path, url):
-    """Обёртка для бота - возвращает bytes вместо пути к файлу"""
-    photo_b64 = None
-    if photo_path and os.path.exists(photo_path):
-        with open(photo_path, "rb") as f:
-            photo_b64 = base64.b64encode(f.read()).decode("utf-8")
+def create_image_wallapop(lang: str, nazvanie: str, price: float, photo: str = None) -> bytes:
+    """Генерация изображения для Wallapop v2, возвращает bytes PNG"""
 
+    if lang not in ('uk', 'es', 'it', 'fr'):
+        raise HTTPException(status_code=400, detail="lang must be: uk/es/it/fr")
+
+    template_json = get_template_json()
+
+    frame_name = f"wallapop2_{lang}"
+    nazvanie_layer = f"nazvwal2_{lang}"
+    price_layer = f"pricewal2_{lang}"
+    time_layer = f"timewa2_{lang}"
+    photo_layer = f"photowal2_{lang}"
+    small_price_layer = f"smallpricewal2_{lang}"
+
+    frame_node = find_node(template_json, "Page 2", frame_name)
+    if not frame_node:
+        raise HTTPException(status_code=500, detail=f"Фрейм {frame_name} не найден")
+
+    nodes = {
+        "nazvanie": find_node(template_json, "Page 2", nazvanie_layer),
+        "price": find_node(template_json, "Page 2", price_layer),
+        "time": find_node(template_json, "Page 2", time_layer),
+        "photo": find_node(template_json, "Page 2", photo_layer),
+        "small_price": find_node(template_json, "Page 2", small_price_layer)
+    }
+
+    if any(n is None for n in nodes.values()):
+        miss = [k for k, v in nodes.items() if v is None]
+        raise HTTPException(status_code=500, detail=f"Не найдены узлы: {', '.join(miss)}")
+
+    # Фон из Figma
+    frame_png = export_frame_as_png(CFG.TEMPLATE_FILE_KEY, frame_node["id"])
+    frame_img = Image.open(io.BytesIO(frame_png)).convert("RGBA")
+    w = int(frame_node["absoluteBoundingBox"]["width"] * CFG.SCALE_FACTOR)
+    h = int(frame_node["absoluteBoundingBox"]["height"] * CFG.SCALE_FACTOR)
+    frame_img = frame_img.resize((w, h), Image.Resampling.LANCZOS)
+
+    result = Image.new("RGBA", (w, h), (255, 255, 255, 0))
+    result.paste(frame_img, (0, 0))
+    draw = ImageDraw.Draw(result)
+
+    # Шрифты
+    try:
+        montserrat_path = os.path.join(CFG.FONTS_DIR, "Montserrat-SemiBold.ttf")
+        sfpro_path = os.path.join(CFG.FONTS_DIR, "SFProText-Semibold.ttf")
+
+        font_big = ImageFont.truetype(montserrat_path, int(400 * CFG.SCALE_FACTOR))
+        font_small = ImageFont.truetype(montserrat_path, int(125 * CFG.SCALE_FACTOR))
+        font_time = ImageFont.truetype(sfpro_path, int(108 * CFG.SCALE_FACTOR))
+    except Exception:
+        # Fallback fonts
+        font_big = ImageFont.load_default()
+        font_small = ImageFont.load_default()
+        font_time = ImageFont.load_default()
+
+    # Вспомогательные функции
+    def get_pos(node, y_offset=0):
+        abs_box = node["absoluteBoundingBox"]
+        rx = abs_box["x"] - frame_node["absoluteBoundingBox"]["x"]
+        ry = abs_box["y"] - frame_node["absoluteBoundingBox"]["y"]
+        x = int(rx * CFG.SCALE_FACTOR)
+        y = int(ry * CFG.SCALE_FACTOR) + int(y_offset * CFG.SCALE_FACTOR)
+        return x, y
+
+    def get_size(node):
+        return int(node["absoluteBoundingBox"]["width"] * CFG.SCALE_FACTOR), int(
+            node["absoluteBoundingBox"]["height"] * CFG.SCALE_FACTOR)
+
+    # Форматирование цены
+    SUPER = str.maketrans('0123456789', '⁰¹²³⁴⁵⁶⁷⁸⁹')
+
+    def format_price(p: float) -> str:
+        e = int(p)
+        c = int(round((p - e) * 100))
+        return f"€{e}.{c:02d}"
+
+    def format_price_big(p: float) -> str:
+        e = int(p)
+        cents = int(round((p - e) * 100))
+        return f"€{e}{str(cents).zfill(2).translate(SUPER)}"
+
+    # Фото
+    if photo and nodes["photo"]:
+        photo_img = process_photo_in_memory(photo)
+        if photo_img:
+            pw, ph = get_size(nodes["photo"])
+            px, py = get_pos(nodes["photo"])
+            photo_img = photo_img.resize((pw, ph), Image.Resampling.LANCZOS)
+            result.paste(photo_img, (px, py), photo_img)
+
+    # Большая цена
+    price_big = format_price_big(price)
+    price_node = nodes["price"]
+    px, base_y = get_pos(price_node)
+    block_w, block_h = get_size(price_node)
+    bbox = draw.textbbox((0, 0), price_big, font=font_big)
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
+    cx = px + (block_w - text_w) // 2
+    cy = base_y + (block_h - text_h) + 48 // 2
+    draw.text((cx, cy - int(184 * CFG.SCALE_FACTOR)), price_big, font=font_big, fill="#172E36")
+
+    # Маленькая цена
+    price_small = format_price(price)
+    small_node = nodes["small_price"]
+    sx, sy = get_pos(small_node)
+    draw.text((sx, sy), price_small, font=font_small, fill="#676968")
+
+    # Название
+    naz_node = nodes["nazvanie"]
+    nx, ny = get_pos(naz_node)
+    draw.text((nx, ny), nazvanie, font=font_small, fill="#000000")
+
+    # Время
+    TIMEZONES = {'uk': 'Europe/London', 'es': 'Europe/Madrid', 'it': 'Europe/Rome', 'fr': 'Europe/Paris'}
+    time_node = nodes["time"]
+    tx, ty = get_pos(time_node)
+    tw, _ = get_size(time_node)
+
+    tz = timezone(TIMEZONES[lang])
+    time_txt = datetime.datetime.now(tz).strftime('%H:%M')
+    bbox = draw.textbbox((0, 0), time_txt, font=font_time)
+    text_w = bbox[2] - bbox[0]
+    draw.text((tx + tw - text_w, ty), time_txt, font=font_time, fill="#000000")
+
+    # Финальный ресайз
+    FINAL_WIDTH, FINAL_HEIGHT = 1242, 2696
+    result = result.resize((FINAL_WIDTH, FINAL_HEIGHT), Image.Resampling.LANCZOS).convert("RGB")
+    buf = io.BytesIO()
+    result.save(buf, format="PNG", optimize=True, compress_level=6)
+    return buf.getvalue()
+
+def create_pdf(nazvanie, price, photo_b64, url):
+    """Обёртка для бота - возвращает bytes вместо пути к файлу"""
     image_data = create_image_marktplaats(nazvanie, float(price), photo_b64, url)
     return image_data, None, None
 
-
-def create_pdf_subito(nazvanie, price, name, address, photo_path, url, language=None):
+def create_pdf_subito(nazvanie, price, name, address, photo_b64, url, language=None):
     """Обёртка для бота - возвращает bytes вместо пути к файлу"""
-    photo_b64 = None
-    if photo_path and os.path.exists(photo_path):
-        with open(photo_path, "rb") as f:
-            photo_b64 = base64.b64encode(f.read()).decode("utf-8")
-
     image_data = create_image_subito(nazvanie, float(price), photo_b64, url, name, address)
+    return image_data, None, None
+
+def create_pdf_wallapop(lang: str, nazvanie: str, price: float, photo_b64: str = None):
+    """Обёртка для бота - возвращает bytes вместо пути к файлу"""
+    image_data = create_image_wallapop(lang, nazvanie, float(price), photo_b64)
     return image_data, None, None

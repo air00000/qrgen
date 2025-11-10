@@ -1,3 +1,4 @@
+# app/handlers/menu.py
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 from app.config import CFG
@@ -16,6 +17,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [
             InlineKeyboardButton("📦 Marktplaats", callback_data="QR:START"),
             InlineKeyboardButton("🇮🇹 Subito", callback_data="QR:SUBITO"),
+        ],
+        [
+            InlineKeyboardButton("🇪🇺 Wallapop", callback_data="QR:WALLAPOP"),
         ]
     ]
 
