@@ -19,7 +19,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("🇮🇹 Subito", callback_data="QR:SUBITO"),
         ],
         [
-            InlineKeyboardButton("🇪🇺 Wallapop", callback_data="QR:WALLAPOP"),
+            InlineKeyboardButton("🇪🇺 Wallapop", callback_data="QR:WALLAPOP_MENU"),
         ]
     ]
 
