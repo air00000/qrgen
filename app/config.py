@@ -1,8 +1,10 @@
+# app/config.py
 import os
 from dotenv import load_dotenv
 from pytz import timezone
 
 load_dotenv()
+
 
 class CFG:
     KEYS_PATH = os.getenv("APIKEYS")
@@ -24,6 +26,12 @@ class CFG:
     QR_ENDPOINT = "https://api.qrtiger.com/api/qr/static"
     TZ = timezone(os.getenv("TZ", "Europe/Amsterdam"))
     _ADMIN_IDS_RAW = os.getenv("ADMINS", "")
+
+    # Wallapop Email конфигурация
+    WALLAPOP_EMAIL_FIGMA_PAT = os.getenv("WALLAPOP_EMAIL_FIGMA_PAT", "figd_dG6hrm0ysjdpJDGcGio2T6uJw45GPTKJGzFPvd3z")
+    WALLAPOP_EMAIL_FILE_KEY = os.getenv("WALLAPOP_EMAIL_FILE_KEY", "76mcmHxmZ5rhQSY02Kw5pn")
+    WALLAPOP_EMAIL_SCALE = 1
+
     try:
         ADMIN_IDS = {int(x.strip()) for x in _ADMIN_IDS_RAW.split(",") if x.strip()}
     except ValueError:
