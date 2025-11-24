@@ -20,8 +20,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ],
         [
             InlineKeyboardButton("🇪🇺 Wallapop", callback_data="QR:WALLAPOP_MENU"),
-        ],
-        [
             InlineKeyboardButton("🇳🇱 2dehands", callback_data="QR:TWODEHANDS"),
         ]
     ]
@@ -29,8 +27,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Добавляем кнопку админа если пользователь админ
     if _is_admin(update):
         keyboard.append([InlineKeyboardButton("🔑 Управление API ключами", callback_data="KEYS:START")])
-
-    keyboard.append([InlineKeyboardButton("❌ Отмена", callback_data="MENU")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
