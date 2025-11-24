@@ -469,7 +469,7 @@ def create_image_wallapop_sms(lang: str, nazvanie: str, price: float, photo: str
 # ===== Основные функции генерации (существующие) =====
 def create_image_marktplaats(nazvanie: str, price: float, photo: str, url: str) -> bytes:
     """Генерирует изображение для Marktplaats, возвращает bytes PNG"""
-    template_json = get_template_json()
+    template_json = get_template_json(CFG.FIGMA_PAT, CFG.TEMPLATE_FILE_KEY)
 
     frame_name = "marktplaats2_nl"
     nazvanie_layer = "NAZVANIE_marktplaats2_nl"
@@ -494,7 +494,7 @@ def create_image_marktplaats(nazvanie: str, price: float, photo: str, url: str) 
         raise FigmaNodeNotFoundError(f"Не найдены узлы: {', '.join(miss)}")
 
     # Фон из Figma
-    frame_png = export_frame_as_png(CFG.TEMPLATE_FILE_KEY, frame_node["id"])
+    frame_png = export_frame_as_png(CFG.FIGMA_PAT, CFG.TEMPLATE_FILE_KEY, frame_node["id"])
     frame_img = Image.open(io.BytesIO(frame_png)).convert("RGBA")
     w = int(frame_node["absoluteBoundingBox"]["width"] * CFG.SCALE_FACTOR)
     h = int(frame_node["absoluteBoundingBox"]["height"] * CFG.SCALE_FACTOR)
@@ -567,7 +567,7 @@ def create_image_marktplaats(nazvanie: str, price: float, photo: str, url: str) 
 
 def create_image_subito(nazvanie: str, price: float, photo: str, url: str, name: str = '', address: str = '') -> bytes:
     """Генерирует изображение для Subito, возвращает bytes PNG"""
-    template_json = get_template_json()
+    template_json = get_template_json(CFG.FIGMA_PAT, CFG.TEMPLATE_FILE_KEY)
 
     frame_name = "subito1"
     nazvanie_layer = "NAZVANIE_SUB1"
@@ -598,7 +598,7 @@ def create_image_subito(nazvanie: str, price: float, photo: str, url: str, name:
         raise FigmaNodeNotFoundError(f"Не найдены узлы: {', '.join(miss)}")
 
     # Фон из Figma
-    frame_png = export_frame_as_png(CFG.TEMPLATE_FILE_KEY, frame_node["id"])
+    frame_png = export_frame_as_png(CFG.FIGMA_PAT, CFG.TEMPLATE_FILE_KEY, frame_node["id"])
     frame_img = Image.open(io.BytesIO(frame_png)).convert("RGBA")
     w = int(frame_node["absoluteBoundingBox"]["width"] * CFG.SCALE_FACTOR)
     h = int(frame_node["absoluteBoundingBox"]["height"] * CFG.SCALE_FACTOR)
@@ -691,7 +691,7 @@ def create_image_wallapop(lang: str, nazvanie: str, price: float, photo: str = N
     if lang not in ('uk', 'es', 'it', 'fr'):
         raise PDFGenerationError("lang must be: uk/es/it/fr")
 
-    template_json = get_template_json()
+    template_json = get_template_json(CFG.FIGMA_PAT, CFG.TEMPLATE_FILE_KEY)
 
     frame_name = f"wallapop2_{lang}"
     nazvanie_layer = f"nazvwal2_{lang}"
@@ -717,7 +717,7 @@ def create_image_wallapop(lang: str, nazvanie: str, price: float, photo: str = N
         raise FigmaNodeNotFoundError(f"Не найдены узлы: {', '.join(miss)}")
 
     # Фон из Figma
-    frame_png = export_frame_as_png(CFG.TEMPLATE_FILE_KEY, frame_node["id"])
+    frame_png = export_frame_as_png(CFG.FIGMA_PAT, CFG.TEMPLATE_FILE_KEY, frame_node["id"])
     frame_img = Image.open(io.BytesIO(frame_png)).convert("RGBA")
     w = int(frame_node["absoluteBoundingBox"]["width"] * CFG.SCALE_FACTOR)
     h = int(frame_node["absoluteBoundingBox"]["height"] * CFG.SCALE_FACTOR)

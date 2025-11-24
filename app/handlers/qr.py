@@ -12,7 +12,7 @@ from telegram.ext import (
     MessageHandler, CommandHandler, filters
 )
 
-from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, wallapop_type_kb, wallapop_lang_kb
+from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, wallapop_type_kb, wallapop_lang_kb, twodehands_lang_kb
 from app.utils.state_stack import push_state, pop_state, clear_stack
 from app.services.pdf import create_pdf, create_pdf_subito, create_pdf_wallapop, create_pdf_wallapop_email, create_pdf_wallapop_sms
 
@@ -47,6 +47,40 @@ async def qr_entry_wallapop_menu(update: Update, context: ContextTypes.DEFAULT_T
     clear_stack(context.user_data)
     await update.callback_query.answer()
     return await ask_wallapop_type(update, context)
+
+
+async def qr_entry_twodehands(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт 2DEHANDS"""
+    context.user_data["service"] = "twodehands"
+    clear_stack(context.user_data)
+    await update.callback_query.answer()
+    return await ask_twodehands_lang(update, context)
+
+
+async def ask_twodehands_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Запрос языка для 2dehands"""
+    push_state(context.user_data, QR_LANG)
+    text = "Выбери язык для 2dehands:"
+    
+    if update.callback_query:
+        await update.callback_query.message.edit_text(text, reply_markup=twodehands_lang_kb())
+    else:
+        await update.message.reply_text(text, reply_markup=twodehands_lang_kb())
+    
+    return QR_LANG
+
+
+async def on_twodehands_lang_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработка выбора языка для 2dehands"""
+    lang = update.callback_query.data.replace("TWODEHANDS_LANG_", "")
+    
+    if lang not in ['nl', 'fr']:
+        await update.callback_query.answer("❌ Неправильный язык")
+        return QR_LANG
+    
+    context.user_data["lang"] = lang
+    await update.callback_query.answer(f"Выбран язык: {lang.upper()}")
+    return await ask_nazvanie(update, context)
 
 
 async def ask_wallapop_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -268,7 +302,9 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         service = context.user_data.get("service", "marktplaats")
         wallapop_type = context.user_data.get("wallapop_type", "link")
 
-        if service == "wallapop_email":
+        if service == "twodehands":
+            return await ask_url(update, context)
+        elif service == "wallapop_email":
             return await generate_wallapop_email(update, context)
         elif service == "wallapop" and wallapop_type == "link":
             return await generate_wallapop(update, context)
@@ -297,7 +333,20 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
 
-        if service == "subito":
+        if service == "twodehands":
+            # Импортируем функцию для 2dehands
+            from app.services.twodehands import create_2dehands_image
+            lang = context.user_data.get("lang", "nl")
+            
+            try:
+                price_float = float(price)
+            except ValueError:
+                price_float = 0.0
+            
+            image_data = await asyncio.to_thread(
+                create_2dehands_image, nazvanie, price_float, photo_b64, url, lang
+            )
+        elif service == "subito":
             image_data, _, _ = await asyncio.to_thread(
                 create_pdf_subito, nazvanie, price, name, address, photo_b64, url
             )
@@ -444,7 +493,9 @@ async def on_skip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     service = context.user_data.get("service", "marktplaats")
     wallapop_type = context.user_data.get("wallapop_type", "link")
 
-    if service == "wallapop_email":
+    if service == "twodehands":
+        return await ask_url(update, context)
+    elif service == "wallapop_email":
         return await generate_wallapop_email(update, context)
     elif service == "wallapop" and wallapop_type == "link":
         return await generate_wallapop(update, context)
@@ -508,6 +559,7 @@ qr_conv = ConversationHandler(
         CallbackQueryHandler(qr_entry, pattern=r"^QR:START$"),
         CallbackQueryHandler(qr_entry_subito, pattern=r"^QR:SUBITO$"),
         CallbackQueryHandler(qr_entry_wallapop_menu, pattern=r"^QR:WALLAPOP_MENU$"),
+        CallbackQueryHandler(qr_entry_twodehands, pattern=r"^QR:TWODEHANDS$"),
     ],
     states={
         QR_WALLAPOP_TYPE: [
@@ -521,6 +573,7 @@ qr_conv = ConversationHandler(
             CallbackQueryHandler(on_wallapop_lang_callback, pattern=r"^WALLAPOP_LANG_"),
             CallbackQueryHandler(on_wallapop_email_lang_callback, pattern=r"^WALLAPOP_EMAIL_LANG_"),
             CallbackQueryHandler(on_wallapop_sms_lang_callback, pattern=r"^WALLAPOP_SMS_LANG_"),
+            CallbackQueryHandler(on_twodehands_lang_callback, pattern=r"^TWODEHANDS_LANG_"),
             CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
             CallbackQueryHandler(wallapop_back_cb, pattern=r"^QR:WALLAPOP_BACK$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")

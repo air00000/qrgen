@@ -76,3 +76,14 @@ def wallapop_lang_kb(wallapop_type: str = "link"):
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
+
+
+def twodehands_lang_kb():
+    """Клавиатура выбора языка для 2dehands"""
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🇳🇱 NL", callback_data="TWODEHANDS_LANG_nl"),
+            InlineKeyboardButton("🇫🇷 FR", callback_data="TWODEHANDS_LANG_fr"),
+        ],
+        [InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK")],
+    ])
