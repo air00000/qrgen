@@ -261,6 +261,7 @@ async def generate_image_wallapop_sms_form(
 @app.post("/generate_image_2dehands")
 async def generate_image_2dehands_endpoint(
         req: Image2dehands,
+        key_name: str = Depends(verify_api_key)
 ):
     """Генерация изображения для 2dehands/2ememain (JSON)"""
     try:
@@ -278,6 +279,7 @@ async def generate_image_2dehands_form(
         url: str = Form(...),
         language: str = Form(...),
         photo: UploadFile = File(None),
+        key_name: str = Depends(verify_api_key)
 ):
     """Генерация изображения для 2dehands/2ememain (Form Data)"""
     try:
