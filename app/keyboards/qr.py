@@ -36,7 +36,10 @@ def service_select_kb(is_admin: bool = False):
         ],
         [
             InlineKeyboardButton("🇪🇺 Wallapop", callback_data="QR:WALLAPOP_MENU"),
-            InlineKeyboardButton("🇳🇱 2dehands", callback_data="QR:TWODEHANDS"),
+        ],
+        [
+            InlineKeyboardButton("🇳🇱 2dehands", callback_data="QR:2DEHANDS"),
+            InlineKeyboardButton("🇫🇷 2ememain", callback_data="QR:2EMEMAIN"),
         ],
     ]
     if is_admin:
@@ -86,17 +89,3 @@ def wallapop_lang_kb(wallapop_type: str = "link"):
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
-
-
-def twodehands_lang_kb():
-    """Клавиатура выбора языка для 2dehands"""
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🇳🇱 NL", callback_data="TWODEHANDS_LANG_nl"),
-            InlineKeyboardButton("🇫🇷 FR", callback_data="TWODEHANDS_LANG_fr"),
-        ],
-        [
-            InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK"),
-            InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")
-        ],
-    ])

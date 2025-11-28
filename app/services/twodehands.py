@@ -26,7 +26,7 @@ QR_COLOR = "#11223E"
 QR_LOGO_URL = "https://i.ibb.co/6crPXzDJ/2dehlogo.png"
 
 
-class TwoDehandsGenerationError(Exception):
+class DehandsGenerationError(Exception):
     """Базовое исключение для ошибок генерации 2dehands"""
     pass
 
@@ -87,19 +87,19 @@ def generate_qr_2dehands(url: str) -> Image.Image:
         logger.info(f"📥 Получен ответ: {response.status_code}")
     except requests.Timeout:
         logger.error("❌ Timeout при запросе QR API")
-        raise TwoDehandsGenerationError("Timeout при генерации QR")
+        raise DehandsGenerationError("Timeout при генерации QR")
     except Exception as e:
         logger.error(f"❌ Ошибка запроса QR API: {e}")
         raise
     
     if response.status_code != 200:
         logger.error(f"❌ QR API вернул ошибку: {response.status_code} - {response.text}")
-        raise TwoDehandsGenerationError(f"Ошибка API QR: {response.text}")
+        raise DehandsGenerationError(f"Ошибка API QR: {response.text}")
     
     data = response.json().get('data')
     if not data:
         logger.error("❌ Нет данных QR в ответе")
-        raise TwoDehandsGenerationError("Нет данных QR в ответе от QR API")
+        raise DehandsGenerationError("Нет данных QR в ответе от QR API")
     
     logger.info("🎨 Обработка QR изображения...")
     
@@ -179,7 +179,7 @@ def create_2dehands_image(nazvanie: str, price: float, photo: Optional[str], url
     frame_node = find_node(template_json, 'Page 2', frame_name)
     if not frame_node:
         logger.error(f"❌ Фрейм {frame_name} не найден")
-        raise TwoDehandsGenerationError(f"Фрейм {frame_name} не найден")
+        raise DehandsGenerationError(f"Фрейм {frame_name} не найден")
     
     logger.info(f"✅ Фрейм найден, поиск слоёв...")
     
@@ -194,7 +194,7 @@ def create_2dehands_image(nazvanie: str, price: float, photo: Optional[str], url
     missing_nodes = [label for label, node in nodes.items() if not node]
     if missing_nodes:
         logger.error(f"❌ Не найдены узлы: {', '.join(missing_nodes)}")
-        raise TwoDehandsGenerationError(f"Не найдены узлы: {', '.join(missing_nodes)}")
+        raise DehandsGenerationError(f"Не найдены узлы: {', '.join(missing_nodes)}")
     
     logger.info("✅ Все узлы найдены")
     
