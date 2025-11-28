@@ -12,6 +12,7 @@ from app.services.pdf import (
     create_image_wallapop_email, create_image_wallapop_sms, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError
 )
 from app.services.twodehands import create_2dehands_image, DehandsGenerationError
+from app.services.kleinanzeigen import create_kleinanzeigen_image, KleinanzeigenGenerationError
 from app.services.apikey import validate_key, get_key_name
 
 app = FastAPI(title="QR Generator API")
@@ -78,6 +79,14 @@ class Image2ememain(BaseModel):
     """Модель для 2ememain (французский)"""
     nazvanie: str
     price: float
+    photo: str = None
+    url: str
+
+class ImageKleinanzeigen(BaseModel):
+    """Модель для Kleinanzeigen"""
+    nazvanie: str
+    price: float
+    mesto: str
     photo: str = None
     url: str
 
@@ -331,6 +340,43 @@ async def generate_image_2ememain_form(
         image_data = create_2dehands_image(nazvanie, price, photo_b64, url, "fr")
         return Response(content=image_data, media_type="image/png")
     except (DehandsGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/generate_image_kleinanzeigen")
+async def generate_image_kleinanzeigen_endpoint(
+        req: ImageKleinanzeigen,
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Kleinanzeigen (JSON)"""
+    try:
+        image_data = create_kleinanzeigen_image(req.nazvanie, req.price, req.mesto, req.photo, req.url)
+        return Response(content=image_data, media_type="image/png")
+    except (KleinanzeigenGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_kleinanzeigen_form")
+async def generate_image_kleinanzeigen_form(
+        nazvanie: str = Form(...),
+        price: float = Form(...),
+        mesto: str = Form(...),
+        url: str = Form(...),
+        photo: UploadFile = File(None),
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Kleinanzeigen (Form Data)"""
+    try:
+        photo_b64 = None
+        if photo:
+            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
+
+        image_data = create_kleinanzeigen_image(nazvanie, price, mesto, photo_b64, url)
+        return Response(content=image_data, media_type="image/png")
+    except (KleinanzeigenGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
