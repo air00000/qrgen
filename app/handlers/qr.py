@@ -12,15 +12,16 @@ from telegram.ext import (
     MessageHandler, CommandHandler, filters
 )
 
-from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, wallapop_type_kb, wallapop_lang_kb
+from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, wallapop_type_kb, wallapop_lang_kb, kleize_type_kb
 from app.utils.state_stack import push_state, pop_state, clear_stack
 from app.services.pdf import create_pdf, create_pdf_subito, create_pdf_wallapop, create_pdf_wallapop_email, create_pdf_wallapop_sms
+from app.services.kleize import create_image_kleize
 
 logger = logging.getLogger(__name__)
 
 # Состояния
-QR_NAZVANIE, QR_PRICE, QR_NAME, QR_ADDRESS, QR_PHOTO, QR_URL, QR_LANG, QR_SELLER_NAME, QR_SELLER_PHOTO, QR_WALLAPOP_TYPE, QR_MESTO = range(
-    11)
+QR_NAZVANIE, QR_PRICE, QR_NAME, QR_ADDRESS, QR_PHOTO, QR_URL, QR_LANG, QR_SELLER_NAME, QR_SELLER_PHOTO, QR_WALLAPOP_TYPE, QR_MESTO, QR_KLEIZE_TYPE = range(
+    12)
 
 
 async def qr_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -68,9 +69,38 @@ async def qr_entry_2ememain(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def qr_entry_kleinanzeigen(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Старт KLEINANZEIGEN"""
-    context.user_data["service"] = "kleinanzeigen"
+    """Меню выбора типа Kleize"""
+    context.user_data["service"] = "kleize"
     clear_stack(context.user_data)
+    await update.callback_query.answer()
+    return await ask_kleize_type(update, context)
+
+
+async def ask_kleize_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Запрос типа Kleize"""
+    push_state(context.user_data, QR_KLEIZE_TYPE)
+    text = "Выбери тип Kleize:"
+
+    if update.callback_query:
+        await update.callback_query.message.edit_text(text, reply_markup=kleize_type_kb())
+    else:
+        await update.message.reply_text(text, reply_markup=kleize_type_kb())
+
+    return QR_KLEIZE_TYPE
+
+
+async def qr_entry_kleize(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт KLEIZE (базовый)"""
+    context.user_data["service"] = "kleize"
+    context.user_data["kleize_type"] = "kleize"
+    await update.callback_query.answer()
+    return await ask_nazvanie(update, context)
+
+
+async def qr_entry_kleize_uniq(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт KLEIZE UNIQ"""
+    context.user_data["service"] = "kleize"
+    context.user_data["kleize_type"] = "kleize_uniq"
     await update.callback_query.answer()
     return await ask_nazvanie(update, context)
 
@@ -251,7 +281,7 @@ async def on_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     service = context.user_data.get("service", "marktplaats")
     wallapop_type = context.user_data.get("wallapop_type", "link")
 
-    if service == "kleinanzeigen":
+    if service in ["kleinanzeigen", "kleize"]:
         return await ask_mesto(update, context)
     elif service == "subito":
         return await ask_name(update, context)
@@ -346,7 +376,29 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
 
-        if service == "kleinanzeigen":
+        if service == "kleize":
+            # Обработка Kleize
+            mesto = context.user_data.get("mesto", "")
+            kleize_type = context.user_data.get("kleize_type", "kleize")
+            
+            try:
+                price_float = float(price)
+            except ValueError:
+                price_float = 0.0
+            
+            image_data, photo_path, qr_path = await asyncio.to_thread(
+                create_image_kleize, nazvanie, price_float, mesto, photo_b64, url, kleize_type
+            )
+            
+            # Очистка временных файлов
+            for path in [photo_path, qr_path]:
+                if path and os.path.exists(path):
+                    try:
+                        os.remove(path)
+                    except:
+                        pass
+                        
+        elif service == "kleinanzeigen":
             # Импортируем функцию для Kleinanzeigen
             from app.services.kleinanzeigen import create_kleinanzeigen_image
             mesto = context.user_data.get("mesto", "")
@@ -549,6 +601,8 @@ async def qr_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if prev_state == QR_WALLAPOP_TYPE:
         return await ask_wallapop_type(update, context)
+    elif prev_state == QR_KLEIZE_TYPE:
+        return await ask_kleize_type(update, context)
     elif prev_state == QR_LANG:
         # Возврат к выбору типа Wallapop
         return await ask_wallapop_type(update, context)
@@ -580,6 +634,14 @@ async def wallapop_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return await ask_wallapop_type(update, context)
 
 
+async def kleize_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Назад в меню выбора типа Kleize"""
+    await update.callback_query.answer()
+    # Очищаем текущее состояние и возвращаемся к выбору типа
+    pop_state(context.user_data)
+    return await ask_kleize_type(update, context)
+
+
 # Conversation Handler
 qr_conv = ConversationHandler(
     name="qr_flow",
@@ -590,8 +652,15 @@ qr_conv = ConversationHandler(
         CallbackQueryHandler(qr_entry_2dehands, pattern=r"^QR:2DEHANDS$"),
         CallbackQueryHandler(qr_entry_2ememain, pattern=r"^QR:2EMEMAIN$"),
         CallbackQueryHandler(qr_entry_kleinanzeigen, pattern=r"^QR:KLEINANZEIGEN$"),
+        CallbackQueryHandler(qr_entry_kleinanzeigen, pattern=r"^QR:KLEIZE_MENU$"),
     ],
     states={
+        QR_KLEIZE_TYPE: [
+            CallbackQueryHandler(qr_entry_kleize, pattern=r"^QR:KLEIZE$"),
+            CallbackQueryHandler(qr_entry_kleize_uniq, pattern=r"^QR:KLEIZE_UNIQ$"),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
+        ],
         QR_WALLAPOP_TYPE: [
             CallbackQueryHandler(qr_entry_wallapop_link, pattern=r"^QR:WALLAPOP_LINK$"),
             CallbackQueryHandler(qr_entry_wallapop_email, pattern=r"^QR:WALLAPOP_EMAIL$"),
