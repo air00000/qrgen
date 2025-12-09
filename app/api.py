@@ -35,13 +35,13 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None)):
 
 # ======== JSON-модели ========
 class ImageMarktplaats(BaseModel):
-    nazvanie: str
+    title: str
     price: float
     photo: str = None
     url: str
 
 class ImageSubito(BaseModel):
-    nazvanie: str
+    title: str
     price: float
     photo: str= None
     url: str
@@ -50,13 +50,13 @@ class ImageSubito(BaseModel):
 
 class ImageWallapop(BaseModel):
     lang: str
-    nazvanie: str
+    title: str
     price: float
     photo: str = None
 
 class ImageWallapopEmail(BaseModel):
     lang: str
-    nazvanie: str
+    title: str
     price: float
     photo: str = None
     seller_name: str
@@ -64,29 +64,28 @@ class ImageWallapopEmail(BaseModel):
 
 class ImageWallapopSMS(BaseModel):
     lang: str
-    nazvanie: str
+    title: str
     price: float
     photo: str = None
 
 class Image2dehands(BaseModel):
     """Модель для 2dehands (нидерландский)"""
-    nazvanie: str
+    title: str
     price: float
     photo: str = None
     url: str
 
 class Image2ememain(BaseModel):
     """Модель для 2ememain (французский)"""
-    nazvanie: str
+    title: str
     price: float
     photo: str = None
     url: str
 
 class ImageKleinanzeigen(BaseModel):
     """Модель для Kleinanzeigen"""
-    nazvanie: str
+    title: str
     price: float
-    mesto: str
     photo: str = None
     url: str
 
@@ -98,7 +97,7 @@ async def generate_image_marktplaats_endpoint(
 ):
     """Генерация изображения для Marktplaats (JSON)"""
     try:
-        image_data = create_image_marktplaats(req.nazvanie, req.price, req.photo, req.url)
+        image_data = create_image_marktplaats(req.title, req.price, req.photo, req.url)
         return Response(content=image_data, media_type="image/png")
     except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -112,7 +111,7 @@ async def generate_image_subito_endpoint(
 ):
     """Генерация изображения для Subito (JSON)"""
     try:
-        image_data = create_image_subito(req.nazvanie, req.price, req.photo, req.url, req.name, req.address)
+        image_data = create_image_subito(req.title, req.price, req.photo, req.url, req.name, req.address)
         return Response(content=image_data, media_type="image/png")
     except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -126,7 +125,7 @@ async def generate_image_wallapop_endpoint(
 ):
     """Генерация изображения для Wallapop (JSON)"""
     try:
-        image_data = create_image_wallapop(req.lang, req.nazvanie, req.price, req.photo)
+        image_data = create_image_wallapop(req.lang, req.title, req.price, req.photo)
         return Response(content=image_data, media_type="image/png")
     except (PDFGenerationError, FigmaNodeNotFoundError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -140,7 +139,7 @@ async def generate_image_wallapop_email_endpoint(
 ):
     """Генерация изображения для Wallapop Email (JSON)"""
     try:
-        image_data = create_image_wallapop_email(req.lang, req.nazvanie, req.price, req.photo, req.seller_name, req.seller_photo)
+        image_data = create_image_wallapop_email(req.lang, req.title, req.price, req.photo, req.seller_name, req.seller_photo)
         return Response(content=image_data, media_type="image/png")
     except (PDFGenerationError, FigmaNodeNotFoundError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -154,7 +153,7 @@ async def generate_image_wallapop_sms_endpoint(
 ):
     """Генерация изображения для Wallapop SMS (JSON)"""
     try:
-        image_data = create_image_wallapop_sms(req.lang, req.nazvanie, req.price, req.photo)
+        image_data = create_image_wallapop_sms(req.lang, req.title, req.price, req.photo)
         return Response(content=image_data, media_type="image/png")
     except (PDFGenerationError, FigmaNodeNotFoundError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -163,7 +162,7 @@ async def generate_image_wallapop_sms_endpoint(
 
 @app.post("/generate_image_marktplaats_form")
 async def generate_image_marktplaats_form(
-        nazvanie: str = Form(...),
+        title: str = Form(...),
         price: float = Form(...),
         url: str = Form(...),
         photo: UploadFile = File(None),
@@ -175,7 +174,7 @@ async def generate_image_marktplaats_form(
         if photo:
             photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
 
-        image_data = create_image_marktplaats(nazvanie, price, photo_b64, url)
+        image_data = create_image_marktplaats(title, price, photo_b64, url)
         return Response(content=image_data, media_type="image/png")
     except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -184,7 +183,7 @@ async def generate_image_marktplaats_form(
 
 @app.post("/generate_image_subito_form")
 async def generate_image_subito_form(
-        nazvanie: str = Form(...),
+        title: str = Form(...),
         price: float = Form(...),
         url: str = Form(...),
         name: str = Form(""),
@@ -198,7 +197,7 @@ async def generate_image_subito_form(
         if photo:
             photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
 
-        image_data = create_image_subito(nazvanie, price, photo_b64, url, name, address)
+        image_data = create_image_subito(title, price, photo_b64, url, name, address)
         return Response(content=image_data, media_type="image/png")
     except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -208,7 +207,7 @@ async def generate_image_subito_form(
 @app.post("/generate_image_wallapop_form")
 async def generate_image_wallapop_form(
         lang: str = Form(...),
-        nazvanie: str = Form(...),
+        title: str = Form(...),
         price: float = Form(...),
         photo: UploadFile = File(None),
         key_name: str = Depends(verify_api_key)
@@ -219,7 +218,7 @@ async def generate_image_wallapop_form(
         if photo:
             photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
 
-        image_data = create_image_wallapop(lang, nazvanie, price, photo_b64)
+        image_data = create_image_wallapop(lang, title, price, photo_b64)
         return Response(content=image_data, media_type="image/png")
     except (PDFGenerationError, FigmaNodeNotFoundError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -229,7 +228,7 @@ async def generate_image_wallapop_form(
 @app.post("/generate_image_wallapop_email_form")
 async def generate_image_wallapop_email_form(
         lang: str = Form(...),
-        nazvanie: str = Form(...),
+        title: str = Form(...),
         price: float = Form(...),
         seller_name: str = Form(...),
         photo: UploadFile = File(None),
@@ -246,7 +245,7 @@ async def generate_image_wallapop_email_form(
         if seller_photo:
             seller_photo_b64 = base64.b64encode(await seller_photo.read()).decode("utf-8")
 
-        image_data = create_image_wallapop_email(lang, nazvanie, price, photo_b64, seller_name, seller_photo_b64)
+        image_data = create_image_wallapop_email(lang, title, price, photo_b64, seller_name, seller_photo_b64)
         return Response(content=image_data, media_type="image/png")
     except (PDFGenerationError, FigmaNodeNotFoundError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -256,7 +255,7 @@ async def generate_image_wallapop_email_form(
 @app.post("/generate_image_wallapop_sms_form")
 async def generate_image_wallapop_sms_form(
         lang: str = Form(...),
-        nazvanie: str = Form(...),
+        title: str = Form(...),
         price: float = Form(...),
         photo: UploadFile = File(None),
         key_name: str = Depends(verify_api_key)
@@ -267,7 +266,7 @@ async def generate_image_wallapop_sms_form(
         if photo:
             photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
 
-        image_data = create_image_wallapop_sms(lang, nazvanie, price, photo_b64)
+        image_data = create_image_wallapop_sms(lang, title, price, photo_b64)
         return Response(content=image_data, media_type="image/png")
     except (PDFGenerationError, FigmaNodeNotFoundError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -281,7 +280,7 @@ async def generate_image_2dehands_endpoint(
 ):
     """Генерация изображения для 2dehands - нидерландский (JSON)"""
     try:
-        image_data = create_2dehands_image(req.nazvanie, req.price, req.photo, req.url, "nl")
+        image_data = create_2dehands_image(req.title, req.price, req.photo, req.url, "nl")
         return Response(content=image_data, media_type="image/png")
     except (DehandsGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -295,7 +294,7 @@ async def generate_image_2ememain_endpoint(
 ):
     """Генерация изображения для 2ememain - французский (JSON)"""
     try:
-        image_data = create_2dehands_image(req.nazvanie, req.price, req.photo, req.url, "fr")
+        image_data = create_2dehands_image(req.title, req.price, req.photo, req.url, "fr")
         return Response(content=image_data, media_type="image/png")
     except (DehandsGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -304,7 +303,7 @@ async def generate_image_2ememain_endpoint(
 
 @app.post("/generate_image_2dehands_form")
 async def generate_image_2dehands_form(
-        nazvanie: str = Form(...),
+        title: str = Form(...),
         price: float = Form(...),
         url: str = Form(...),
         photo: UploadFile = File(None),
@@ -316,7 +315,7 @@ async def generate_image_2dehands_form(
         if photo:
             photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
 
-        image_data = create_2dehands_image(nazvanie, price, photo_b64, url, "nl")
+        image_data = create_2dehands_image(title, price, photo_b64, url, "nl")
         return Response(content=image_data, media_type="image/png")
     except (DehandsGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -325,7 +324,7 @@ async def generate_image_2dehands_form(
 
 @app.post("/generate_image_2ememain_form")
 async def generate_image_2ememain_form(
-        nazvanie: str = Form(...),
+        title: str = Form(...),
         price: float = Form(...),
         url: str = Form(...),
         photo: UploadFile = File(None),
@@ -337,7 +336,7 @@ async def generate_image_2ememain_form(
         if photo:
             photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
 
-        image_data = create_2dehands_image(nazvanie, price, photo_b64, url, "fr")
+        image_data = create_2dehands_image(title, price, photo_b64, url, "fr")
         return Response(content=image_data, media_type="image/png")
     except (DehandsGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -352,7 +351,7 @@ async def generate_image_kleinanzeigen_endpoint(
 ):
     """Генерация изображения для Kleinanzeigen (JSON)"""
     try:
-        image_data = create_kleinanzeigen_image(req.nazvanie, req.price, req.mesto, req.photo, req.url)
+        image_data = create_kleinanzeigen_image(req.title, req.price, req.photo, req.url)
         return Response(content=image_data, media_type="image/png")
     except (KleinanzeigenGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -361,9 +360,8 @@ async def generate_image_kleinanzeigen_endpoint(
 
 @app.post("/generate_image_kleinanzeigen_form")
 async def generate_image_kleinanzeigen_form(
-        nazvanie: str = Form(...),
+        title: str = Form(...),
         price: float = Form(...),
-        mesto: str = Form(...),
         url: str = Form(...),
         photo: UploadFile = File(None),
         key_name: str = Depends(verify_api_key)
@@ -374,7 +372,7 @@ async def generate_image_kleinanzeigen_form(
         if photo:
             photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
 
-        image_data = create_kleinanzeigen_image(nazvanie, price, mesto, photo_b64, url)
+        image_data = create_kleinanzeigen_image(title, price, photo_b64, url)
         return Response(content=image_data, media_type="image/png")
     except (KleinanzeigenGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
         raise HTTPException(status_code=400, detail=str(e))

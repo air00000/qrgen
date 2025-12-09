@@ -3,11 +3,13 @@ import base64
 import os
 import uuid
 import requests
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 from io import BytesIO
 import logging
 import datetime
 from pytz import timezone
+import numpy as np
+import random
 
 from app.config import CFG
 
@@ -31,7 +33,7 @@ QR_COLOR = "#0C0C0B"
 QR_LOGO_URL = "https://i.ibb.co/mV9pQDLS/Frame-36.png"
 QR_SIZE = 2000
 QR_RESIZE = (738, 738)
-CORNER_RADIUS_PHOTO = 15
+CORNER_RADIUS_PHOTO = 10
 CORNER_RADIUS_QR = 16
 
 
@@ -152,21 +154,20 @@ def draw_text_with_spacing(draw, text, font, x, y, fill, spacing=0, align="left"
         cur_x += widths[i] + spacing
 
 
-def create_kleinanzeigen_image(nazvanie: str, price: float, mesto: str, photo: str, url: str) -> bytes:
+def create_kleinanzeigen_image(nazvanie: str, price: float, photo: str, url: str) -> bytes:
     """
     Генерация изображения для Kleinanzeigen
     
     Args:
         nazvanie: Название товара
         price: Цена товара
-        mesto: Место продажи (например "Brandenburg - Falkensee")
         photo: Фото товара в base64 (или None)
         url: URL для QR-кода
         
     Returns:
         bytes: PNG изображение
     """
-    logger.info(f"🎨 Генерация Kleinanzeigen: {nazvanie}, {price}€, {mesto}")
+    logger.info(f"🎨 Генерация Kleinanzeigen: {nazvanie}, {price}€")
     
     try:
         # Получаем шаблон из Figma
@@ -179,10 +180,10 @@ def create_kleinanzeigen_image(nazvanie: str, price: float, mesto: str, photo: s
         nodes = {
             'nazvanie': find_node(template_json, 'Page 2', 'nazv_kleinan2'),
             'price': find_node(template_json, 'Page 2', 'price_kleinan2'),
-            'mesto': find_node(template_json, 'Page 2', 'mesto_kleinan2'),
             'time': find_node(template_json, 'Page 2', 'time_kleinan2'),
             'pic': find_node(template_json, 'Page 2', 'pic_kleinan2'),
             'qr': find_node(template_json, 'Page 2', 'qr_kleinan2'),
+            # mesto убрано!
         }
         
         # Экспорт базового шаблона
@@ -246,22 +247,42 @@ def create_kleinanzeigen_image(nazvanie: str, price: float, mesto: str, photo: s
         draw_text_with_spacing(draw, price_text, rebond_semibold, px, py, fill="#326916",
                                spacing=int(-0.02 * 48 * SCALE_FACTOR), align="left")
         
-        # Место
-        mx = (nodes['mesto']['absoluteBoundingBox']['x'] - frame_node['absoluteBoundingBox']['x']) * SCALE_FACTOR
-        my = (nodes['mesto']['absoluteBoundingBox']['y'] - frame_node['absoluteBoundingBox']['y']) * SCALE_FACTOR + offset
-        draw_text_with_spacing(draw, mesto, rebond_med2, mx, my, fill="#77756F",
-                               spacing=int(0.02 * 36 * SCALE_FACTOR), align="left")
-        
         # Время (по центру)
         tx = (nodes['time']['absoluteBoundingBox']['x'] - frame_node['absoluteBoundingBox']['x'] +
               nodes['time']['absoluteBoundingBox']['width'] / 2) * SCALE_FACTOR
         ty = (nodes['time']['absoluteBoundingBox']['y'] - frame_node['absoluteBoundingBox']['y']) * SCALE_FACTOR + offset
         draw_text_with_spacing(draw, time_text, sfpro_semibold, tx, ty, fill="#000000", align="center")
         
-        # Финальное сжатие до целевого размера
+        # === УНИКАЛИЗАЦИЯ ===
         logger.info(f"📐 Изменение размера до {TARGET_WIDTH}x{TARGET_HEIGHT}...")
         result = result.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
         result = result.convert("RGB")
+        
+        # Сдвиг оттенка (Hue shift)
+        hsv = result.convert("HSV")
+        h, s, v = hsv.split()
+        hue_shift = random.randint(-10, 10)
+        h = h.point(lambda p: (p + hue_shift) % 256)
+        hsv = Image.merge("HSV", (h, s, v))
+        result = hsv.convert("RGB")
+        
+        # Изменение насыщенности цвета
+        enhancer = ImageEnhance.Color(result)
+        result = enhancer.enhance(1 + random.uniform(-0.15, 0.10))
+        
+        # Изменение яркости
+        enhancer = ImageEnhance.Brightness(result)
+        result = enhancer.enhance(1 + random.uniform(0, 0.03))
+        
+        # Добавление шума
+        img_array = np.array(result)
+        noise_level = random.uniform(0, 0.025)
+        if noise_level > 0:
+            noise = np.random.normal(0, noise_level * 255, img_array.shape)
+            noisy = np.clip(img_array + noise, 0, 255).astype(np.uint8)
+            result = Image.fromarray(noisy)
+        
+        logger.info("✨ Применена уникализация изображения")
         
         # Сохранение в bytes
         buffer = BytesIO()
