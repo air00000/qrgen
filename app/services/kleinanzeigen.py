@@ -238,20 +238,20 @@ def create_kleinanzeigen_image(nazvanie: str, price: float, photo: str, url: str
         # Добавление текста: Название
         nx = (nodes['nazvanie']['absoluteBoundingBox']['x'] - frame_node['absoluteBoundingBox']['x']) * SCALE_FACTOR
         ny = (nodes['nazvanie']['absoluteBoundingBox']['y'] - frame_node['absoluteBoundingBox']['y']) * SCALE_FACTOR + offset
-        draw_text_with_spacing(draw, nazvanie, rebond_med, nx, ny, fill="#0C0C0B",
+        draw_text_with_spacing(draw, nazvanie, rebond_med, nx, ny, fill="#FCFCFC",
                                spacing=int(0.02 * 42 * SCALE_FACTOR), align="left")
         
         # Цена
         px = (nodes['price']['absoluteBoundingBox']['x'] - frame_node['absoluteBoundingBox']['x']) * SCALE_FACTOR
         py = (nodes['price']['absoluteBoundingBox']['y'] - frame_node['absoluteBoundingBox']['y']) * SCALE_FACTOR + offset
-        draw_text_with_spacing(draw, price_text, rebond_semibold, px, py, fill="#326916",
+        draw_text_with_spacing(draw, price_text, rebond_semibold, px, py, fill="#D3F28D",
                                spacing=int(-0.02 * 48 * SCALE_FACTOR), align="left")
         
         # Время (по центру)
         tx = (nodes['time']['absoluteBoundingBox']['x'] - frame_node['absoluteBoundingBox']['x'] +
               nodes['time']['absoluteBoundingBox']['width'] / 2) * SCALE_FACTOR
         ty = (nodes['time']['absoluteBoundingBox']['y'] - frame_node['absoluteBoundingBox']['y']) * SCALE_FACTOR + offset
-        draw_text_with_spacing(draw, time_text, sfpro_semibold, tx, ty, fill="#000000", align="center")
+        draw_text_with_spacing(draw, time_text, sfpro_semibold, tx, ty, fill="#FFFFFF", align="center")
         
         # === УНИКАЛИЗАЦИЯ ===
         logger.info(f"📐 Изменение размера до {TARGET_WIDTH}x{TARGET_HEIGHT}...")

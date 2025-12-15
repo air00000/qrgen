@@ -90,19 +90,3 @@ def wallapop_lang_kb(wallapop_type: str = "link"):
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
-
-
-def kleize_type_kb():
-    """Клавиатура выбора типа Kleize"""
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("📦 Kleize", callback_data="QR:KLEIZE"),
-        ],
-        [
-            InlineKeyboardButton("✨ Kleize Uniq", callback_data="QR:KLEIZE_UNIQ"),
-        ],
-        [
-            InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK"),
-            InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")
-        ],
-    ])

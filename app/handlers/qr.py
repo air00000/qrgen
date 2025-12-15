@@ -12,18 +12,15 @@ from telegram.ext import (
     MessageHandler, CommandHandler, filters
 )
 
-from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, wallapop_type_kb, wallapop_lang_kb, kleize_type_kb
+from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, wallapop_type_kb, wallapop_lang_kb
 from app.utils.state_stack import push_state, pop_state, clear_stack
 from app.services.pdf import create_pdf, create_pdf_subito, create_pdf_wallapop, create_pdf_wallapop_email, create_pdf_wallapop_sms
-from app.services.kleize import create_image_kleize
 
 logger = logging.getLogger(__name__)
 
 # Состояния
 QR_NAZVANIE, QR_PRICE, QR_NAME, QR_ADDRESS, QR_PHOTO, QR_URL, QR_LANG, QR_SELLER_NAME, QR_SELLER_PHOTO, QR_WALLAPOP_TYPE = range(
     10)
-QR_NAZVANIE, QR_PRICE, QR_NAME, QR_ADDRESS, QR_PHOTO, QR_URL, QR_LANG, QR_SELLER_NAME, QR_SELLER_PHOTO, QR_WALLAPOP_TYPE, QR_MESTO, QR_KLEIZE_TYPE = range(
-    12)
 
 
 async def qr_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -254,9 +251,7 @@ async def on_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     service = context.user_data.get("service", "marktplaats")
     wallapop_type = context.user_data.get("wallapop_type", "link")
 
-    if service == "kleinanzeigen":
-        return await ask_mesto(update, context)
-    elif service == "subito":
+    if service == "subito":
         return await ask_name(update, context)
     elif service == "wallapop_email":
         return await ask_seller_name(update, context)
@@ -274,23 +269,6 @@ async def on_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return await ask_photo(update, context)
 
 
-async def ask_mesto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Запрос места для Kleinanzeigen"""
-    push_state(context.user_data, QR_MESTO)
-    text = "Введи место продажи как в приложении\n(пример: Brandenburg - Falkensee или Duisburg - Homberg/Ruhrort/Baerl):"
-    
-    if update.callback_query:
-        await update.callback_query.message.edit_text(text, reply_markup=menu_back_kb())
-    else:
-        await update.message.reply_text(text, reply_markup=menu_back_kb())
-    
-    return QR_MESTO
-
-
-async def on_mesto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка места для Kleinanzeigen"""
-    context.user_data["mesto"] = (update.message.text or "").strip()
-    return await ask_photo(update, context)
 
 
 async def on_seller_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -352,7 +330,6 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if service == "kleinanzeigen":
             # Импортируем функцию для Kleinanzeigen
             from app.services.kleinanzeigen import create_kleinanzeigen_image
-            mesto = context.user_data.get("mesto", "")
             
             try:
                 price_float = float(price)
@@ -360,7 +337,7 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 price_float = 0.0
             
             image_data = await asyncio.to_thread(
-                create_kleinanzeigen_image, nazvanie, price_float, mesto, photo_b64, url
+                create_kleinanzeigen_image, nazvanie, price_float, photo_b64, url
             )
         elif service in ["2dehands", "2ememain"]:
             # Импортируем функцию для 2dehands
@@ -563,8 +540,6 @@ async def qr_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await ask_name(update, context)
     elif prev_state == QR_ADDRESS:
         return await ask_address(update, context)
-    elif prev_state == QR_MESTO:
-        return await ask_mesto(update, context)
     elif prev_state == QR_SELLER_NAME:
         return await ask_seller_name(update, context)
     elif prev_state == QR_SELLER_PHOTO:
@@ -627,11 +602,6 @@ qr_conv = ConversationHandler(
         ],
         QR_ADDRESS: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, on_address),
-            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
-            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
-        ],
-        QR_MESTO: [
-            MessageHandler(filters.TEXT & ~filters.COMMAND, on_mesto),
             CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
         ],

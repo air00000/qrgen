@@ -265,14 +265,14 @@ def create_image_kleize(nazvanie: str, price: float, mesto: str, photo_b64: str,
         if nodes['nazvanie']:
             nx = (nodes['nazvanie']['absoluteBoundingBox']['x'] - frame_node['absoluteBoundingBox']['x']) * KLEIZE_SCALE_FACTOR
             ny = (nodes['nazvanie']['absoluteBoundingBox']['y'] - frame_node['absoluteBoundingBox']['y']) * KLEIZE_SCALE_FACTOR + offset
-            draw_text_with_spacing(draw, nazvanie, rebond_med, nx, ny, fill="#0C0C0B",
+            draw_text_with_spacing(draw, nazvanie, rebond_med, nx, ny, fill="#FCFCFC",
                                  spacing=int(0.02 * 42 * KLEIZE_SCALE_FACTOR), align="left")
         
         # Рисуем цену
         if nodes['price']:
             px = (nodes['price']['absoluteBoundingBox']['x'] - frame_node['absoluteBoundingBox']['x']) * KLEIZE_SCALE_FACTOR
             py = (nodes['price']['absoluteBoundingBox']['y'] - frame_node['absoluteBoundingBox']['y']) * KLEIZE_SCALE_FACTOR + offset
-            draw_text_with_spacing(draw, price_text, rebond_semibold, px, py, fill="#326916",
+            draw_text_with_spacing(draw, price_text, rebond_semibold, px, py, fill="#D3F28D",
                                  spacing=int(-0.02 * 48 * KLEIZE_SCALE_FACTOR), align="left")
         
         # Рисуем местоположение
@@ -287,7 +287,7 @@ def create_image_kleize(nazvanie: str, price: float, mesto: str, photo_b64: str,
             tx = (nodes['time']['absoluteBoundingBox']['x'] - frame_node['absoluteBoundingBox']['x'] +
                   nodes['time']['absoluteBoundingBox']['width'] / 2) * KLEIZE_SCALE_FACTOR
             ty = (nodes['time']['absoluteBoundingBox']['y'] - frame_node['absoluteBoundingBox']['y']) * KLEIZE_SCALE_FACTOR + offset
-            draw_text_with_spacing(draw, time_text, sfpro_semibold, tx, ty, fill="#000000", align="center")
+            draw_text_with_spacing(draw, time_text, sfpro_semibold, tx, ty, fill="#FFFFFF", align="center")
         
         # Финальное сжатие до целевого размера
         result = result.resize((KLEIZE_TARGET_WIDTH, KLEIZE_TARGET_HEIGHT), Image.Resampling.LANCZOS)
