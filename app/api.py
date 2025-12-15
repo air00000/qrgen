@@ -13,6 +13,7 @@ from app.services.pdf import (
 )
 from app.services.twodehands import create_2dehands_image, DehandsGenerationError
 from app.services.kleinanzeigen import create_kleinanzeigen_image, KleinanzeigenGenerationError
+from app.services.conto import create_conto_image, ContoGenerationError
 from app.services.apikey import validate_key, get_key_name
 
 app = FastAPI(title="QR Generator API")
@@ -88,6 +89,11 @@ class ImageKleinanzeigen(BaseModel):
     price: float
     photo: str = None
     url: str
+
+class ImageConto(BaseModel):
+    """Модель для Conto (Subito Payment)"""
+    title: str
+    price: float
 
 # ======== Защищенные эндпоинты ========
 @app.post("/generate_image_marktplaats")
@@ -375,6 +381,35 @@ async def generate_image_kleinanzeigen_form(
         image_data = create_kleinanzeigen_image(title, price, photo_b64, url)
         return Response(content=image_data, media_type="image/png")
     except (KleinanzeigenGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_conto")
+async def generate_image_conto_endpoint(
+        req: ImageConto,
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Conto (Subito Payment) - JSON"""
+    try:
+        image_data = create_conto_image(req.title, req.price)
+        return Response(content=image_data, media_type="image/png")
+    except (ContoGenerationError, PDFGenerationError, FigmaNodeNotFoundError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_conto_form")
+async def generate_image_conto_form(
+        title: str = Form(...),
+        price: float = Form(...),
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Conto (Subito Payment) - Form Data"""
+    try:
+        image_data = create_conto_image(title, price)
+        return Response(content=image_data, media_type="image/png")
+    except (ContoGenerationError, PDFGenerationError, FigmaNodeNotFoundError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

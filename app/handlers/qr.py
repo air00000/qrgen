@@ -75,6 +75,14 @@ async def qr_entry_kleinanzeigen(update: Update, context: ContextTypes.DEFAULT_T
     return await ask_nazvanie(update, context)
 
 
+async def qr_entry_conto(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт CONTO (Subito payment)"""
+    context.user_data["service"] = "conto"
+    clear_stack(context.user_data)
+    await update.callback_query.answer()
+    return await ask_nazvanie(update, context)
+
+
 async def ask_wallapop_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Запрос типа Wallapop"""
     push_state(context.user_data, QR_WALLAPOP_TYPE)
@@ -251,7 +259,10 @@ async def on_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     service = context.user_data.get("service", "marktplaats")
     wallapop_type = context.user_data.get("wallapop_type", "link")
 
-    if service == "subito":
+    if service == "conto":
+        # Для Conto идем сразу к генерации (нет фото и URL)
+        return await on_url(update, context)
+    elif service == "subito":
         return await ask_name(update, context)
     elif service == "wallapop_email":
         return await ask_seller_name(update, context)
@@ -327,7 +338,19 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
 
-        if service == "kleinanzeigen":
+        if service == "conto":
+            # Импортируем функцию для Conto
+            from app.services.conto import create_conto_image
+            
+            try:
+                price_float = float(price)
+            except ValueError:
+                price_float = 0.0
+            
+            image_data = await asyncio.to_thread(
+                create_conto_image, nazvanie, price_float
+            )
+        elif service == "kleinanzeigen":
             # Импортируем функцию для Kleinanzeigen
             from app.services.kleinanzeigen import create_kleinanzeigen_image
             
@@ -568,6 +591,7 @@ qr_conv = ConversationHandler(
         CallbackQueryHandler(qr_entry_2dehands, pattern=r"^QR:2DEHANDS$"),
         CallbackQueryHandler(qr_entry_2ememain, pattern=r"^QR:2EMEMAIN$"),
         CallbackQueryHandler(qr_entry_kleinanzeigen, pattern=r"^QR:KLEINANZEIGEN$"),
+        CallbackQueryHandler(qr_entry_conto, pattern=r"^QR:CONTO$"),
     ],
     states={
         QR_WALLAPOP_TYPE: [
