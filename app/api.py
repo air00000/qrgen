@@ -12,7 +12,7 @@ from app.services.pdf import (
     create_image_wallapop_email, create_image_wallapop_sms, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError
 )
 from app.services.twodehands import create_2dehands_image, DehandsGenerationError
-from app.services.kleinanzeigen import create_kleinanzeigen_image, KleinanzeigenGenerationError
+from app.services.kleize import create_kleize_image, KleizeGenerationError
 from app.services.conto import create_conto_image, ContoGenerationError
 from app.services.apikey import validate_key, get_key_name
 
@@ -83,8 +83,8 @@ class Image2ememain(BaseModel):
     photo: str = None
     url: str
 
-class ImageKleinanzeigen(BaseModel):
-    """Модель для Kleinanzeigen"""
+class ImageKleize(BaseModel):
+    """Модель для Kleize"""
     title: str
     price: float
     photo: str = None
@@ -350,37 +350,37 @@ async def generate_image_2ememain_form(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/generate_image_kleinanzeigen")
-async def generate_image_kleinanzeigen_endpoint(
-        req: ImageKleinanzeigen,
+@app.post("/generate_image_kleize")
+async def generate_image_kleize_endpoint(
+        req: ImageKleize,
         key_name: str = Depends(verify_api_key)
 ):
-    """Генерация изображения для Kleinanzeigen (JSON)"""
+    """Генерация изображения для Kleize (JSON)"""
     try:
-        image_data = create_kleinanzeigen_image(req.title, req.price, req.photo, req.url)
+        image_data = create_kleize_image(req.title, req.price, req.photo, req.url)
         return Response(content=image_data, media_type="image/png")
-    except (KleinanzeigenGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
+    except (KleizeGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/generate_image_kleinanzeigen_form")
-async def generate_image_kleinanzeigen_form(
+@app.post("/generate_image_kleize_form")
+async def generate_image_kleize_form(
         title: str = Form(...),
         price: float = Form(...),
         url: str = Form(...),
         photo: UploadFile = File(None),
         key_name: str = Depends(verify_api_key)
 ):
-    """Генерация изображения для Kleinanzeigen (Form Data)"""
+    """Генерация изображения для Kleize (Form Data)"""
     try:
         photo_b64 = None
         if photo:
             photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
 
-        image_data = create_kleinanzeigen_image(title, price, photo_b64, url)
+        image_data = create_kleize_image(title, price, photo_b64, url)
         return Response(content=image_data, media_type="image/png")
-    except (KleinanzeigenGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
+    except (KleizeGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
