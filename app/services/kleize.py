@@ -41,7 +41,7 @@ CORNER_RADIUS_PHOTO = 15
 CORNER_RADIUS_QR = 16
 
 # === КОСТЫЛЬ ДЛЯ ФОТО (если Figma не работает) ===
-USE_FIXED_COORDS = True  # Поставь True если хочешь использовать захардкоженные координаты
+USE_FIXED_COORDS = False  # Поставь True если хочешь использовать захардкоженные координаты
 FIXED_PHOTO_X = 90
 FIXED_PHOTO_Y = 542.0
 FIXED_PHOTO_WIDTH = 240.0

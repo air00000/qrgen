@@ -24,10 +24,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ],
         [
             InlineKeyboardButton("🇫🇷 2ememain", callback_data="QR:2EMEMAIN"),
-            InlineKeyboardButton("🇩🇪 Kleize", callback_data="QR:KLEIZE"),
+            InlineKeyboardButton("💰 Conto (Subito)", callback_data="QR:CONTO"),
         ],
         [
-            InlineKeyboardButton("💰 Conto (Subito)", callback_data="QR:CONTO"),
+            InlineKeyboardButton("🔧 Kleize", callback_data="QR:KLEIZE"),
+            InlineKeyboardButton("🇦🇺 Depop (AU)", callback_data="QR:DEPOP"),
         ]
     ]
 
