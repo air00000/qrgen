@@ -14,6 +14,7 @@ from app.services.pdf import (
 from app.services.twodehands import create_2dehands_image, DehandsGenerationError
 from app.services.kleize import create_kleize_image, KleizeGenerationError
 from app.services.conto import create_conto_image, ContoGenerationError
+from app.services.depop import create_depop_image, DepopGenerationError
 from app.services.apikey import validate_key, get_key_name
 
 app = FastAPI(title="QR Generator API")
@@ -94,6 +95,15 @@ class ImageConto(BaseModel):
     """Модель для Conto (Subito Payment)"""
     title: str
     price: float
+
+class ImageDepop(BaseModel):
+    """Модель для Depop (AU)"""
+    title: str
+    price: float
+    seller_name: str
+    photo: str = None
+    avatar: str = None
+    url: str
 
 # ======== Защищенные эндпоинты ========
 @app.post("/generate_image_marktplaats")
@@ -410,6 +420,63 @@ async def generate_image_conto_form(
         image_data = create_conto_image(title, price)
         return Response(content=image_data, media_type="image/png")
     except (ContoGenerationError, PDFGenerationError, FigmaNodeNotFoundError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_depop")
+async def generate_image_depop_endpoint(
+        req: ImageDepop,
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Depop (AU) - JSON"""
+    try:
+        image_data = create_depop_image(
+            req.title, 
+            req.price, 
+            req.seller_name, 
+            req.photo, 
+            req.avatar, 
+            req.url
+        )
+        return Response(content=image_data, media_type="image/png")
+    except (DepopGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_depop_form")
+async def generate_image_depop_form(
+        title: str = Form(...),
+        price: float = Form(...),
+        seller_name: str = Form(...),
+        url: str = Form(...),
+        photo: UploadFile = File(None),
+        avatar: UploadFile = File(None),
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Depop (AU) - Form Data"""
+    try:
+        # Обработка фото товара
+        photo_b64 = None
+        if photo:
+            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
+        
+        # Обработка аватара
+        avatar_b64 = None
+        if avatar:
+            avatar_b64 = base64.b64encode(await avatar.read()).decode("utf-8")
+        
+        image_data = create_depop_image(
+            title, 
+            price, 
+            seller_name, 
+            photo_b64, 
+            avatar_b64, 
+            url
+        )
+        return Response(content=image_data, media_type="image/png")
+    except (DepopGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

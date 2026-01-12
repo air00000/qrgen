@@ -474,7 +474,6 @@ async def generate_wallapop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
-        logger.info(f"📸 Генерация для {service}: фото={'есть (' + str(len(photo_b64)) + ' символов)' if photo_b64 else 'нет'}, название={nazvanie}, цена={price}")
 
         image_data, _, _ = await asyncio.to_thread(
             create_pdf_wallapop, lang, nazvanie, price, photo_b64
@@ -511,7 +510,6 @@ async def generate_wallapop_email(update: Update, context: ContextTypes.DEFAULT_
 
     try:
         photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
-        logger.info(f"📸 Генерация для {service}: фото={'есть (' + str(len(photo_b64)) + ' символов)' if photo_b64 else 'нет'}, название={nazvanie}, цена={price}")
         seller_photo_b64 = base64.b64encode(seller_photo_bytes).decode('utf-8') if seller_photo_bytes else None
 
         image_data, _, _ = await asyncio.to_thread(
@@ -547,7 +545,6 @@ async def generate_wallapop_sms(update: Update, context: ContextTypes.DEFAULT_TY
 
     try:
         photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
-        logger.info(f"📸 Генерация для {service}: фото={'есть (' + str(len(photo_b64)) + ' символов)' if photo_b64 else 'нет'}, название={nazvanie}, цена={price}")
 
         image_data, _, _ = await asyncio.to_thread(
             create_pdf_wallapop_sms, lang, nazvanie, price, photo_b64

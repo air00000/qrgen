@@ -88,7 +88,21 @@ def process_square_photo(photo_b64: str, corner_radius: int):
     """Обработка фото - обрезка до 1:1 и скругление углов"""
     logger.info("🖼️  Обработка фото товара...")
     photo_bytes = base64.b64decode(photo_b64)
-    img = Image.open(BytesIO(photo_bytes)).convert("RGBA")
+    img = Image.open(BytesIO(photo_bytes))
+    
+    # Если есть прозрачность - наложить на белый фон
+    if img.mode in ('RGBA', 'LA', 'P'):
+        # Конвертируем в RGBA если нужно
+        if img.mode != 'RGBA':
+            img = img.convert('RGBA')
+        
+        # Создаем белый фон
+        white_bg = Image.new('RGBA', img.size, (255, 255, 255, 255))
+        # Накладываем изображение на белый фон
+        white_bg.paste(img, (0, 0), img)
+        img = white_bg
+    else:
+        img = img.convert("RGBA")
     
     w, h = img.size
     size = min(w, h)
@@ -327,7 +341,7 @@ def create_depop_image(nazvanie: str, price: float, seller_name: str,
         
         # === ДОБАВЛЕНИЕ ИЗОБРАЖЕНИЙ ===
         
-        # Фото товара
+        # Фото товара (поднято на 1 пиксель)
         if photo and nodes.get('photo'):
             logger.info("📸 Добавление фото товара...")
             photo_img = process_square_photo(photo, corner_radius=12)
@@ -336,7 +350,8 @@ def create_depop_image(nazvanie: str, price: float, seller_name: str,
             ph = int(nodes['photo']['absoluteBoundingBox']['height'] * SCALE_FACTOR)
             
             photo_img = photo_img.resize((pw, ph), Image.Resampling.LANCZOS)
-            result_img.paste(photo_img, (rel_x(nodes['photo']), rel_y(nodes['photo'])), photo_img)
+            # Поднимаем на 1 пиксель
+            result_img.paste(photo_img, (rel_x(nodes['photo']), rel_y(nodes['photo']) - 5), photo_img)
             logger.info("✅ Фото товара добавлено")
         
         # Аватар (круглый)
@@ -366,7 +381,16 @@ def create_depop_image(nazvanie: str, price: float, seller_name: str,
         # === ФИНАЛЬНАЯ ОБРАБОТКА ===
         logger.info(f"📐 Изменение размера до {TARGET_WIDTH}x{TARGET_HEIGHT}...")
         result_img = result_img.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
-        result_img = result_img.convert("RGB")
+        
+        # Конвертация в RGB с белым фоном (чтобы прозрачность не стала черной)
+        if result_img.mode == 'RGBA':
+            # Создаем белый фон
+            white_bg = Image.new('RGB', result_img.size, (255, 255, 255))
+            # Накладываем изображение на белый фон
+            white_bg.paste(result_img, mask=result_img.split()[3])  # Используем альфа-канал как маску
+            result_img = white_bg
+        else:
+            result_img = result_img.convert("RGB")
         
         # Сохранение в bytes
         buffer = BytesIO()
