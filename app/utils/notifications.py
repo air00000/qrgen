@@ -24,18 +24,18 @@ def set_bot_instance(bot: Bot):
 
 
 async def send_api_notification(
-    service: str,
-    key_name: str,
-    title: str,
-    price: Optional[float] = None,
-    has_photo: bool = False,
-    url: Optional[str] = None,
-    success: bool = True,
-    error: Optional[str] = None
+        service: str,
+        key_name: str,
+        title: str,
+        price: Optional[float] = None,
+        has_photo: bool = False,
+        url: Optional[str] = None,
+        success: bool = True,
+        error: Optional[str] = None
 ):
     """
     Отправить уведомление о генерации через API
-    
+
     Args:
         service: Название сервиса (marktplaats, depop, kleize, etc)
         key_name: Имя API ключа (не используется)
@@ -49,15 +49,15 @@ async def send_api_notification(
     # Проверки
     if not CFG.NOTIFY_API_GENERATIONS:
         return
-    
+
     if not CFG.NOTIFICATIONS_CHAT_ID:
         logger.warning("⚠️  NOTIFICATIONS_CHAT_ID не настроен, пропускаю уведомление")
         return
-    
+
     if not _bot_instance:
         logger.warning("⚠️  Bot instance не установлен, пропускаю уведомление")
         return
-    
+
     try:
         # Формируем простое уведомление
         if success:
@@ -65,18 +65,26 @@ async def send_api_notification(
         else:
             error_short = error[:100] if error else "Unknown error"
             message = f"❌ {service.upper()}: Ошибка\n<code>{error_short}</code>"
-        
+
+        # Конвертируем chat_id в int (для супергрупп может быть строка)
+        try:
+            chat_id = int(CFG.NOTIFICATIONS_CHAT_ID)
+        except (ValueError, TypeError):
+            logger.error(f"❌ Неверный формат NOTIFICATIONS_CHAT_ID: {CFG.NOTIFICATIONS_CHAT_ID}")
+            return
+
         # Отправляем уведомление
         await _bot_instance.send_message(
-            chat_id=CFG.NOTIFICATIONS_CHAT_ID,
+            chat_id=chat_id,
             text=message,
             parse_mode="HTML"
         )
-        
-        logger.info(f"📨 Уведомление отправлено: {service} - {'✅' if success else '❌'}")
-        
+
+        logger.info(f"📨 Уведомление отправлено в чат {chat_id}: {service} - {'✅' if success else '❌'}")
+
     except TelegramError as e:
-        logger.error(f"❌ Ошибка отправки уведомления: {e}")
+        logger.error(f"❌ Ошибка отправки уведомления в чат {CFG.NOTIFICATIONS_CHAT_ID}: {e}")
+        logger.error(f"   Проверь что бот добавлен в группу и имеет права на отправку сообщений")
     except Exception as e:
         logger.error(f"❌ Неожиданная ошибка при отправке уведомления: {e}")
 
