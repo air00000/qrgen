@@ -36,3 +36,7 @@ class CFG:
         ADMIN_IDS = {int(x.strip()) for x in _ADMIN_IDS_RAW.split(",") if x.strip()}
     except ValueError:
         ADMIN_IDS = set()
+    
+    # Уведомления о генерациях через API
+    NOTIFICATIONS_CHAT_ID = os.getenv("NOTIFICATIONS_CHAT_ID")  # ID чата для уведомлений
+    NOTIFY_API_GENERATIONS = os.getenv("NOTIFY_API_GENERATIONS", "true").lower() == "true"

@@ -22,6 +22,7 @@ from app.handlers.menu import start, menu_cb
 from app.handlers.qr import qr_conv, qr_back_cb, qr_menu_cb
 from app.handlers.admin_api_keys import api_keys_conv
 from app.handlers.cache_admin import get_cache_handlers
+from app.utils.notifications import set_bot_instance
 
 logging.basicConfig(
     level=logging.INFO,
@@ -59,6 +60,13 @@ def start_bot():
     
     # Сохраняем executor в bot_data для доступа из handlers
     app.bot_data['executor'] = executor
+    
+    # Устанавливаем bot instance для уведомлений
+    set_bot_instance(app.bot)
+    if CFG.NOTIFICATIONS_CHAT_ID:
+        logger.info(f"📨 Уведомления о API генерациях: ВКЛ → чат {CFG.NOTIFICATIONS_CHAT_ID}")
+    else:
+        logger.info("📨 Уведомления о API генерациях: ВЫКЛ (не настроен NOTIFICATIONS_CHAT_ID)")
     
     # Регистрация handlers
     app.add_handler(CommandHandler("start", start))

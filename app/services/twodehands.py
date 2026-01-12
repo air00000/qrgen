@@ -45,7 +45,19 @@ def process_photo_2dehands(photo_data: str) -> Image.Image:
         return None
     
     photo_bytes = base64.b64decode(photo_data)
-    img = Image.open(io.BytesIO(photo_bytes)).convert("RGBA")
+    img = Image.open(io.BytesIO(photo_bytes))
+    
+    # Если есть прозрачность - наложить на белый фон
+    if img.mode in ('RGBA', 'LA', 'P'):
+        if img.mode != 'RGBA':
+            img = img.convert('RGBA')
+        
+        white_bg = Image.new('RGBA', img.size, (255, 255, 255, 255))
+        white_bg.paste(img, (0, 0), img)
+        img = white_bg
+    else:
+        img = img.convert("RGBA")
+    
     width, height = img.size
     size = min(width, height)
     left = (width - size) // 2
@@ -299,8 +311,13 @@ def create_2dehands_image(nazvanie: str, price: float, photo: Optional[str], url
     # Сжимаем изображение до целевых размеров
     result_img = result_img.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
     
-    # Конвертируем в RGB для отправки в Telegram
-    result_img = result_img.convert("RGB")
+    # Конвертируем в RGB для отправки в Telegram с белым фоном
+    if result_img.mode == 'RGBA':
+        white_bg = Image.new('RGB', result_img.size, (255, 255, 255))
+        white_bg.paste(result_img, mask=result_img.split()[3])
+        result_img = white_bg
+    else:
+        result_img = result_img.convert("RGB")
     
     logger.info("💾 Сохранение в байты...")
     
