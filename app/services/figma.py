@@ -3,12 +3,17 @@ from app.config import CFG
 
 log = logging.getLogger(__name__)
 
-def get_headers():
-    return {"X-FIGMA-TOKEN": CFG.FIGMA_PAT}
+def get_headers(pat=None):
+    """Получение заголовков с возможностью указать custom PAT"""
+    token = pat if pat else CFG.FIGMA_PAT
+    return {"X-FIGMA-TOKEN": token}
 
-def get_template_json():
-    url = f"{CFG.FIGMA_API_URL}/files/{CFG.TEMPLATE_FILE_KEY}"
-    r = requests.get(url, headers=get_headers())
+def get_template_json(pat=None, file_key=None):
+    """Получение JSON шаблона с возможностью указать custom PAT и file_key"""
+    token = pat if pat else CFG.FIGMA_PAT
+    key = file_key if file_key else CFG.TEMPLATE_FILE_KEY
+    url = f"{CFG.FIGMA_API_URL}/files/{key}"
+    r = requests.get(url, headers=get_headers(token))
     r.raise_for_status()
     return r.json()
 
@@ -24,9 +29,12 @@ def find_node(file_json, page_name, node_name):
             return walk(page)
     return None
 
-def export_frame_as_png(file_key, node_id, scale=CFG.SCALE_FACTOR):
+def export_frame_as_png(pat, file_key, node_id, scale=None):
+    """Экспорт фрейма с возможностью указать custom PAT, file_key и scale"""
+    if scale is None:
+        scale = CFG.SCALE_FACTOR
     url = f'{CFG.FIGMA_API_URL}/images/{file_key}?ids={node_id}&format=png&scale={scale}'
-    r = requests.get(url, headers=get_headers())
+    r = requests.get(url, headers=get_headers(pat))
     r.raise_for_status()
     png_url = r.json()["images"][node_id]
     img = requests.get(png_url)

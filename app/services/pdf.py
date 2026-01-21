@@ -11,7 +11,11 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from pytz import timezone
 
 from app.services.figma import get_template_json, find_node, export_frame_as_png
+from app.services.cache_wrapper import load_template_with_cache, get_frame_image
 from app.config import CFG
+import logging
+
+logger = logging.getLogger(__name__)
 
 # ===== Константы для Wallapop Email =====
 WALLAPOP_EMAIL_FIGMA_PAT = 'figd_dG6hrm0ysjdpJDGcGio2T6uJw45GPTKJGzFPvd3z'
@@ -469,8 +473,7 @@ def create_image_wallapop_sms(lang: str, nazvanie: str, price: float, photo: str
 # ===== Основные функции генерации (существующие) =====
 def create_image_marktplaats(nazvanie: str, price: float, photo: str, url: str) -> bytes:
     """Генерирует изображение для Marktplaats, возвращает bytes PNG"""
-    template_json = get_template_json()
-
+    
     frame_name = "marktplaats2_nl"
     nazvanie_layer = "NAZVANIE_marktplaats2_nl"
     price_layer = "PRICE_marktplaats2_nl"
@@ -478,7 +481,11 @@ def create_image_marktplaats(nazvanie: str, price: float, photo: str, url: str) 
     foto_layer = "FOTO_marktplaats2_nl"
     qr_layer = "QR_marktplaats2_nl"
 
-    frame_node = find_node(template_json, "Page 2", frame_name)
+    # Загружаем с кэшем если доступен
+    template_json, frame_img_cached, frame_node, use_cache = load_template_with_cache(
+        "marktplaats", "Page 2", frame_name
+    )
+    
     if not frame_node:
         raise FigmaNodeNotFoundError(f"Фрейм {frame_name} не найден")
 
@@ -494,7 +501,7 @@ def create_image_marktplaats(nazvanie: str, price: float, photo: str, url: str) 
         raise FigmaNodeNotFoundError(f"Не найдены узлы: {', '.join(miss)}")
 
     # Фон из Figma
-    frame_png = export_frame_as_png(CFG.TEMPLATE_FILE_KEY, frame_node["id"])
+    frame_png = export_frame_as_png(CFG.FIGMA_PAT, CFG.TEMPLATE_FILE_KEY, frame_node["id"])
     frame_img = Image.open(io.BytesIO(frame_png)).convert("RGBA")
     w = int(frame_node["absoluteBoundingBox"]["width"] * CFG.SCALE_FACTOR)
     h = int(frame_node["absoluteBoundingBox"]["height"] * CFG.SCALE_FACTOR)
@@ -567,7 +574,7 @@ def create_image_marktplaats(nazvanie: str, price: float, photo: str, url: str) 
 
 def create_image_subito(nazvanie: str, price: float, photo: str, url: str, name: str = '', address: str = '') -> bytes:
     """Генерирует изображение для Subito, возвращает bytes PNG"""
-    template_json = get_template_json()
+    template_json = get_template_json(CFG.FIGMA_PAT, CFG.TEMPLATE_FILE_KEY)
 
     frame_name = "subito1"
     nazvanie_layer = "NAZVANIE_SUB1"
@@ -598,7 +605,7 @@ def create_image_subito(nazvanie: str, price: float, photo: str, url: str, name:
         raise FigmaNodeNotFoundError(f"Не найдены узлы: {', '.join(miss)}")
 
     # Фон из Figma
-    frame_png = export_frame_as_png(CFG.TEMPLATE_FILE_KEY, frame_node["id"])
+    frame_png = export_frame_as_png(CFG.FIGMA_PAT, CFG.TEMPLATE_FILE_KEY, frame_node["id"])
     frame_img = Image.open(io.BytesIO(frame_png)).convert("RGBA")
     w = int(frame_node["absoluteBoundingBox"]["width"] * CFG.SCALE_FACTOR)
     h = int(frame_node["absoluteBoundingBox"]["height"] * CFG.SCALE_FACTOR)
@@ -691,7 +698,7 @@ def create_image_wallapop(lang: str, nazvanie: str, price: float, photo: str = N
     if lang not in ('uk', 'es', 'it', 'fr'):
         raise PDFGenerationError("lang must be: uk/es/it/fr")
 
-    template_json = get_template_json()
+    template_json = get_template_json(CFG.FIGMA_PAT, CFG.TEMPLATE_FILE_KEY)
 
     frame_name = f"wallapop2_{lang}"
     nazvanie_layer = f"nazvwal2_{lang}"
@@ -717,7 +724,7 @@ def create_image_wallapop(lang: str, nazvanie: str, price: float, photo: str = N
         raise FigmaNodeNotFoundError(f"Не найдены узлы: {', '.join(miss)}")
 
     # Фон из Figma
-    frame_png = export_frame_as_png(CFG.TEMPLATE_FILE_KEY, frame_node["id"])
+    frame_png = export_frame_as_png(CFG.FIGMA_PAT, CFG.TEMPLATE_FILE_KEY, frame_node["id"])
     frame_img = Image.open(io.BytesIO(frame_png)).convert("RGBA")
     w = int(frame_node["absoluteBoundingBox"]["width"] * CFG.SCALE_FACTOR)
     h = int(frame_node["absoluteBoundingBox"]["height"] * CFG.SCALE_FACTOR)

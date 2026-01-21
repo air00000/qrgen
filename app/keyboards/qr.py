@@ -10,15 +10,20 @@ def main_menu_kb():
 
 def menu_back_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK")],
-        [InlineKeyboardButton("🏠 Главное меню", callback_data="QR:MENU")],
+        [
+            InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK"),
+            InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")
+        ],
     ])
 
 
 def photo_step_kb():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("⏭ Пропустить фото", callback_data="QR:SKIP_PHOTO")],
-        [InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK")],
+        [
+            InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK"),
+            InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")
+        ],
     ])
 
 
@@ -31,11 +36,16 @@ def service_select_kb(is_admin: bool = False):
         ],
         [
             InlineKeyboardButton("🇪🇺 Wallapop", callback_data="QR:WALLAPOP_MENU"),
+            InlineKeyboardButton("🇳🇱 2dehands", callback_data="QR:2DEHANDS"),
+        ],
+        [
+            InlineKeyboardButton("🇫🇷 2ememain", callback_data="QR:2EMEMAIN"),
+            InlineKeyboardButton("🔧 Kleize", callback_data="QR:KLEIZE"),
         ],
     ]
     if is_admin:
         rows.append([InlineKeyboardButton("🔐 API ключи", callback_data="API:MENU")])
-    rows.append([InlineKeyboardButton("❌ Отмена", callback_data="QR:MENU")])
+    rows.append([InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")])
     return InlineKeyboardMarkup(rows)
 
 
@@ -49,7 +59,10 @@ def wallapop_type_kb():
         [
             InlineKeyboardButton("📱 SMS версия", callback_data="QR:WALLAPOP_SMS"),
         ],
-        [InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK")],
+        [
+            InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK"),
+            InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")
+        ],
     ])
 
 
@@ -73,6 +86,7 @@ def wallapop_lang_kb(wallapop_type: str = "link"):
         ],
         [
             InlineKeyboardButton("⬅️ Назад", callback_data="QR:WALLAPOP_BACK"),
+            InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")
         ]
     ]
     return InlineKeyboardMarkup(keyboard)

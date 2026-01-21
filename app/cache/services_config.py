@@ -1,0 +1,151 @@
+# app/cache/services_config.py
+"""
+Конфигурация всех сервисов для кеширования
+"""
+
+# Конфигурация всех сервисов с Figma фреймами
+SERVICES_CONFIG = {
+    "marktplaats": {
+        "display_name": "Marktplaats",
+        "page": "Page 1",
+        "frame": "marktplaats1",
+        "scale": 2
+    },
+    "subito": {
+        "display_name": "Subito (QR)",
+        "page": "Page 2",
+        "frame": "subito1",
+        "scale": 2
+    },
+    "subito_email_request": {
+        "display_name": "Subito Email Request",
+        "page": "Page 2",
+        "frame": "subito2",
+        "scale": 2
+    },
+    "subito_email_confirm": {
+        "display_name": "Subito Email Confirm",
+        "page": "Page 2",
+        "frame": "subito3",
+        "scale": 2
+    },
+    "subito_sms_request": {
+        "display_name": "Subito SMS Request",
+        "page": "Page 2",
+        "frame": "subito4",
+        "scale": 2
+    },
+    "subito_sms_confirm": {
+        "display_name": "Subito SMS Confirm",
+        "page": "Page 2",
+        "frame": "subito5",
+        "scale": 2
+    },
+    "wallapop": {
+        "display_name": "Wallapop",
+        "page": "Page 3",
+        "frame": "wallapop1",
+        "scale": 2
+    },
+    "wallapop_email": {
+        "display_name": "Wallapop Email",
+        "page": "Page 3",
+        "frame": "wallapop2",
+        "scale": 2
+    },
+    "wallapop_sms": {
+        "display_name": "Wallapop SMS",
+        "page": "Page 3",
+        "frame": "wallapop3",
+        "scale": 2
+    },
+    "2dehands": {
+        "display_name": "2dehands (NL)",
+        "page": "Page 4",
+        "frame": "2dehands1",
+        "scale": 2
+    },
+    "2ememain": {
+        "display_name": "2ememain (FR)",
+        "page": "Page 4",
+        "frame": "2ememain1",
+        "scale": 2
+    },
+    "kleize": {
+        "display_name": "Kleinanzeigen",
+        "page": "Page 5",
+        "frame": "kleize1",
+        "scale": 2
+    },
+    "conto": {
+        "display_name": "Conto (Subito Payment)",
+        "page": "Page 6",
+        "frame": "conto1",
+        "scale": 2
+    },
+    "depop_au": {
+        "display_name": "Depop (Australia)",
+        "page": "Page 2",
+        "frame": "depop1_au",
+        "scale": 2
+    },
+    "depop_uk": {
+        "display_name": "Depop (UK)",
+        "page": "Page 2",
+        "frame": "depop1_uk",
+        "scale": 2
+    },
+    "depop_us": {
+        "display_name": "Depop (US)",
+        "page": "Page 2",
+        "frame": "depop1_us",
+        "scale": 2
+    },
+    "depop_it": {
+        "display_name": "Depop (Italy)",
+        "page": "Page 2",
+        "frame": "depop1_it",
+        "scale": 2
+    }
+}
+
+
+def get_all_services():
+    """Получить список всех сервисов"""
+    return list(SERVICES_CONFIG.keys())
+
+
+def get_service_config(service_name: str) -> dict:
+    """Получить конфигурацию сервиса"""
+    return SERVICES_CONFIG.get(service_name)
+
+
+def get_services_by_group():
+    """Получить сервисы сгруппированные"""
+    return {
+        "Marktplaats": ["marktplaats"],
+        "Subito": [
+            "subito",
+            "subito_email_request",
+            "subito_email_confirm",
+            "subito_sms_request",
+            "subito_sms_confirm"
+        ],
+        "Wallapop": [
+            "wallapop",
+            "wallapop_email",
+            "wallapop_sms"
+        ],
+        "2dehands/2ememain": [
+            "2dehands",
+            "2ememain"
+        ],
+        "Kleinanzeigen": ["kleize"],
+        "Conto": ["conto"],
+        "Depop": [
+            "depop_au",
+            "depop_uk",
+            "depop_us",
+            "depop_it"
+        ]
+    }

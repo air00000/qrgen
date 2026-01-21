@@ -5,6 +5,12 @@ import uuid
 import base64
 import logging
 import asyncio
+from app.utils.async_helpers import (
+    with_rate_limit,
+    generate_with_queue,
+    usage_stats
+)
+
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
@@ -47,6 +53,48 @@ async def qr_entry_wallapop_menu(update: Update, context: ContextTypes.DEFAULT_T
     clear_stack(context.user_data)
     await update.callback_query.answer()
     return await ask_wallapop_type(update, context)
+
+
+async def qr_entry_2dehands(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт 2DEHANDS (нидерландский)"""
+    context.user_data["service"] = "2dehands"
+    context.user_data["lang"] = "nl"  # Нидерландский
+    clear_stack(context.user_data)
+    await update.callback_query.answer()
+    return await ask_nazvanie(update, context)
+
+
+async def qr_entry_2ememain(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт 2EMEMAIN (французский)"""
+    context.user_data["service"] = "2ememain"
+    context.user_data["lang"] = "fr"  # Французский
+    clear_stack(context.user_data)
+    await update.callback_query.answer()
+    return await ask_nazvanie(update, context)
+
+
+async def qr_entry_conto(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт CONTO (Subito payment)"""
+    context.user_data["service"] = "conto"
+    clear_stack(context.user_data)
+    await update.callback_query.answer()
+    return await ask_nazvanie(update, context)
+
+
+async def qr_entry_kleize(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт KLEIZE"""
+    context.user_data["service"] = "kleize"
+    clear_stack(context.user_data)
+    await update.callback_query.answer()
+    return await ask_nazvanie(update, context)
+
+
+async def qr_entry_depop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт DEPOP (AU)"""
+    context.user_data["service"] = "depop"
+    clear_stack(context.user_data)
+    await update.callback_query.answer()
+    return await ask_nazvanie(update, context)
 
 
 async def ask_wallapop_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -225,8 +273,14 @@ async def on_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     service = context.user_data.get("service", "marktplaats")
     wallapop_type = context.user_data.get("wallapop_type", "link")
 
-    if service == "subito":
+    if service == "conto":
+        # Для Conto идем сразу к генерации (нет фото и URL)
+        return await on_url(update, context)
+    elif service == "subito":
         return await ask_name(update, context)
+    elif service == "depop":
+        # Для Depop нужен seller_name
+        return await ask_seller_name(update, context)
     elif service == "wallapop_email":
         return await ask_seller_name(update, context)
     else:
@@ -243,17 +297,27 @@ async def on_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return await ask_photo(update, context)
 
 
+
+
 async def on_seller_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["seller_name"] = (update.message.text or "").strip()
     return await ask_seller_photo(update, context)
 
 
 async def on_seller_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    service = context.user_data.get("service", "")
+    
     if update.message.photo:
         photo_file = await update.message.photo[-1].get_file()
         photo_bytes = await photo_file.download_as_bytearray()
         context.user_data["seller_photo_bytes"] = photo_bytes
-        return await ask_photo(update, context)
+        logger.info(f"✅ Аватар получен: {len(photo_bytes)} bytes")
+        
+        # Для Depop идем к фото товара, для wallapop_email - к photo
+        if service == "depop":
+            return await ask_photo(update, context)
+        else:
+            return await ask_photo(update, context)
 
     await update.message.reply_text("Пожалуйста, отправь фото или нажми «Пропустить».")
     return QR_SELLER_PHOTO
@@ -264,11 +328,14 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         photo_file = await update.message.photo[-1].get_file()
         photo_bytes = await photo_file.download_as_bytearray()
         context.user_data["photo_bytes"] = photo_bytes
+        logger.info(f"✅ Фото получено: {len(photo_bytes)} bytes")
 
         service = context.user_data.get("service", "marktplaats")
         wallapop_type = context.user_data.get("wallapop_type", "link")
 
-        if service == "wallapop_email":
+        if service in ["2dehands", "2ememain"]:
+            return await ask_url(update, context)
+        elif service == "wallapop_email":
             return await generate_wallapop_email(update, context)
         elif service == "wallapop" and wallapop_type == "link":
             return await generate_wallapop(update, context)
@@ -281,6 +348,7 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return QR_PHOTO
 
 
+@with_rate_limit
 async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     nazvanie = context.user_data.get("nazvanie", "")
     price = context.user_data.get("price", "")
@@ -296,8 +364,79 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
+        logger.info(f"📸 Генерация для {service}: фото={'есть (' + str(len(photo_b64)) + ' символов)' if photo_b64 else 'нет'}, название={nazvanie}, цена={price}")
 
-        if service == "subito":
+        if service == "conto":
+            # Импортируем функцию для Conto
+            from app.services.conto import create_conto_image
+            
+            try:
+                price_float = float(price)
+            except ValueError:
+                price_float = 0.0
+            
+            executor = context.application.bot_data.get("executor")
+            image_data = await generate_with_queue(executor, 
+                create_conto_image, nazvanie, price_float
+            )
+        elif service == "kleize":
+            # Импортируем функцию для Kleize
+            from app.services.kleize import create_kleize_image
+            
+            try:
+                price_float = float(price)
+            except ValueError:
+                price_float = 0.0
+            
+            executor = context.application.bot_data.get("executor")
+            image_data = await generate_with_queue(executor, 
+                create_kleize_image, nazvanie, price_float, photo_b64, url
+            )
+        elif service == "depop":
+            # Импортируем функцию для Depop
+            from app.services.depop import create_depop_image
+            from app.cache.figma_cache import cache_exists
+            
+            # Проверка кэша
+            if not cache_exists("depop_au"):
+                await update.message.reply_text(
+                    "❌ Кэш Depop не найден!\n\n"
+                    "Администратор должен выполнить:\n"
+                    "/refresh_cache depop_au"
+                )
+                return ConversationHandler.END
+            
+            try:
+                price_float = float(price)
+            except ValueError:
+                price_float = 0.0
+            
+            # Получаем seller_name и avatar
+            seller_name = context.user_data.get("seller_name", "Seller")
+            seller_photo_bytes = context.user_data.get("seller_photo_bytes")
+            avatar_b64 = base64.b64encode(seller_photo_bytes).decode('utf-8') if seller_photo_bytes else None
+            
+            logger.info(f"🇦🇺 Depop: seller={seller_name}, avatar={'есть' if avatar_b64 else 'нет'}")
+            
+            executor = context.application.bot_data.get("executor")
+            image_data = await generate_with_queue(executor, 
+                create_depop_image, nazvanie, price_float, seller_name, photo_b64, avatar_b64, url
+            )
+        elif service in ["2dehands", "2ememain"]:
+            # Импортируем функцию для 2dehands
+            from app.services.twodehands import create_2dehands_image
+            lang = context.user_data.get("lang", "nl")
+            
+            try:
+                price_float = float(price)
+            except ValueError:
+                price_float = 0.0
+            
+            executor = context.application.bot_data.get("executor")
+            image_data = await generate_with_queue(executor, 
+                create_2dehands_image, nazvanie, price_float, photo_b64, url, lang
+            )
+        elif service == "subito":
             image_data, _, _ = await asyncio.to_thread(
                 create_pdf_subito, nazvanie, price, name, address, photo_b64, url
             )
@@ -335,6 +474,7 @@ async def generate_wallapop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
+        logger.info(f"📸 Генерация для wallapop: фото={'есть (' + str(len(photo_b64)) + ' символов)' if photo_b64 else 'нет'}, название={nazvanie}, цена={price}")
 
         image_data, _, _ = await asyncio.to_thread(
             create_pdf_wallapop, lang, nazvanie, price, photo_b64
@@ -371,6 +511,7 @@ async def generate_wallapop_email(update: Update, context: ContextTypes.DEFAULT_
 
     try:
         photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
+        logger.info(f"📸 Генерация для wallapop_email: фото={'есть (' + str(len(photo_b64)) + ' символов)' if photo_b64 else 'нет'}, название={nazvanie}, цена={price}")
         seller_photo_b64 = base64.b64encode(seller_photo_bytes).decode('utf-8') if seller_photo_bytes else None
 
         image_data, _, _ = await asyncio.to_thread(
@@ -406,6 +547,7 @@ async def generate_wallapop_sms(update: Update, context: ContextTypes.DEFAULT_TY
 
     try:
         photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
+        logger.info(f"📸 Генерация для wallapop_sms: фото={'есть (' + str(len(photo_b64)) + ' символов)' if photo_b64 else 'нет'}, название={nazvanie}, цена={price}")
 
         image_data, _, _ = await asyncio.to_thread(
             create_pdf_wallapop_sms, lang, nazvanie, price, photo_b64
@@ -444,7 +586,9 @@ async def on_skip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     service = context.user_data.get("service", "marktplaats")
     wallapop_type = context.user_data.get("wallapop_type", "link")
 
-    if service == "wallapop_email":
+    if service in ["2dehands", "2ememain"]:
+        return await ask_url(update, context)
+    elif service == "wallapop_email":
         return await generate_wallapop_email(update, context)
     elif service == "wallapop" and wallapop_type == "link":
         return await generate_wallapop(update, context)
@@ -506,8 +650,13 @@ qr_conv = ConversationHandler(
     name="qr_flow",
     entry_points=[
         CallbackQueryHandler(qr_entry, pattern=r"^QR:START$"),
-        CallbackQueryHandler(qr_entry_subito, pattern=r"^QR:SUBITO$"),
+        # QR:SUBITO теперь обрабатывается в subito_variants_conv
         CallbackQueryHandler(qr_entry_wallapop_menu, pattern=r"^QR:WALLAPOP_MENU$"),
+        CallbackQueryHandler(qr_entry_2dehands, pattern=r"^QR:2DEHANDS$"),
+        CallbackQueryHandler(qr_entry_2ememain, pattern=r"^QR:2EMEMAIN$"),
+        CallbackQueryHandler(qr_entry_conto, pattern=r"^QR:CONTO$"),
+        CallbackQueryHandler(qr_entry_kleize, pattern=r"^QR:KLEIZE$"),
+        CallbackQueryHandler(qr_entry_depop, pattern=r"^QR:DEPOP$"),
     ],
     states={
         QR_WALLAPOP_TYPE: [
