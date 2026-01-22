@@ -28,7 +28,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ],
         [
             InlineKeyboardButton("🔧 Kleize", callback_data="QR:KLEIZE"),
-            InlineKeyboardButton("🇦🇺 Depop (AU)", callback_data="QR:DEPOP"),
+            InlineKeyboardButton("🛍️ Depop", callback_data="QR:DEPOP_MENU"),
         ]
     ]
 

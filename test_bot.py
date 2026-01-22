@@ -133,16 +133,13 @@ async def test_service(bot: Bot, chat_id: int, service_name: str, generate_func,
         elif service_name == "wallapop":
             image_data = generate_func(data["lang"], data["title"], data["price"], data.get("photo"))
         elif service_name in ["2dehands", "2ememain"]:
-            # create_2dehands_image(nazvanie, price, photo, url, language)
-            image_data = generate_func(data["title"], data["price"], data.get("photo"), data["url"], data["lang"])
+            image_data = generate_func(data["title"], data["price"], data["url"], data["lang"], data.get("photo"))
         elif service_name == "kleize":
-            # create_kleize_image(nazvanie, price, photo, url)
-            image_data = generate_func(data["title"], data["price"], data.get("photo"), data["url"])
+            image_data = generate_func(data["title"], data["price"], data["url"], data.get("photo"))
         elif service_name == "conto":
             image_data = generate_func(data["title"], data["price"])
         elif service_name == "depop":
-            # create_depop_image(nazvanie, price, seller_name, photo, avatar, url)
-            image_data = generate_func(data["title"], data["price"], data["seller_name"], data.get("photo"), data.get("avatar"), data["url"])
+            image_data = generate_func(data["title"], data["price"], data["seller_name"], data["url"], data.get("photo"), data.get("avatar"))
         else:
             raise ValueError(f"Unknown service: {service_name}")
         
@@ -160,11 +157,9 @@ async def test_service(bot: Bot, chat_id: int, service_name: str, generate_func,
         
     except Exception as e:
         print(f"❌ Ошибка: {e}")
-        # Экранируем HTML-спецсимволы в сообщении об ошибке
-        error_text = str(e)[:200].replace("<", "&lt;").replace(">", "&gt;").replace("&", "&amp;")
         await bot.send_message(
             chat_id=chat_id,
-            text=f"❌ {service_name.upper()}: Ошибка\n\n<code>{error_text}</code>",
+            text=f"❌ {service_name.upper()}: Ошибка\n\n<code>{str(e)[:200]}</code>",
             parse_mode="HTML"
         )
         return False

@@ -84,9 +84,33 @@ SERVICES_CONFIG = {
         "scale": 2
     },
     "depop_au": {
-        "display_name": "Depop (Australia)",
+        "display_name": "Depop QR (Australia)",
         "page": "Page 2",
         "frame": "depop1_au",
+        "scale": 2
+    },
+    "depop_au_email_request": {
+        "display_name": "Depop Email Request (AU)",
+        "page": "Page 2",
+        "frame": "depop2_au",
+        "scale": 2
+    },
+    "depop_au_email_confirm": {
+        "display_name": "Depop Email Confirm (AU)",
+        "page": "Page 2",
+        "frame": "depop3_au",
+        "scale": 2
+    },
+    "depop_au_sms_request": {
+        "display_name": "Depop SMS Request (AU)",
+        "page": "Page 2",
+        "frame": "depop4_au",
+        "scale": 2
+    },
+    "depop_au_sms_confirm": {
+        "display_name": "Depop SMS Confirm (AU)",
+        "page": "Page 2",
+        "frame": "depop5_au",
         "scale": 2
     },
     "depop_uk": {
@@ -144,6 +168,10 @@ def get_services_by_group():
         "Conto": ["conto"],
         "Depop": [
             "depop_au",
+            "depop_au_email_request",
+            "depop_au_email_confirm",
+            "depop_au_sms_request",
+            "depop_au_sms_confirm",
             "depop_uk",
             "depop_us",
             "depop_it"

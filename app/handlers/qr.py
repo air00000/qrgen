@@ -18,15 +18,15 @@ from telegram.ext import (
     MessageHandler, CommandHandler, filters
 )
 
-from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, wallapop_type_kb, wallapop_lang_kb
+from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, wallapop_type_kb, wallapop_lang_kb, depop_type_kb
 from app.utils.state_stack import push_state, pop_state, clear_stack
 from app.services.pdf import create_pdf, create_pdf_subito, create_pdf_wallapop, create_pdf_wallapop_email, create_pdf_wallapop_sms
 
 logger = logging.getLogger(__name__)
 
 # Состояния
-QR_NAZVANIE, QR_PRICE, QR_NAME, QR_ADDRESS, QR_PHOTO, QR_URL, QR_LANG, QR_SELLER_NAME, QR_SELLER_PHOTO, QR_WALLAPOP_TYPE = range(
-    10)
+QR_NAZVANIE, QR_PRICE, QR_NAME, QR_ADDRESS, QR_PHOTO, QR_URL, QR_LANG, QR_SELLER_NAME, QR_SELLER_PHOTO, QR_WALLAPOP_TYPE, QR_DEPOP_TYPE = range(
+    11)
 
 
 async def qr_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -90,11 +90,80 @@ async def qr_entry_kleize(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def qr_entry_depop(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Старт DEPOP (AU)"""
+    """Старт DEPOP (AU) QR"""
     context.user_data["service"] = "depop"
+    context.user_data["depop_type"] = "qr"
     clear_stack(context.user_data)
     await update.callback_query.answer()
     return await ask_nazvanie(update, context)
+
+
+async def qr_entry_depop_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Меню выбора типа Depop"""
+    context.user_data["service"] = "depop"
+    clear_stack(context.user_data)
+    await update.callback_query.answer()
+    return await ask_depop_type(update, context)
+
+
+async def ask_depop_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Запрос типа Depop"""
+    push_state(context.user_data, QR_DEPOP_TYPE)
+    text = "Выбери тип Depop:"
+
+    if update.callback_query:
+        await update.callback_query.message.edit_text(text, reply_markup=depop_type_kb())
+    else:
+        await update.message.reply_text(text, reply_markup=depop_type_kb())
+
+    return QR_DEPOP_TYPE
+
+
+async def qr_entry_depop_qr(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт DEPOP QR версии"""
+    context.user_data["service"] = "depop"
+    context.user_data["depop_type"] = "qr"
+    await update.callback_query.answer()
+    return await ask_nazvanie(update, context)
+
+
+async def qr_entry_depop_email_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт DEPOP Email Request версии"""
+    context.user_data["service"] = "depop_email_request"
+    context.user_data["depop_type"] = "email_request"
+    await update.callback_query.answer()
+    return await ask_nazvanie(update, context)
+
+
+async def qr_entry_depop_email_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт DEPOP Email Confirm версии"""
+    context.user_data["service"] = "depop_email_confirm"
+    context.user_data["depop_type"] = "email_confirm"
+    await update.callback_query.answer()
+    return await ask_nazvanie(update, context)
+
+
+async def qr_entry_depop_sms_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт DEPOP SMS Request версии"""
+    context.user_data["service"] = "depop_sms_request"
+    context.user_data["depop_type"] = "sms_request"
+    await update.callback_query.answer()
+    return await ask_nazvanie(update, context)
+
+
+async def qr_entry_depop_sms_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт DEPOP SMS Confirm версии"""
+    context.user_data["service"] = "depop_sms_confirm"
+    context.user_data["depop_type"] = "sms_confirm"
+    await update.callback_query.answer()
+    return await ask_nazvanie(update, context)
+
+
+async def depop_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Назад в меню выбора типа Depop"""
+    await update.callback_query.answer()
+    pop_state(context.user_data)
+    return await ask_depop_type(update, context)
 
 
 async def ask_wallapop_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -279,8 +348,11 @@ async def on_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif service == "subito":
         return await ask_name(update, context)
     elif service == "depop":
-        # Для Depop нужен seller_name
+        # Для Depop QR нужен seller_name
         return await ask_seller_name(update, context)
+    elif service in ["depop_email_request", "depop_email_confirm", "depop_sms_request", "depop_sms_confirm"]:
+        # Для Depop вариантов (без QR) - только фото
+        return await ask_photo(update, context)
     elif service == "wallapop_email":
         return await ask_seller_name(update, context)
     else:
@@ -341,6 +413,8 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return await generate_wallapop(update, context)
         elif service == "wallapop" and wallapop_type == "sms":
             return await generate_wallapop_sms(update, context)
+        elif service in ["depop_email_request", "depop_email_confirm", "depop_sms_request", "depop_sms_confirm"]:
+            return await generate_depop_variant(update, context)
         else:
             return await ask_url(update, context)
 
@@ -570,6 +644,88 @@ async def generate_wallapop_sms(update: Update, context: ContextTypes.DEFAULT_TY
         return ConversationHandler.END
 
 
+async def generate_depop_variant(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Генерация Depop вариантов (email request/confirm, sms request/confirm)"""
+    service = context.user_data.get("service", "")
+    nazvanie = context.user_data.get("nazvanie", "")
+    price = context.user_data.get("price", "")
+    photo_bytes = context.user_data.get("photo_bytes")
+
+    message = update.message if update.message else update.callback_query.message
+    
+    service_names = {
+        "depop_email_request": "Depop Email Request",
+        "depop_email_confirm": "Depop Email Confirm",
+        "depop_sms_request": "Depop SMS Request",
+        "depop_sms_confirm": "Depop SMS Confirm"
+    }
+    display_name = service_names.get(service, service)
+    
+    await message.reply_text(f"Обрабатываю данные для {display_name}…", reply_markup=menu_back_kb())
+
+    try:
+        # Импортируем функции для Depop вариантов
+        from app.services.depop_variants import (
+            create_depop_email_request, create_depop_email_confirm,
+            create_depop_sms_request, create_depop_sms_confirm
+        )
+        from app.cache.figma_cache import cache_exists
+        
+        # Проверка кэша - имена в формате depop_au_email_request
+        cache_name_map = {
+            "depop_email_request": "depop_au_email_request",
+            "depop_email_confirm": "depop_au_email_confirm",
+            "depop_sms_request": "depop_au_sms_request",
+            "depop_sms_confirm": "depop_au_sms_confirm"
+        }
+        cache_name = cache_name_map.get(service, service)
+        if not cache_exists(cache_name):
+            await message.reply_text(
+                f"❌ Кэш {cache_name} не найден!\n\n"
+                f"Администратор должен выполнить:\n"
+                f"/refresh_cache {cache_name}"
+            )
+            return ConversationHandler.END
+        
+        try:
+            price_float = float(price)
+        except ValueError:
+            price_float = 0.0
+        
+        photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
+        logger.info(f"🛍️ Depop {service}: фото={'есть' if photo_b64 else 'нет'}, название={nazvanie}, цена={price_float}")
+        
+        # Выбор функции генерации
+        executor = context.application.bot_data.get("executor")
+        
+        if service == "depop_email_request":
+            image_data = await generate_with_queue(executor, create_depop_email_request, nazvanie, price_float, photo_b64)
+        elif service == "depop_email_confirm":
+            image_data = await generate_with_queue(executor, create_depop_email_confirm, nazvanie, price_float, photo_b64)
+        elif service == "depop_sms_request":
+            image_data = await generate_with_queue(executor, create_depop_sms_request, nazvanie, price_float, photo_b64)
+        elif service == "depop_sms_confirm":
+            image_data = await generate_with_queue(executor, create_depop_sms_confirm, nazvanie, price_float, photo_b64)
+        else:
+            raise ValueError(f"Неизвестный сервис: {service}")
+
+        await context.bot.send_document(
+            chat_id=message.chat_id,
+            document=io.BytesIO(image_data),
+            filename=f"{service}_{uuid.uuid4()}.png"
+        )
+
+        await message.reply_text("Готово!", reply_markup=main_menu_kb())
+        clear_stack(context.user_data)
+        return ConversationHandler.END
+
+    except Exception as e:
+        logger.exception(f"Ошибка генерации {service}")
+        await message.reply_text(f"Ошибка: {e}", reply_markup=main_menu_kb())
+        clear_stack(context.user_data)
+        return ConversationHandler.END
+
+
 # ---- Навигация
 async def qr_menu_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer("Возврат в главное меню")
@@ -594,6 +750,8 @@ async def on_skip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await generate_wallapop(update, context)
     elif service == "wallapop" and wallapop_type == "sms":
         return await generate_wallapop_sms(update, context)
+    elif service in ["depop_email_request", "depop_email_confirm", "depop_sms_request", "depop_sms_confirm"]:
+        return await generate_depop_variant(update, context)
     else:
         return await ask_url(update, context)
 
@@ -616,6 +774,8 @@ async def qr_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if prev_state == QR_WALLAPOP_TYPE:
         return await ask_wallapop_type(update, context)
+    elif prev_state == QR_DEPOP_TYPE:
+        return await ask_depop_type(update, context)
     elif prev_state == QR_LANG:
         # Возврат к выбору типа Wallapop
         return await ask_wallapop_type(update, context)
@@ -657,12 +817,22 @@ qr_conv = ConversationHandler(
         CallbackQueryHandler(qr_entry_conto, pattern=r"^QR:CONTO$"),
         CallbackQueryHandler(qr_entry_kleize, pattern=r"^QR:KLEIZE$"),
         CallbackQueryHandler(qr_entry_depop, pattern=r"^QR:DEPOP$"),
+        CallbackQueryHandler(qr_entry_depop_menu, pattern=r"^QR:DEPOP_MENU$"),
     ],
     states={
         QR_WALLAPOP_TYPE: [
             CallbackQueryHandler(qr_entry_wallapop_link, pattern=r"^QR:WALLAPOP_LINK$"),
             CallbackQueryHandler(qr_entry_wallapop_email, pattern=r"^QR:WALLAPOP_EMAIL$"),
             CallbackQueryHandler(qr_entry_wallapop_sms, pattern=r"^QR:WALLAPOP_SMS$"),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
+        ],
+        QR_DEPOP_TYPE: [
+            CallbackQueryHandler(qr_entry_depop_qr, pattern=r"^QR:DEPOP_QR$"),
+            CallbackQueryHandler(qr_entry_depop_email_request, pattern=r"^QR:DEPOP_EMAIL_REQUEST$"),
+            CallbackQueryHandler(qr_entry_depop_email_confirm, pattern=r"^QR:DEPOP_EMAIL_CONFIRM$"),
+            CallbackQueryHandler(qr_entry_depop_sms_request, pattern=r"^QR:DEPOP_SMS_REQUEST$"),
+            CallbackQueryHandler(qr_entry_depop_sms_confirm, pattern=r"^QR:DEPOP_SMS_CONFIRM$"),
             CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
         ],

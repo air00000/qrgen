@@ -42,6 +42,9 @@ def service_select_kb(is_admin: bool = False):
             InlineKeyboardButton("🇫🇷 2ememain", callback_data="QR:2EMEMAIN"),
             InlineKeyboardButton("🔧 Kleize", callback_data="QR:KLEIZE"),
         ],
+        [
+            InlineKeyboardButton("🛍️ Depop", callback_data="QR:DEPOP_MENU"),
+        ],
     ]
     if is_admin:
         rows.append([InlineKeyboardButton("🔐 API ключи", callback_data="API:MENU")])
@@ -90,3 +93,24 @@ def wallapop_lang_kb(wallapop_type: str = "link"):
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
+
+
+def depop_type_kb():
+    """Клавиатура выбора типа Depop"""
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🔗 QR код", callback_data="QR:DEPOP_QR"),
+        ],
+        [
+            InlineKeyboardButton("📧 Email запрос", callback_data="QR:DEPOP_EMAIL_REQUEST"),
+            InlineKeyboardButton("✅ Email подтв.", callback_data="QR:DEPOP_EMAIL_CONFIRM"),
+        ],
+        [
+            InlineKeyboardButton("📱 SMS запрос", callback_data="QR:DEPOP_SMS_REQUEST"),
+            InlineKeyboardButton("✅ SMS подтв.", callback_data="QR:DEPOP_SMS_CONFIRM"),
+        ],
+        [
+            InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK"),
+            InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")
+        ],
+    ])

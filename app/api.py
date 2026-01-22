@@ -19,6 +19,11 @@ from app.services.twodehands import create_2dehands_image, DehandsGenerationErro
 from app.services.kleize import create_kleize_image, KleizeGenerationError
 from app.services.conto import create_conto_image, ContoGenerationError
 from app.services.depop import create_depop_image, DepopGenerationError
+from app.services.depop_variants import (
+    create_depop_email_request, create_depop_email_confirm,
+    create_depop_sms_request, create_depop_sms_confirm,
+    DepopVariantError
+)
 from app.services.apikey import validate_key, get_key_name
 from app.utils.notifications import send_api_notification_sync
 
@@ -117,6 +122,12 @@ class ImageDepop(BaseModel):
     photo: str = None
     avatar: str = None
     url: str
+
+class ImageDepopNoURL(BaseModel):
+    """Модель для Depop вариантов без URL (email/sms request/confirm)"""
+    title: str
+    price: float
+    photo: str = None
 
 # ======== Защищенные эндпоинты ========
 @app.post("/generate_image_marktplaats")
@@ -724,6 +735,170 @@ async def generate_image_depop_form(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         send_api_notification_sync(service="depop", key_name=key_name, title=title, success=False, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ======== Depop Email Request ========
+@app.post("/generate_image_depop_email_request")
+async def generate_image_depop_email_request_endpoint(
+        req: ImageDepopNoURL,
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Depop Email Request (JSON)"""
+    try:
+        image_data = create_depop_email_request(req.title, req.price, req.photo)
+        send_api_notification_sync(service="depop_email_request", key_name=key_name, title=req.title, success=True)
+        return Response(content=image_data, media_type="image/png")
+    except (DepopVariantError, PDFGenerationError, FigmaNodeNotFoundError) as e:
+        send_api_notification_sync(service="depop_email_request", key_name=key_name, title=req.title, success=False, error=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        send_api_notification_sync(service="depop_email_request", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_depop_email_request_form")
+async def generate_image_depop_email_request_form(
+        title: str = Form(...),
+        price: float = Form(...),
+        photo: UploadFile = File(None),
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Depop Email Request (Form Data)"""
+    try:
+        photo_b64 = None
+        if photo:
+            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
+
+        image_data = create_depop_email_request(title, price, photo_b64)
+        send_api_notification_sync(service="depop_email_request", key_name=key_name, title=title, success=True)
+        return Response(content=image_data, media_type="image/png")
+    except (DepopVariantError, PDFGenerationError, FigmaNodeNotFoundError) as e:
+        send_api_notification_sync(service="depop_email_request", key_name=key_name, title=title, success=False, error=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        send_api_notification_sync(service="depop_email_request", key_name=key_name, title=title, success=False, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ======== Depop Email Confirm ========
+@app.post("/generate_image_depop_email_confirm")
+async def generate_image_depop_email_confirm_endpoint(
+        req: ImageDepopNoURL,
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Depop Email Confirm (JSON)"""
+    try:
+        image_data = create_depop_email_confirm(req.title, req.price, req.photo)
+        send_api_notification_sync(service="depop_email_confirm", key_name=key_name, title=req.title, success=True)
+        return Response(content=image_data, media_type="image/png")
+    except (DepopVariantError, PDFGenerationError, FigmaNodeNotFoundError) as e:
+        send_api_notification_sync(service="depop_email_confirm", key_name=key_name, title=req.title, success=False, error=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        send_api_notification_sync(service="depop_email_confirm", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_depop_email_confirm_form")
+async def generate_image_depop_email_confirm_form(
+        title: str = Form(...),
+        price: float = Form(...),
+        photo: UploadFile = File(None),
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Depop Email Confirm (Form Data)"""
+    try:
+        photo_b64 = None
+        if photo:
+            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
+
+        image_data = create_depop_email_confirm(title, price, photo_b64)
+        send_api_notification_sync(service="depop_email_confirm", key_name=key_name, title=title, success=True)
+        return Response(content=image_data, media_type="image/png")
+    except (DepopVariantError, PDFGenerationError, FigmaNodeNotFoundError) as e:
+        send_api_notification_sync(service="depop_email_confirm", key_name=key_name, title=title, success=False, error=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        send_api_notification_sync(service="depop_email_confirm", key_name=key_name, title=title, success=False, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ======== Depop SMS Request ========
+@app.post("/generate_image_depop_sms_request")
+async def generate_image_depop_sms_request_endpoint(
+        req: ImageDepopNoURL,
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Depop SMS Request (JSON)"""
+    try:
+        image_data = create_depop_sms_request(req.title, req.price, req.photo)
+        send_api_notification_sync(service="depop_sms_request", key_name=key_name, title=req.title, success=True)
+        return Response(content=image_data, media_type="image/png")
+    except (DepopVariantError, PDFGenerationError, FigmaNodeNotFoundError) as e:
+        send_api_notification_sync(service="depop_sms_request", key_name=key_name, title=req.title, success=False, error=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        send_api_notification_sync(service="depop_sms_request", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_depop_sms_request_form")
+async def generate_image_depop_sms_request_form(
+        title: str = Form(...),
+        price: float = Form(...),
+        photo: UploadFile = File(None),
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Depop SMS Request (Form Data)"""
+    try:
+        photo_b64 = None
+        if photo:
+            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
+
+        image_data = create_depop_sms_request(title, price, photo_b64)
+        send_api_notification_sync(service="depop_sms_request", key_name=key_name, title=title, success=True)
+        return Response(content=image_data, media_type="image/png")
+    except (DepopVariantError, PDFGenerationError, FigmaNodeNotFoundError) as e:
+        send_api_notification_sync(service="depop_sms_request", key_name=key_name, title=title, success=False, error=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        send_api_notification_sync(service="depop_sms_request", key_name=key_name, title=title, success=False, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ======== Depop SMS Confirm ========
+@app.post("/generate_image_depop_sms_confirm")
+async def generate_image_depop_sms_confirm_endpoint(
+        req: ImageDepopNoURL,
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Depop SMS Confirm (JSON)"""
+    try:
+        image_data = create_depop_sms_confirm(req.title, req.price, req.photo)
+        send_api_notification_sync(service="depop_sms_confirm", key_name=key_name, title=req.title, success=True)
+        return Response(content=image_data, media_type="image/png")
+    except (DepopVariantError, PDFGenerationError, FigmaNodeNotFoundError) as e:
+        send_api_notification_sync(service="depop_sms_confirm", key_name=key_name, title=req.title, success=False, error=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        send_api_notification_sync(service="depop_sms_confirm", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_depop_sms_confirm_form")
+async def generate_image_depop_sms_confirm_form(
+        title: str = Form(...),
+        price: float = Form(...),
+        photo: UploadFile = File(None),
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Depop SMS Confirm (Form Data)"""
+    try:
+        photo_b64 = None
+        if photo:
+            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
+
+        image_data = create_depop_sms_confirm(title, price, photo_b64)
+        send_api_notification_sync(service="depop_sms_confirm", key_name=key_name, title=title, success=True)
+        return Response(content=image_data, media_type="image/png")
+    except (DepopVariantError, PDFGenerationError, FigmaNodeNotFoundError) as e:
+        send_api_notification_sync(service="depop_sms_confirm", key_name=key_name, title=title, success=False, error=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        send_api_notification_sync(service="depop_sms_confirm", key_name=key_name, title=title, success=False, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/status")
