@@ -52,18 +52,28 @@ def find_node(file_json, page_name, node_name):
     return None
 
 
-def clear_template_areas(img: Image.Image, frame_node: dict, nodes: dict, scale: int = SCALE_FACTOR) -> Image.Image:
+def clear_template_areas(img: Image.Image, frame_node: dict, nodes: dict, scale: int = SCALE_FACTOR, skip_keys: list = None) -> Image.Image:
     """
     Очистка областей текста и фото на шаблоне (заливка белым/серым)
     Это нужно чтобы данные из Figma не накладывались на новые данные
+    
+    Args:
+        skip_keys: список ключей узлов которые НЕ нужно очищать (например ['time'])
     """
     draw = ImageDraw.Draw(img)
     
     frame_x = frame_node['absoluteBoundingBox']['x']
     frame_y = frame_node['absoluteBoundingBox']['y']
     
+    skip_keys = skip_keys or []
+    cleared_count = 0
+    
     for key, node in nodes.items():
         if node is None:
+            continue
+        
+        # Пропускаем указанные ключи
+        if key in skip_keys:
             continue
             
         # Вычисляем координаты относительно фрейма
@@ -81,8 +91,9 @@ def clear_template_areas(img: Image.Image, frame_node: dict, nodes: dict, scale:
         
         # Заливаем белым цветом
         draw.rectangle([(x, y), (x + w, y + h)], fill=(255, 255, 255, 255))
+        cleared_count += 1
         
-    logger.info(f"🧹 Очищено {len([n for n in nodes.values() if n])} областей на шаблоне")
+    logger.info(f"🧹 Очищено {cleared_count} областей на шаблоне (пропущено: {skip_keys})")
     return img
 
 
@@ -188,7 +199,7 @@ def _create_depop_variant_image(
         result_img.paste(frame_img, (0, 0))
         
         # Очищаем области текста и фото чтобы данные из Figma не накладывались
-        result_img = clear_template_areas(result_img, frame_node, nodes, SCALE_FACTOR)
+        result_img = clear_template_areas(result_img, frame_node, nodes, SCALE_FACTOR, skip_keys=['time'])
         
         draw = ImageDraw.Draw(result_img)
         

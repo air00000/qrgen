@@ -2,10 +2,11 @@
 import base64
 import io
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header, Depends
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header, Depends, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Optional
+from urllib.parse import parse_qs
 
 from app.services.pdf import (
     create_image_marktplaats, create_image_subito, create_image_wallapop,
@@ -658,12 +659,31 @@ async def generate_image_conto_endpoint(
 
 @app.post("/generate_image_conto_form")
 async def generate_image_conto_form(
-        title: str = Form(...),
-        price: float = Form(...),
+        request: Request,
         key_name: str = Depends(verify_api_key)
 ):
-    """Генерация изображения для Conto (Subito Payment) - Form Data"""
+    """Генерация изображения для Conto (Subito Payment) - Form Data (multipart или urlencoded)"""
     try:
+        content_type = request.headers.get("content-type", "")
+        
+        if "multipart/form-data" in content_type:
+            form = await request.form()
+            title = form.get("title", "")
+            price = float(form.get("price", 0))
+        elif "application/x-www-form-urlencoded" in content_type:
+            body = await request.body()
+            parsed = parse_qs(body.decode("utf-8"))
+            title = parsed.get("title", [""])[0]
+            price = float(parsed.get("price", [0])[0])
+        else:
+            # Пробуем как JSON
+            data = await request.json()
+            title = data.get("title", "")
+            price = float(data.get("price", 0))
+        
+        if not title:
+            raise HTTPException(status_code=422, detail="title is required")
+        
         image_data = create_conto_image(title, price)
         send_api_notification_sync(service="conto", key_name=key_name, title=title, success=True)
         return Response(content=image_data, media_type="image/png")
@@ -671,7 +691,7 @@ async def generate_image_conto_form(
         send_api_notification_sync(service="conto", key_name=key_name, title=title, success=False, error=str(e))
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        send_api_notification_sync(service="conto", key_name=key_name, title=title, success=False, error=str(e))
+        send_api_notification_sync(service="conto", key_name=key_name, title=str(locals().get('title', 'Unknown')), success=False, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/generate_image_depop")
