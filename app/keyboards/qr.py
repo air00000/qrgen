@@ -56,11 +56,15 @@ def wallapop_type_kb():
     """Клавиатура выбора типа Wallapop"""
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("📧 Email версия", callback_data="QR:WALLAPOP_EMAIL"),
-            InlineKeyboardButton("🔗 Link версия", callback_data="QR:WALLAPOP_LINK"),
+            InlineKeyboardButton("📧 Mail запрос", callback_data="QR:WALLAPOP_EMAIL_REQUEST"),
+            InlineKeyboardButton("📞 Телефон запрос", callback_data="QR:WALLAPOP_PHONE_REQUEST"),
         ],
         [
-            InlineKeyboardButton("📱 SMS версия", callback_data="QR:WALLAPOP_SMS"),
+            InlineKeyboardButton("💳 Mail оплата", callback_data="QR:WALLAPOP_EMAIL_PAYMENT"),
+            InlineKeyboardButton("📱 SMS оплата", callback_data="QR:WALLAPOP_SMS_PAYMENT"),
+        ],
+        [
+            InlineKeyboardButton("🔳 QR", callback_data="QR:WALLAPOP_QR"),
         ],
         [
             InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK"),
@@ -71,12 +75,7 @@ def wallapop_type_kb():
 
 def wallapop_lang_kb(wallapop_type: str = "link"):
     """Клавиатура выбора языка для Wallapop"""
-    if wallapop_type == "email":
-        callback_prefix = "WALLAPOP_EMAIL_LANG_"
-    elif wallapop_type == "sms":
-        callback_prefix = "WALLAPOP_SMS_LANG_"
-    else:
-        callback_prefix = "WALLAPOP_LANG_"
+    callback_prefix = "WALLAPOP_LANG_"
 
     keyboard = [
         [
@@ -86,6 +85,9 @@ def wallapop_lang_kb(wallapop_type: str = "link"):
         [
             InlineKeyboardButton("🇮🇹 IT", callback_data=f"{callback_prefix}it"),
             InlineKeyboardButton("🇫🇷 FR", callback_data=f"{callback_prefix}fr"),
+        ],
+        [
+            InlineKeyboardButton("🇵🇹 PT", callback_data=f"{callback_prefix}pr"),
         ],
         [
             InlineKeyboardButton("⬅️ Назад", callback_data="QR:WALLAPOP_BACK"),
