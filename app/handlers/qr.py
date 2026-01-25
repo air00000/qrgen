@@ -545,6 +545,17 @@ async def generate_wallapop_variant(update: Update, context: ContextTypes.DEFAUL
             create_wallapop_sms_payment,
             create_wallapop_qr,
         )
+        from app.cache.figma_cache import cache_exists
+
+        cache_name = f"wallapop_{wallapop_type}_{lang}"
+        if not cache_exists(cache_name):
+            await message.reply_text(
+                f"❌ Кэш {cache_name} не найден!\n\n"
+                f"Администратор должен выполнить:\n"
+                f"/refresh_cache {cache_name}"
+            )
+            return ConversationHandler.END
+
         try:
             price_float = float(price)
         except ValueError:
@@ -555,37 +566,28 @@ async def generate_wallapop_variant(update: Update, context: ContextTypes.DEFAUL
 
         executor = context.application.bot_data.get("executor")
 
-        async def _generate_wallapop_image():
-            if wallapop_type == "email_request":
-                return await generate_with_queue(
-                    executor, create_wallapop_email_request, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
-                )
-            if wallapop_type == "phone_request":
-                return await generate_with_queue(
-                    executor, create_wallapop_phone_request, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
-                )
-            if wallapop_type == "email_payment":
-                return await generate_with_queue(
-                    executor, create_wallapop_email_payment, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
-                )
-            if wallapop_type == "sms_payment":
-                return await generate_with_queue(
-                    executor, create_wallapop_sms_payment, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
-                )
-            if wallapop_type == "qr":
-                return await generate_with_queue(
-                    executor, create_wallapop_qr, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64, url
-                )
+        if wallapop_type == "email_request":
+            image_data = await generate_with_queue(
+                executor, create_wallapop_email_request, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
+            )
+        elif wallapop_type == "phone_request":
+            image_data = await generate_with_queue(
+                executor, create_wallapop_phone_request, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
+            )
+        elif wallapop_type == "email_payment":
+            image_data = await generate_with_queue(
+                executor, create_wallapop_email_payment, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
+            )
+        elif wallapop_type == "sms_payment":
+            image_data = await generate_with_queue(
+                executor, create_wallapop_sms_payment, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
+            )
+        elif wallapop_type == "qr":
+            image_data = await generate_with_queue(
+                executor, create_wallapop_qr, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64, url
+            )
+        else:
             raise ValueError(f"Неизвестный Wallapop тип: {wallapop_type}")
-
-        try:
-            image_data = await _generate_wallapop_image()
-        except Exception as e:
-            if "Кэш" in str(e) and "wallapop" in str(e):
-                logger.warning("Wallapop cache warning detected, retrying with Figma fallback.")
-                image_data = await _generate_wallapop_image()
-            else:
-                raise
 
         await context.bot.send_document(
             chat_id=message.chat_id,
