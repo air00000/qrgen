@@ -545,6 +545,17 @@ async def generate_wallapop_variant(update: Update, context: ContextTypes.DEFAUL
             create_wallapop_sms_payment,
             create_wallapop_qr,
         )
+        from app.cache.figma_cache import cache_exists
+
+        cache_name = f"wallapop_{wallapop_type}_{lang}"
+        if not cache_exists(cache_name):
+            await message.reply_text(
+                f"❌ Кэш {cache_name} не найден!\n\n"
+                f"Администратор должен выполнить:\n"
+                f"/refresh_cache {cache_name}"
+            )
+            return ConversationHandler.END
+
         try:
             price_float = float(price)
         except ValueError:
