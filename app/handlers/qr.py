@@ -20,7 +20,8 @@ from telegram.ext import (
 
 from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, wallapop_type_kb, wallapop_lang_kb, depop_type_kb
 from app.utils.state_stack import push_state, pop_state, clear_stack
-from app.services.pdf import create_pdf, create_pdf_subito, create_pdf_wallapop, create_pdf_wallapop_email, create_pdf_wallapop_sms
+from app.services.pdf import create_pdf, create_pdf_subito
+from app.services.wallapop_variants import WALLAPOP_VARIANTS
 
 logger = logging.getLogger(__name__)
 
@@ -179,34 +180,51 @@ async def ask_wallapop_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return QR_WALLAPOP_TYPE
 
 
-async def qr_entry_wallapop_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Старт WALLAPOP LINK версии"""
+async def qr_entry_wallapop_email_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт WALLAPOP Email Request версии"""
     context.user_data["service"] = "wallapop"
-    context.user_data["wallapop_type"] = "link"
+    context.user_data["wallapop_type"] = "email_request"
     await update.callback_query.answer()
-    return await ask_wallapop_lang(update, context, "link")
+    return await ask_wallapop_lang(update, context, "email_request")
 
 
-async def qr_entry_wallapop_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Старт WALLAPOP EMAIL версии"""
-    context.user_data["service"] = "wallapop_email"
-    context.user_data["wallapop_type"] = "email"
-    await update.callback_query.answer()
-    return await ask_wallapop_lang(update, context, "email")
-
-
-async def qr_entry_wallapop_sms(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Старт WALLAPOP SMS версии"""
+async def qr_entry_wallapop_phone_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт WALLAPOP Phone Request версии"""
     context.user_data["service"] = "wallapop"
-    context.user_data["wallapop_type"] = "sms"
+    context.user_data["wallapop_type"] = "phone_request"
     await update.callback_query.answer()
-    return await ask_wallapop_lang(update, context, "sms")
+    return await ask_wallapop_lang(update, context, "phone_request")
+
+
+async def qr_entry_wallapop_email_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт WALLAPOP Email Payment версии"""
+    context.user_data["service"] = "wallapop"
+    context.user_data["wallapop_type"] = "email_payment"
+    await update.callback_query.answer()
+    return await ask_wallapop_lang(update, context, "email_payment")
+
+
+async def qr_entry_wallapop_sms_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт WALLAPOP SMS Payment версии"""
+    context.user_data["service"] = "wallapop"
+    context.user_data["wallapop_type"] = "sms_payment"
+    await update.callback_query.answer()
+    return await ask_wallapop_lang(update, context, "sms_payment")
+
+
+async def qr_entry_wallapop_qr(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Старт WALLAPOP QR версии"""
+    context.user_data["service"] = "wallapop"
+    context.user_data["wallapop_type"] = "qr"
+    await update.callback_query.answer()
+    return await ask_wallapop_lang(update, context, "qr")
 
 
 async def ask_wallapop_lang(update: Update, context: ContextTypes.DEFAULT_TYPE, wallapop_type: str):
     """Запрос языка для Wallapop"""
     push_state(context.user_data, QR_LANG)
-    text = f"Выбери язык для Wallapop ({'Email' if wallapop_type == 'email' else 'Link' if wallapop_type == 'link' else 'SMS'} версия):"
+    wallapop_label = WALLAPOP_VARIANTS.get(wallapop_type, {}).get("label", wallapop_type)
+    text = f"Выбери язык для Wallapop ({wallapop_label}):"
 
     reply_markup = wallapop_lang_kb(wallapop_type)
 
@@ -219,36 +237,10 @@ async def ask_wallapop_lang(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
 
 async def on_wallapop_lang_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка выбора языка для Wallapop Link"""
+    """Обработка выбора языка для Wallapop"""
     lang = update.callback_query.data.replace("WALLAPOP_LANG_", "")
 
-    if lang not in ['uk', 'es', 'it', 'fr']:
-        await update.callback_query.answer("❌ Неправильный язык")
-        return QR_LANG
-
-    context.user_data["lang"] = lang
-    await update.callback_query.answer(f"Выбран язык: {lang.upper()}")
-    return await ask_nazvanie(update, context)
-
-
-async def on_wallapop_email_lang_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка выбора языка для Wallapop Email"""
-    lang = update.callback_query.data.replace("WALLAPOP_EMAIL_LANG_", "")
-
-    if lang not in ['uk', 'es', 'it', 'fr']:
-        await update.callback_query.answer("❌ Неправильный язык")
-        return QR_LANG
-
-    context.user_data["lang"] = lang
-    await update.callback_query.answer(f"Выбран язык: {lang.upper()}")
-    return await ask_nazvanie(update, context)
-
-
-async def on_wallapop_sms_lang_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка выбора языка для Wallapop SMS"""
-    lang = update.callback_query.data.replace("WALLAPOP_SMS_LANG_", "")
-
-    if lang not in ['uk', 'es', 'it', 'fr']:
+    if lang not in ['uk', 'es', 'it', 'fr', 'pr']:
         await update.callback_query.answer("❌ Неправильный язык")
         return QR_LANG
 
@@ -260,12 +252,11 @@ async def on_wallapop_sms_lang_callback(update: Update, context: ContextTypes.DE
 async def ask_nazvanie(update: Update, context: ContextTypes.DEFAULT_TYPE):
     push_state(context.user_data, QR_NAZVANIE)
     service = context.user_data.get("service", "marktplaats")
-    wallapop_type = context.user_data.get("wallapop_type", "link")
+    wallapop_type = context.user_data.get("wallapop_type", "email_request")
 
-    if service == "wallapop_email":
-        text = "Введи название товара для Wallapop Email:"
-    elif service == "wallapop" and wallapop_type == "sms":
-        text = "Введи название товара для Wallapop SMS:"
+    if service == "wallapop":
+        wallapop_label = WALLAPOP_VARIANTS.get(wallapop_type, {}).get("label", wallapop_type)
+        text = f"Введи название товара для Wallapop ({wallapop_label}):"
     else:
         text = "Введи название товара:"
 
@@ -293,7 +284,7 @@ async def ask_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def ask_seller_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     push_state(context.user_data, QR_SELLER_NAME)
-    await _edit_or_send(update, context, "Введи имя продавца для Wallapop Email:")
+    await _edit_or_send(update, context, "Введи имя продавца:")
     return QR_SELLER_NAME
 
 
@@ -340,7 +331,6 @@ async def on_nazvanie(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def on_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["price"] = (update.message.text or "").strip()
     service = context.user_data.get("service", "marktplaats")
-    wallapop_type = context.user_data.get("wallapop_type", "link")
 
     if service == "conto":
         # Для Conto идем сразу к генерации (нет фото и URL)
@@ -353,7 +343,7 @@ async def on_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif service in ["depop_email_request", "depop_email_confirm", "depop_sms_request", "depop_sms_confirm"]:
         # Для Depop вариантов (без QR) - только фото
         return await ask_photo(update, context)
-    elif service == "wallapop_email":
+    elif service == "wallapop":
         return await ask_seller_name(update, context)
     else:
         return await ask_photo(update, context)
@@ -385,11 +375,8 @@ async def on_seller_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["seller_photo_bytes"] = photo_bytes
         logger.info(f"✅ Аватар получен: {len(photo_bytes)} bytes")
         
-        # Для Depop идем к фото товара, для wallapop_email - к photo
-        if service == "depop":
-            return await ask_photo(update, context)
-        else:
-            return await ask_photo(update, context)
+        # Для Depop и Wallapop идем к фото товара
+        return await ask_photo(update, context)
 
     await update.message.reply_text("Пожалуйста, отправь фото или нажми «Пропустить».")
     return QR_SELLER_PHOTO
@@ -403,16 +390,14 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"✅ Фото получено: {len(photo_bytes)} bytes")
 
         service = context.user_data.get("service", "marktplaats")
-        wallapop_type = context.user_data.get("wallapop_type", "link")
+        wallapop_type = context.user_data.get("wallapop_type", "email_request")
 
         if service in ["2dehands", "2ememain"]:
             return await ask_url(update, context)
-        elif service == "wallapop_email":
-            return await generate_wallapop_email(update, context)
-        elif service == "wallapop" and wallapop_type == "link":
-            return await generate_wallapop(update, context)
-        elif service == "wallapop" and wallapop_type == "sms":
-            return await generate_wallapop_sms(update, context)
+        elif service == "wallapop":
+            if wallapop_type == "qr":
+                return await ask_url(update, context)
+            return await generate_wallapop_variant(update, context)
         elif service in ["depop_email_request", "depop_email_confirm", "depop_sms_request", "depop_sms_confirm"]:
             return await generate_depop_variant(update, context)
         else:
@@ -496,6 +481,8 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             image_data = await generate_with_queue(executor, 
                 create_depop_image, nazvanie, price_float, seller_name, photo_b64, avatar_b64, url
             )
+        elif service == "wallapop":
+            return await generate_wallapop_variant(update, context, url=url)
         elif service in ["2dehands", "2ememain"]:
             # Импортируем функцию для 2dehands
             from app.services.twodehands import create_2dehands_image
@@ -536,66 +523,74 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
 
-async def generate_wallapop(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Генерация Wallapop Link версии"""
-    lang = context.user_data.get("lang", "")
-    nazvanie = context.user_data.get("nazvanie", "")
-    price = context.user_data.get("price", "")
-    photo_bytes = context.user_data.get("photo_bytes")
-
-    message = update.message if update.message else update.callback_query.message
-    await message.reply_text(f"Обрабатываю данные для Wallapop Link {lang.upper()}…", reply_markup=menu_back_kb())
-
-    try:
-        photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
-        logger.info(f"📸 Генерация для wallapop: фото={'есть (' + str(len(photo_b64)) + ' символов)' if photo_b64 else 'нет'}, название={nazvanie}, цена={price}")
-
-        image_data, _, _ = await asyncio.to_thread(
-            create_pdf_wallapop, lang, nazvanie, price, photo_b64
-        )
-
-        await context.bot.send_document(
-            chat_id=message.chat_id,
-            document=io.BytesIO(image_data),
-            filename=f"wallapop_link_{lang}_{uuid.uuid4()}.png"
-        )
-
-        await message.reply_text("Готово!", reply_markup=main_menu_kb())
-        clear_stack(context.user_data)
-        return ConversationHandler.END
-
-    except Exception as e:
-        logger.exception("Ошибка генерации Wallapop Link")
-        await message.reply_text(f"Ошибка: {e}", reply_markup=main_menu_kb())
-        clear_stack(context.user_data)
-        return ConversationHandler.END
-
-
-async def generate_wallapop_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Генерация Wallapop Email версии"""
+async def generate_wallapop_variant(update: Update, context: ContextTypes.DEFAULT_TYPE, url: str = None):
+    """Генерация Wallapop вариантов"""
     lang = context.user_data.get("lang", "")
     nazvanie = context.user_data.get("nazvanie", "")
     price = context.user_data.get("price", "")
     seller_name = context.user_data.get("seller_name", "")
     photo_bytes = context.user_data.get("photo_bytes")
     seller_photo_bytes = context.user_data.get("seller_photo_bytes")
+    wallapop_type = context.user_data.get("wallapop_type", "email_request")
 
     message = update.message if update.message else update.callback_query.message
-    await message.reply_text(f"Обрабатываю данные для Wallapop Email {lang.upper()}…", reply_markup=menu_back_kb())
+    wallapop_label = WALLAPOP_VARIANTS.get(wallapop_type, {}).get("label", wallapop_type)
+    await message.reply_text(f"Обрабатываю данные для Wallapop ({wallapop_label}) {lang.upper()}…", reply_markup=menu_back_kb())
 
     try:
+        from app.services.wallapop_variants import (
+            create_wallapop_email_request,
+            create_wallapop_phone_request,
+            create_wallapop_email_payment,
+            create_wallapop_sms_payment,
+            create_wallapop_qr,
+        )
+        try:
+            price_float = float(price)
+        except ValueError:
+            price_float = 0.0
+
         photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
-        logger.info(f"📸 Генерация для wallapop_email: фото={'есть (' + str(len(photo_b64)) + ' символов)' if photo_b64 else 'нет'}, название={nazvanie}, цена={price}")
         seller_photo_b64 = base64.b64encode(seller_photo_bytes).decode('utf-8') if seller_photo_bytes else None
 
-        image_data, _, _ = await asyncio.to_thread(
-            create_pdf_wallapop_email, lang, nazvanie, price, photo_b64, seller_name, seller_photo_b64
-        )
+        executor = context.application.bot_data.get("executor")
+
+        async def _generate_wallapop_image():
+            if wallapop_type == "email_request":
+                return await generate_with_queue(
+                    executor, create_wallapop_email_request, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
+                )
+            if wallapop_type == "phone_request":
+                return await generate_with_queue(
+                    executor, create_wallapop_phone_request, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
+                )
+            if wallapop_type == "email_payment":
+                return await generate_with_queue(
+                    executor, create_wallapop_email_payment, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
+                )
+            if wallapop_type == "sms_payment":
+                return await generate_with_queue(
+                    executor, create_wallapop_sms_payment, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
+                )
+            if wallapop_type == "qr":
+                return await generate_with_queue(
+                    executor, create_wallapop_qr, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64, url
+                )
+            raise ValueError(f"Неизвестный Wallapop тип: {wallapop_type}")
+
+        try:
+            image_data = await _generate_wallapop_image()
+        except Exception as e:
+            if "Кэш" in str(e) and "wallapop" in str(e):
+                logger.warning("Wallapop cache warning detected, retrying with Figma fallback.")
+                image_data = await _generate_wallapop_image()
+            else:
+                raise
 
         await context.bot.send_document(
             chat_id=message.chat_id,
             document=io.BytesIO(image_data),
-            filename=f"wallapop_email_{lang}_{uuid.uuid4()}.png"
+            filename=f"wallapop_{wallapop_type}_{lang}_{uuid.uuid4()}.png"
         )
 
         await message.reply_text("Готово!", reply_markup=main_menu_kb())
@@ -603,42 +598,7 @@ async def generate_wallapop_email(update: Update, context: ContextTypes.DEFAULT_
         return ConversationHandler.END
 
     except Exception as e:
-        logger.exception("Ошибка генерации Wallapop Email")
-        await message.reply_text(f"Ошибка: {e}", reply_markup=main_menu_kb())
-        clear_stack(context.user_data)
-        return ConversationHandler.END
-
-
-async def generate_wallapop_sms(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Генерация Wallapop SMS версии"""
-    lang = context.user_data.get("lang", "")
-    nazvanie = context.user_data.get("nazvanie", "")
-    price = context.user_data.get("price", "")
-    photo_bytes = context.user_data.get("photo_bytes")
-
-    message = update.message if update.message else update.callback_query.message
-    await message.reply_text(f"Обрабатываю данные для Wallapop SMS {lang.upper()}…", reply_markup=menu_back_kb())
-
-    try:
-        photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
-        logger.info(f"📸 Генерация для wallapop_sms: фото={'есть (' + str(len(photo_b64)) + ' символов)' if photo_b64 else 'нет'}, название={nazvanie}, цена={price}")
-
-        image_data, _, _ = await asyncio.to_thread(
-            create_pdf_wallapop_sms, lang, nazvanie, price, photo_b64
-        )
-
-        await context.bot.send_document(
-            chat_id=message.chat_id,
-            document=io.BytesIO(image_data),
-            filename=f"wallapop_sms_{lang}_{uuid.uuid4()}.png"
-        )
-
-        await message.reply_text("Готово!", reply_markup=main_menu_kb())
-        clear_stack(context.user_data)
-        return ConversationHandler.END
-
-    except Exception as e:
-        logger.exception("Ошибка генерации Wallapop SMS")
+        logger.exception("Ошибка генерации Wallapop")
         await message.reply_text(f"Ошибка: {e}", reply_markup=main_menu_kb())
         clear_stack(context.user_data)
         return ConversationHandler.END
@@ -740,16 +700,14 @@ async def on_skip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["photo_bytes"] = None
 
     service = context.user_data.get("service", "marktplaats")
-    wallapop_type = context.user_data.get("wallapop_type", "link")
+    wallapop_type = context.user_data.get("wallapop_type", "email_request")
 
     if service in ["2dehands", "2ememain"]:
         return await ask_url(update, context)
-    elif service == "wallapop_email":
-        return await generate_wallapop_email(update, context)
-    elif service == "wallapop" and wallapop_type == "link":
-        return await generate_wallapop(update, context)
-    elif service == "wallapop" and wallapop_type == "sms":
-        return await generate_wallapop_sms(update, context)
+    elif service == "wallapop":
+        if wallapop_type == "qr":
+            return await ask_url(update, context)
+        return await generate_wallapop_variant(update, context)
     elif service in ["depop_email_request", "depop_email_confirm", "depop_sms_request", "depop_sms_confirm"]:
         return await generate_depop_variant(update, context)
     else:
@@ -770,7 +728,6 @@ async def qr_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await qr_menu_cb(update, context)
 
     service = context.user_data.get("service", "marktplaats")
-    wallapop_type = context.user_data.get("wallapop_type", "link")
 
     if prev_state == QR_WALLAPOP_TYPE:
         return await ask_wallapop_type(update, context)
@@ -821,9 +778,11 @@ qr_conv = ConversationHandler(
     ],
     states={
         QR_WALLAPOP_TYPE: [
-            CallbackQueryHandler(qr_entry_wallapop_link, pattern=r"^QR:WALLAPOP_LINK$"),
-            CallbackQueryHandler(qr_entry_wallapop_email, pattern=r"^QR:WALLAPOP_EMAIL$"),
-            CallbackQueryHandler(qr_entry_wallapop_sms, pattern=r"^QR:WALLAPOP_SMS$"),
+            CallbackQueryHandler(qr_entry_wallapop_email_request, pattern=r"^QR:WALLAPOP_EMAIL_REQUEST$"),
+            CallbackQueryHandler(qr_entry_wallapop_phone_request, pattern=r"^QR:WALLAPOP_PHONE_REQUEST$"),
+            CallbackQueryHandler(qr_entry_wallapop_email_payment, pattern=r"^QR:WALLAPOP_EMAIL_PAYMENT$"),
+            CallbackQueryHandler(qr_entry_wallapop_sms_payment, pattern=r"^QR:WALLAPOP_SMS_PAYMENT$"),
+            CallbackQueryHandler(qr_entry_wallapop_qr, pattern=r"^QR:WALLAPOP_QR$"),
             CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
         ],
@@ -838,8 +797,6 @@ qr_conv = ConversationHandler(
         ],
         QR_LANG: [
             CallbackQueryHandler(on_wallapop_lang_callback, pattern=r"^WALLAPOP_LANG_"),
-            CallbackQueryHandler(on_wallapop_email_lang_callback, pattern=r"^WALLAPOP_EMAIL_LANG_"),
-            CallbackQueryHandler(on_wallapop_sms_lang_callback, pattern=r"^WALLAPOP_SMS_LANG_"),
             CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
             CallbackQueryHandler(wallapop_back_cb, pattern=r"^QR:WALLAPOP_BACK$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")

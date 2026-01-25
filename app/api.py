@@ -9,12 +9,18 @@ from typing import Optional
 from urllib.parse import parse_qs
 
 from app.services.pdf import (
-    create_image_marktplaats, create_image_subito, create_image_wallapop,
-    create_image_wallapop_email, create_image_wallapop_sms, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError
+    create_image_marktplaats, create_image_subito, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError
 )
 from app.services.subito_variants import (
     create_image_subito_email_request, create_image_subito_email_confirm,
     create_image_subito_sms_request, create_image_subito_sms_confirm
+)
+from app.services.wallapop_variants import (
+    create_wallapop_email_request,
+    create_wallapop_phone_request,
+    create_wallapop_email_payment,
+    create_wallapop_sms_payment,
+    create_wallapop_qr,
 )
 from app.services.twodehands import create_2dehands_image, DehandsGenerationError
 from app.services.kleize import create_kleize_image, KleizeGenerationError
@@ -69,13 +75,7 @@ class ImageSubitoNoURL(BaseModel):
     name: str = ""
     address: str = ""
 
-class ImageWallapop(BaseModel):
-    lang: str
-    title: str
-    price: float
-    photo: str = None
-
-class ImageWallapopEmail(BaseModel):
+class ImageWallapopBase(BaseModel):
     lang: str
     title: str
     price: float
@@ -83,11 +83,8 @@ class ImageWallapopEmail(BaseModel):
     seller_name: str
     seller_photo: str = None
 
-class ImageWallapopSMS(BaseModel):
-    lang: str
-    title: str
-    price: float
-    photo: str = None
+class ImageWallapopQR(ImageWallapopBase):
+    url: str
 
 class Image2dehands(BaseModel):
     """Модель для 2dehands (нидерландский)"""
@@ -165,55 +162,99 @@ async def generate_image_subito_endpoint(
         send_api_notification_sync(service="subito", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/generate_image_wallapop")
-async def generate_image_wallapop_endpoint(
-        req: ImageWallapop,
+@app.post("/generate_image_wallapop_email_request")
+async def generate_image_wallapop_email_request_endpoint(
+        req: ImageWallapopBase,
         key_name: str = Depends(verify_api_key)
 ):
-    """Генерация изображения для Wallapop (JSON)"""
+    """Генерация изображения для Wallapop Email Request (JSON)"""
     try:
-        image_data = create_image_wallapop(req.lang, req.title, req.price, req.photo)
-        send_api_notification_sync(service="wallapop", key_name=key_name, title=req.title, success=True)
+        image_data = create_wallapop_email_request(
+            req.lang, req.title, req.price, req.photo, req.seller_name, req.seller_photo
+        )
+        send_api_notification_sync(service="wallapop_email_request", key_name=key_name, title=req.title, success=True)
         return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError) as e:
-        send_api_notification_sync(service="wallapop", key_name=key_name, title=req.title, success=False, error=str(e))
+    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
+        send_api_notification_sync(service="wallapop_email_request", key_name=key_name, title=req.title, success=False, error=str(e))
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        send_api_notification_sync(service="wallapop", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
+        send_api_notification_sync(service="wallapop_email_request", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/generate_image_wallapop_email")
-async def generate_image_wallapop_email_endpoint(
-        req: ImageWallapopEmail,
+@app.post("/generate_image_wallapop_phone_request")
+async def generate_image_wallapop_phone_request_endpoint(
+        req: ImageWallapopBase,
         key_name: str = Depends(verify_api_key)
 ):
-    """Генерация изображения для Wallapop Email (JSON)"""
+    """Генерация изображения для Wallapop Phone Request (JSON)"""
     try:
-        image_data = create_image_wallapop_email(req.lang, req.title, req.price, req.photo, req.seller_name, req.seller_photo)
-        send_api_notification_sync(service="wallapop_email", key_name=key_name, title=req.title, success=True)
+        image_data = create_wallapop_phone_request(
+            req.lang, req.title, req.price, req.photo, req.seller_name, req.seller_photo
+        )
+        send_api_notification_sync(service="wallapop_phone_request", key_name=key_name, title=req.title, success=True)
         return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError) as e:
-        send_api_notification_sync(service="wallapop_email", key_name=key_name, title=req.title, success=False, error=str(e))
+    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
+        send_api_notification_sync(service="wallapop_phone_request", key_name=key_name, title=req.title, success=False, error=str(e))
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        send_api_notification_sync(service="wallapop_email", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
+        send_api_notification_sync(service="wallapop_phone_request", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/generate_image_wallapop_sms")
-async def generate_image_wallapop_sms_endpoint(
-        req: ImageWallapopSMS,
+@app.post("/generate_image_wallapop_email_payment")
+async def generate_image_wallapop_email_payment_endpoint(
+        req: ImageWallapopBase,
         key_name: str = Depends(verify_api_key)
 ):
-    """Генерация изображения для Wallapop SMS (JSON)"""
+    """Генерация изображения для Wallapop Email Payment (JSON)"""
     try:
-        image_data = create_image_wallapop_sms(req.lang, req.title, req.price, req.photo)
-        send_api_notification_sync(service="wallapop_sms", key_name=key_name, title=req.title, success=True)
+        image_data = create_wallapop_email_payment(
+            req.lang, req.title, req.price, req.photo, req.seller_name, req.seller_photo
+        )
+        send_api_notification_sync(service="wallapop_email_payment", key_name=key_name, title=req.title, success=True)
         return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError) as e:
-        send_api_notification_sync(service="wallapop_sms", key_name=key_name, title=req.title, success=False, error=str(e))
+    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
+        send_api_notification_sync(service="wallapop_email_payment", key_name=key_name, title=req.title, success=False, error=str(e))
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        send_api_notification_sync(service="wallapop_sms", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
+        send_api_notification_sync(service="wallapop_email_payment", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_wallapop_sms_payment")
+async def generate_image_wallapop_sms_payment_endpoint(
+        req: ImageWallapopBase,
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Wallapop SMS Payment (JSON)"""
+    try:
+        image_data = create_wallapop_sms_payment(
+            req.lang, req.title, req.price, req.photo, req.seller_name, req.seller_photo
+        )
+        send_api_notification_sync(service="wallapop_sms_payment", key_name=key_name, title=req.title, success=True)
+        return Response(content=image_data, media_type="image/png")
+    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
+        send_api_notification_sync(service="wallapop_sms_payment", key_name=key_name, title=req.title, success=False, error=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        send_api_notification_sync(service="wallapop_sms_payment", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_wallapop_qr")
+async def generate_image_wallapop_qr_endpoint(
+        req: ImageWallapopQR,
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Wallapop QR (JSON)"""
+    try:
+        image_data = create_wallapop_qr(
+            req.lang, req.title, req.price, req.photo, req.seller_name, req.seller_photo, req.url
+        )
+        send_api_notification_sync(service="wallapop_qr", key_name=key_name, title=req.title, success=True)
+        return Response(content=image_data, media_type="image/png")
+    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
+        send_api_notification_sync(service="wallapop_qr", key_name=key_name, title=req.title, success=False, error=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        send_api_notification_sync(service="wallapop_qr", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/generate_image_marktplaats_form")
@@ -438,32 +479,8 @@ async def generate_image_subito_sms_confirm_form(
         send_api_notification_sync(service="subito_sms_confirm", key_name=key_name, title=title, success=False, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/generate_image_wallapop_form")
-async def generate_image_wallapop_form(
-        lang: str = Form(...),
-        title: str = Form(...),
-        price: float = Form(...),
-        photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Wallapop (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        image_data = create_image_wallapop(lang, title, price, photo_b64)
-        send_api_notification_sync(service="wallapop", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError) as e:
-        send_api_notification_sync(service="wallapop", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="wallapop", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_wallapop_email_form")
-async def generate_image_wallapop_email_form(
+@app.post("/generate_image_wallapop_email_request_form")
+async def generate_image_wallapop_email_request_form(
         lang: str = Form(...),
         title: str = Form(...),
         price: float = Form(...),
@@ -472,7 +489,7 @@ async def generate_image_wallapop_email_form(
         seller_photo: UploadFile = File(None),
         key_name: str = Depends(verify_api_key)
 ):
-    """Генерация изображения для Wallapop Email (Form Data)"""
+    """Генерация изображения для Wallapop Email Request (Form Data)"""
     try:
         photo_b64 = None
         if photo:
@@ -482,38 +499,135 @@ async def generate_image_wallapop_email_form(
         if seller_photo:
             seller_photo_b64 = base64.b64encode(await seller_photo.read()).decode("utf-8")
 
-        image_data = create_image_wallapop_email(lang, title, price, photo_b64, seller_name, seller_photo_b64)
-        send_api_notification_sync(service="wallapop_email", key_name=key_name, title=title, success=True)
+        image_data = create_wallapop_email_request(lang, title, price, photo_b64, seller_name, seller_photo_b64)
+        send_api_notification_sync(service="wallapop_email_request", key_name=key_name, title=title, success=True)
         return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError) as e:
-        send_api_notification_sync(service="wallapop_email", key_name=key_name, title=title, success=False, error=str(e))
+    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
+        send_api_notification_sync(service="wallapop_email_request", key_name=key_name, title=title, success=False, error=str(e))
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        send_api_notification_sync(service="wallapop_email", key_name=key_name, title=title, success=False, error=str(e))
+        send_api_notification_sync(service="wallapop_email_request", key_name=key_name, title=title, success=False, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/generate_image_wallapop_sms_form")
-async def generate_image_wallapop_sms_form(
+@app.post("/generate_image_wallapop_phone_request_form")
+async def generate_image_wallapop_phone_request_form(
         lang: str = Form(...),
         title: str = Form(...),
         price: float = Form(...),
+        seller_name: str = Form(...),
         photo: UploadFile = File(None),
+        seller_photo: UploadFile = File(None),
         key_name: str = Depends(verify_api_key)
 ):
-    """Генерация изображения для Wallapop SMS (Form Data)"""
+    """Генерация изображения для Wallapop Phone Request (Form Data)"""
     try:
         photo_b64 = None
         if photo:
             photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
 
-        image_data = create_image_wallapop_sms(lang, title, price, photo_b64)
-        send_api_notification_sync(service="wallapop_sms", key_name=key_name, title=title, success=True)
+        seller_photo_b64 = None
+        if seller_photo:
+            seller_photo_b64 = base64.b64encode(await seller_photo.read()).decode("utf-8")
+
+        image_data = create_wallapop_phone_request(lang, title, price, photo_b64, seller_name, seller_photo_b64)
+        send_api_notification_sync(service="wallapop_phone_request", key_name=key_name, title=title, success=True)
         return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError) as e:
-        send_api_notification_sync(service="wallapop_sms", key_name=key_name, title=title, success=False, error=str(e))
+    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
+        send_api_notification_sync(service="wallapop_phone_request", key_name=key_name, title=title, success=False, error=str(e))
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        send_api_notification_sync(service="wallapop_sms", key_name=key_name, title=title, success=False, error=str(e))
+        send_api_notification_sync(service="wallapop_phone_request", key_name=key_name, title=title, success=False, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_wallapop_email_payment_form")
+async def generate_image_wallapop_email_payment_form(
+        lang: str = Form(...),
+        title: str = Form(...),
+        price: float = Form(...),
+        seller_name: str = Form(...),
+        photo: UploadFile = File(None),
+        seller_photo: UploadFile = File(None),
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Wallapop Email Payment (Form Data)"""
+    try:
+        photo_b64 = None
+        if photo:
+            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
+
+        seller_photo_b64 = None
+        if seller_photo:
+            seller_photo_b64 = base64.b64encode(await seller_photo.read()).decode("utf-8")
+
+        image_data = create_wallapop_email_payment(lang, title, price, photo_b64, seller_name, seller_photo_b64)
+        send_api_notification_sync(service="wallapop_email_payment", key_name=key_name, title=title, success=True)
+        return Response(content=image_data, media_type="image/png")
+    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
+        send_api_notification_sync(service="wallapop_email_payment", key_name=key_name, title=title, success=False, error=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        send_api_notification_sync(service="wallapop_email_payment", key_name=key_name, title=title, success=False, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_wallapop_sms_payment_form")
+async def generate_image_wallapop_sms_payment_form(
+        lang: str = Form(...),
+        title: str = Form(...),
+        price: float = Form(...),
+        seller_name: str = Form(...),
+        photo: UploadFile = File(None),
+        seller_photo: UploadFile = File(None),
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Wallapop SMS Payment (Form Data)"""
+    try:
+        photo_b64 = None
+        if photo:
+            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
+
+        seller_photo_b64 = None
+        if seller_photo:
+            seller_photo_b64 = base64.b64encode(await seller_photo.read()).decode("utf-8")
+
+        image_data = create_wallapop_sms_payment(lang, title, price, photo_b64, seller_name, seller_photo_b64)
+        send_api_notification_sync(service="wallapop_sms_payment", key_name=key_name, title=title, success=True)
+        return Response(content=image_data, media_type="image/png")
+    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
+        send_api_notification_sync(service="wallapop_sms_payment", key_name=key_name, title=title, success=False, error=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        send_api_notification_sync(service="wallapop_sms_payment", key_name=key_name, title=title, success=False, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_image_wallapop_qr_form")
+async def generate_image_wallapop_qr_form(
+        lang: str = Form(...),
+        title: str = Form(...),
+        price: float = Form(...),
+        url: str = Form(...),
+        seller_name: str = Form(...),
+        photo: UploadFile = File(None),
+        seller_photo: UploadFile = File(None),
+        key_name: str = Depends(verify_api_key)
+):
+    """Генерация изображения для Wallapop QR (Form Data)"""
+    try:
+        photo_b64 = None
+        if photo:
+            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
+
+        seller_photo_b64 = None
+        if seller_photo:
+            seller_photo_b64 = base64.b64encode(await seller_photo.read()).decode("utf-8")
+
+        image_data = create_wallapop_qr(lang, title, price, photo_b64, seller_name, seller_photo_b64, url)
+        send_api_notification_sync(service="wallapop_qr", key_name=key_name, title=title, success=True)
+        return Response(content=image_data, media_type="image/png")
+    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
+        send_api_notification_sync(service="wallapop_qr", key_name=key_name, title=title, success=False, error=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        send_api_notification_sync(service="wallapop_qr", key_name=key_name, title=title, success=False, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/generate_image_2dehands")
