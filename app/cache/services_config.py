@@ -41,22 +41,154 @@ SERVICES_CONFIG = {
         "frame": "subito5",
         "scale": 2
     },
-    "wallapop": {
-        "display_name": "Wallapop",
+    "wallapop_email_request_uk": {
+        "display_name": "Wallapop Email Request (UK)",
         "page": "Page 3",
-        "frame": "wallapop1",
+        "frame": "wallapop3_uk",
         "scale": 2
     },
-    "wallapop_email": {
-        "display_name": "Wallapop Email",
+    "wallapop_email_request_es": {
+        "display_name": "Wallapop Email Request (ES)",
         "page": "Page 3",
-        "frame": "wallapop2",
+        "frame": "wallapop3_es",
         "scale": 2
     },
-    "wallapop_sms": {
-        "display_name": "Wallapop SMS",
+    "wallapop_email_request_it": {
+        "display_name": "Wallapop Email Request (IT)",
         "page": "Page 3",
-        "frame": "wallapop3",
+        "frame": "wallapop3_it",
+        "scale": 2
+    },
+    "wallapop_email_request_fr": {
+        "display_name": "Wallapop Email Request (FR)",
+        "page": "Page 3",
+        "frame": "wallapop3_fr",
+        "scale": 2
+    },
+    "wallapop_email_request_pr": {
+        "display_name": "Wallapop Email Request (PT)",
+        "page": "Page 3",
+        "frame": "wallapop3_pr",
+        "scale": 2
+    },
+    "wallapop_phone_request_uk": {
+        "display_name": "Wallapop Phone Request (UK)",
+        "page": "Page 3",
+        "frame": "wallapop4_uk",
+        "scale": 2
+    },
+    "wallapop_phone_request_es": {
+        "display_name": "Wallapop Phone Request (ES)",
+        "page": "Page 3",
+        "frame": "wallapop4_es",
+        "scale": 2
+    },
+    "wallapop_phone_request_it": {
+        "display_name": "Wallapop Phone Request (IT)",
+        "page": "Page 3",
+        "frame": "wallapop4_it",
+        "scale": 2
+    },
+    "wallapop_phone_request_fr": {
+        "display_name": "Wallapop Phone Request (FR)",
+        "page": "Page 3",
+        "frame": "wallapop4_fr",
+        "scale": 2
+    },
+    "wallapop_phone_request_pr": {
+        "display_name": "Wallapop Phone Request (PT)",
+        "page": "Page 3",
+        "frame": "wallapop4_pr",
+        "scale": 2
+    },
+    "wallapop_email_payment_uk": {
+        "display_name": "Wallapop Email Payment (UK)",
+        "page": "Page 3",
+        "frame": "wallapop5_uk",
+        "scale": 2
+    },
+    "wallapop_email_payment_es": {
+        "display_name": "Wallapop Email Payment (ES)",
+        "page": "Page 3",
+        "frame": "wallapop5_es",
+        "scale": 2
+    },
+    "wallapop_email_payment_it": {
+        "display_name": "Wallapop Email Payment (IT)",
+        "page": "Page 3",
+        "frame": "wallapop5_it",
+        "scale": 2
+    },
+    "wallapop_email_payment_fr": {
+        "display_name": "Wallapop Email Payment (FR)",
+        "page": "Page 3",
+        "frame": "wallapop5_fr",
+        "scale": 2
+    },
+    "wallapop_email_payment_pr": {
+        "display_name": "Wallapop Email Payment (PT)",
+        "page": "Page 3",
+        "frame": "wallapop5_pr",
+        "scale": 2
+    },
+    "wallapop_sms_payment_uk": {
+        "display_name": "Wallapop SMS Payment (UK)",
+        "page": "Page 3",
+        "frame": "wallapop6_uk",
+        "scale": 2
+    },
+    "wallapop_sms_payment_es": {
+        "display_name": "Wallapop SMS Payment (ES)",
+        "page": "Page 3",
+        "frame": "wallapop6_es",
+        "scale": 2
+    },
+    "wallapop_sms_payment_it": {
+        "display_name": "Wallapop SMS Payment (IT)",
+        "page": "Page 3",
+        "frame": "wallapop6_it",
+        "scale": 2
+    },
+    "wallapop_sms_payment_fr": {
+        "display_name": "Wallapop SMS Payment (FR)",
+        "page": "Page 3",
+        "frame": "wallapop6_fr",
+        "scale": 2
+    },
+    "wallapop_sms_payment_pr": {
+        "display_name": "Wallapop SMS Payment (PT)",
+        "page": "Page 3",
+        "frame": "wallapop6_pr",
+        "scale": 2
+    },
+    "wallapop_qr_uk": {
+        "display_name": "Wallapop QR (UK)",
+        "page": "Page 3",
+        "frame": "wallapop7_uk",
+        "scale": 2
+    },
+    "wallapop_qr_es": {
+        "display_name": "Wallapop QR (ES)",
+        "page": "Page 3",
+        "frame": "wallapop7_es",
+        "scale": 2
+    },
+    "wallapop_qr_it": {
+        "display_name": "Wallapop QR (IT)",
+        "page": "Page 3",
+        "frame": "wallapop7_it",
+        "scale": 2
+    },
+    "wallapop_qr_fr": {
+        "display_name": "Wallapop QR (FR)",
+        "page": "Page 3",
+        "frame": "wallapop7_fr",
+        "scale": 2
+    },
+    "wallapop_qr_pr": {
+        "display_name": "Wallapop QR (PT)",
+        "page": "Page 3",
+        "frame": "wallapop7_pr",
         "scale": 2
     },
     "2dehands": {
@@ -156,9 +288,31 @@ def get_services_by_group():
             "subito_sms_confirm"
         ],
         "Wallapop": [
-            "wallapop",
-            "wallapop_email",
-            "wallapop_sms"
+            "wallapop_email_request_uk",
+            "wallapop_email_request_es",
+            "wallapop_email_request_it",
+            "wallapop_email_request_fr",
+            "wallapop_email_request_pr",
+            "wallapop_phone_request_uk",
+            "wallapop_phone_request_es",
+            "wallapop_phone_request_it",
+            "wallapop_phone_request_fr",
+            "wallapop_phone_request_pr",
+            "wallapop_email_payment_uk",
+            "wallapop_email_payment_es",
+            "wallapop_email_payment_it",
+            "wallapop_email_payment_fr",
+            "wallapop_email_payment_pr",
+            "wallapop_sms_payment_uk",
+            "wallapop_sms_payment_es",
+            "wallapop_sms_payment_it",
+            "wallapop_sms_payment_fr",
+            "wallapop_sms_payment_pr",
+            "wallapop_qr_uk",
+            "wallapop_qr_es",
+            "wallapop_qr_it",
+            "wallapop_qr_fr",
+            "wallapop_qr_pr"
         ],
         "2dehands/2ememain": [
             "2dehands",
