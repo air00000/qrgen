@@ -272,7 +272,7 @@ TEST_DATA = [
             "seller_name": "vintage_store",
             "url": "https://depop.com/test",
             "photo": None,
-            "avatar": None
+            "seller_photo": None
         }
     },
     {

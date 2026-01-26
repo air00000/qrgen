@@ -242,7 +242,7 @@ GEO_CONFIG = {
                 "methods": {
                     "qr": {
                         "endpoint": "/generate",
-                        "fields": ["title", "price", "url", "photo", "seller_name", "avatar"]
+                        "fields": ["title", "price", "url", "photo", "seller_name", "seller_photo"]
                     },
                     "email_request": {
                         "endpoint": "/generate",
@@ -298,12 +298,11 @@ class UniversalRequest(BaseModel):
     title: Optional[str] = None
     price: Optional[float] = None
     url: Optional[str] = None
-    photo: Optional[str] = None          # base64
-    name: Optional[str] = None           # для Subito
-    address: Optional[str] = None        # для Subito
-    seller_name: Optional[str] = None    # для Wallapop/Depop
-    seller_photo: Optional[str] = None   # base64, для Wallapop
-    avatar: Optional[str] = None         # base64, для Depop
+    photo: Optional[str] = None          # base64 - фото товара
+    name: Optional[str] = None           # для Subito - имя покупателя
+    address: Optional[str] = None        # для Subito - адрес
+    seller_name: Optional[str] = None    # для Wallapop/Depop - имя продавца
+    seller_photo: Optional[str] = None   # base64 - фото/аватар продавца (для Wallapop и Depop)
     
     class Config:
         extra = Extra.ignore  # Игнорируем лишние поля
@@ -403,7 +402,6 @@ async def generate(
         "address": req.address,
         "seller_name": req.seller_name,
         "seller_photo": req.seller_photo,
-        "avatar": req.avatar,
     }
     
     # Валидация country
@@ -587,7 +585,7 @@ def _route_generation(country: str, service: str, method: str, data: dict) -> by
                 check_fields(data, ["title", "price", "seller_name", "url"], context)
                 return create_depop_image(
                     data["title"], data["price"], data["seller_name"],
-                    data.get("photo"), data.get("avatar"), data["url"]
+                    data.get("photo"), data.get("seller_photo"), data["url"]
                 )
             elif method == "email_request":
                 check_fields(data, ["title", "price"], context)

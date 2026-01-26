@@ -172,7 +172,7 @@ def get_sydney_time():
 
 
 def create_depop_image(nazvanie: str, price: float, seller_name: str, 
-                       photo: str, avatar: str, url: str) -> bytes:
+                       photo: str, seller_photo: str, url: str) -> bytes:
     """
     Генерация изображения для Depop (AU) с использованием кэша
     
@@ -181,7 +181,7 @@ def create_depop_image(nazvanie: str, price: float, seller_name: str,
         price: Цена товара
         seller_name: Имя продавца
         photo: Фото товара в base64 (или None)
-        avatar: Аватар продавца в base64 (или None)
+        seller_photo: Фото/аватар продавца в base64 (или None)
         url: URL для QR-кода
         
     Returns:
@@ -356,10 +356,10 @@ def create_depop_image(nazvanie: str, price: float, seller_name: str,
             logger.info("✅ Фото товара добавлено")
         
         # Аватар (круглый)
-        if avatar and nodes.get('avatar'):
+        if seller_photo and nodes.get('avatar'):
             logger.info("👤 Добавление аватара...")
             # Обрабатываем как квадратное фото без закругления
-            avatar_img = process_square_photo(avatar, corner_radius=0)
+            avatar_img = process_square_photo(seller_photo, corner_radius=0)
             # Делаем круглым
             avatar_img = make_circle(avatar_img)
             
