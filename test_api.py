@@ -418,7 +418,7 @@ def main():
     parser = argparse.ArgumentParser(description="Test QRGen API")
     parser.add_argument("api_key", help="API key")
     parser.add_argument("--host", default="localhost", help="API host")
-    parser.add_argument("--port", type=int, default=8000, help="API port")
+    parser.add_argument("--port", type=int, default=8080, help="API port")
     parser.add_argument("--output", default="test_output", help="Output directory")
     parser.add_argument("--quick", action="store_true", help="Quick test (one per country/service)")
     
