@@ -112,11 +112,15 @@ def _circle_image(photo_b64: str, size: tuple[int, int]) -> Optional[Image.Image
 
 
 def _generate_wallapop_qr(url: str) -> Image.Image:
+    """
+    Генерирует QR код для Wallapop.
+    По документации: size=600 в запросе, генерация 800x800, сжатие до 738x738
+    """
     headers = {"Authorization": f"Bearer {CFG.QR_API_KEY}", "Content-Type": "application/json"}
     payload = {
         "qrCategory": "url",
         "text": url,
-        "size": 800,
+        "size": 600,  # По документации size=600
         "colorDark": "#000000",
         "backgroundColor": "#FFFFFF",
         "transparentBkg": False,
@@ -133,7 +137,10 @@ def _generate_wallapop_qr(url: str) -> Image.Image:
     if not data:
         raise QRGenerationError("Нет данных QR в ответе от API")
     qr_bytes = base64.b64decode(data)
-    return Image.open(io.BytesIO(qr_bytes)).convert("RGBA")
+    # Генерация в 800x800, потом сжатие до 738x738 происходит в основной функции
+    qr_img = Image.open(io.BytesIO(qr_bytes)).convert("RGBA")
+    qr_img = qr_img.resize((800, 800), Image.Resampling.LANCZOS)
+    return qr_img
 
 
 def create_wallapop_image(
@@ -155,14 +162,17 @@ def create_wallapop_image(
     frame_name = f"wallapop{frame_index}_{lang}"
     service_name = f"wallapop_{variant}_{lang}"
 
-    template_json, frame_img_cached, frame_node, use_cache = load_template_with_cache(
-        service_name, "Page 3", frame_name
+    # Используем специальные credentials для Wallapop
+    template_json, frame_img_cached, frame_node, use_cache, pat, fkey = load_template_with_cache(
+        service_name, "Page 2", frame_name,
+        figma_pat=CFG.WALLAPOP_EMAIL_FIGMA_PAT,
+        file_key=CFG.WALLAPOP_EMAIL_FILE_KEY
     )
 
     if not frame_node:
         raise FigmaNodeNotFoundError(f"Фрейм {frame_name} не найден")
 
-    frame_img = get_frame_image(frame_node, frame_img_cached, use_cache)
+    frame_img = get_frame_image(frame_node, frame_img_cached, use_cache, figma_pat=pat, file_key=fkey)
     width = int(frame_node["absoluteBoundingBox"]["width"] * CFG.SCALE_FACTOR)
     height = int(frame_node["absoluteBoundingBox"]["height"] * CFG.SCALE_FACTOR)
     frame_img = frame_img.resize((width, height), Image.Resampling.LANCZOS)
@@ -172,7 +182,7 @@ def create_wallapop_image(
     draw = ImageDraw.Draw(result)
 
     def _node(name: str):
-        node = find_node(template_json, "Page 3", name)
+        node = find_node(template_json, "Page 2", name)
         if not node:
             raise FigmaNodeNotFoundError(f"Не найден узел: {name}")
         return node
@@ -251,15 +261,26 @@ def create_wallapop_image(
 
     if WALLAPOP_VARIANTS[variant]["has_big_price"]:
         big_price_node = nodes["big_price"]
-        bp_x, bp_y, bp_w, _ = _node_box(big_price_node)
+        bp_x, bp_y, bp_w, bp_h = _node_box(big_price_node)
         euros, cents = _split_price(price)
         big_width = _text_width_with_spacing(big_price_font, euros, 0)
         small_width = _text_width_with_spacing(big_price_small_font, cents, 0)
         total_width = big_width + small_width
         start_x = bp_x + (bp_w - total_width) / 2
+        
+        # Получаем высоту большого и маленького шрифта для правильного позиционирования
+        big_bbox = big_price_font.getbbox(euros)
+        small_bbox = big_price_small_font.getbbox(cents)
+        big_height = big_bbox[3] - big_bbox[1]
+        small_height = small_bbox[3] - small_bbox[1]
+        
+        # Рисуем большие цифры (евро)
         draw.text((start_x, bp_y), euros, font=big_price_font, fill="#172E36")
-        offset_y = bp_y - int(230 * CFG.SCALE_FACTOR * 0.35)
-        draw.text((start_x + big_width, offset_y), cents, font=big_price_small_font, fill="#172E36")
+        
+        # Мелкий текст (центы€) выравнивается по верхней линии большого текста
+        # Смещаем вверх так, чтобы верх мелкого текста был на уровне верха большого
+        small_y = bp_y  # Выравнивание по верху
+        draw.text((start_x + big_width, small_y), cents, font=big_price_small_font, fill="#172E36")
 
     if WALLAPOP_VARIANTS[variant]["has_qr"]:
         if not url:
@@ -267,10 +288,13 @@ def create_wallapop_image(
         qr_node = nodes["qr"]
         qr_x, qr_y, qr_w, qr_h = _node_box(qr_node)
         qr_img = _generate_wallapop_qr(url)
-        target_size = min(qr_w, qr_h, int(738 * CFG.SCALE_FACTOR))
+        # По документации: сжатие до 738x738
+        target_size = int(738 * CFG.SCALE_FACTOR)
         qr_img = qr_img.resize((target_size, target_size), Image.Resampling.LANCZOS)
+        # Скругление углов 16 пикселей
         mask = create_rounded_mask((target_size, target_size), int(16 * CFG.SCALE_FACTOR))
         qr_img.putalpha(mask)
+        # Центрируем QR в области
         paste_x = qr_x + (qr_w - target_size) // 2
         paste_y = qr_y + (qr_h - target_size) // 2
         result.paste(qr_img, (paste_x, paste_y), qr_img)

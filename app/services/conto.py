@@ -10,6 +10,8 @@ import numpy as np
 import random
 
 from app.config import CFG
+from app.services.cache_wrapper import load_template_with_cache, get_frame_image
+from app.services.figma import find_node
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -133,9 +135,6 @@ def create_conto_image(nazvanie: str, price: float) -> bytes:
     logger.info(f"🎨 Генерация Conto: {nazvanie}, {price}€")
     
     try:
-        # Получаем шаблон из Figma
-        template_json = get_template_json()
-        
         # Формируем полный текст
         full_text = f'Pagamento per il prodotto "{nazvanie}" tramite transazione sicura Subito'
         
@@ -149,7 +148,13 @@ def create_conto_image(nazvanie: str, price: float) -> bytes:
         
         logger.info(f"📐 Текст занимает {len(lines)} строк, используем фрейм: {frame_name}")
         
-        frame_node = find_node(template_json, 'Page 2', frame_name)
+        # Загружаем с кэшем если доступен
+        service_name = f"conto_{frame_name}"
+        template_json, frame_img_cached, frame_node, use_cache = load_template_with_cache(
+            service_name, "Page 2", frame_name,
+            figma_pat=FIGMA_PAT, file_key=TEMPLATE_FILE_KEY
+        )
+        
         if not frame_node:
             raise ContoGenerationError(f"Фрейм {frame_name} не найден")
         
@@ -160,10 +165,16 @@ def create_conto_image(nazvanie: str, price: float) -> bytes:
             'data': find_node(template_json, 'Page 2', f"data{frame_name}"),
         }
         
-        # Экспорт базового шаблона
-        logger.info("📥 Экспорт шаблона из Figma...")
-        base_png = export_frame_as_png(TEMPLATE_FILE_KEY, frame_node['id'])
-        base_img = Image.open(BytesIO(base_png)).convert("RGBA")
+        # Получаем изображение из кэша или Figma
+        logger.info("📥 Загрузка шаблона...")
+        if use_cache and len(template_json.get('document', {}).get('children', [])) > 0:
+            # Возвращаем 6 значений когда передаём custom credentials
+            base_img = get_frame_image(frame_node, frame_img_cached, use_cache, 
+                                       figma_pat=FIGMA_PAT, file_key=TEMPLATE_FILE_KEY)
+        else:
+            base_img = get_frame_image(frame_node, frame_img_cached, use_cache,
+                                       figma_pat=FIGMA_PAT, file_key=TEMPLATE_FILE_KEY)
+        
         w = int(frame_node['absoluteBoundingBox']['width'] * SCALE_FACTOR)
         h = int(frame_node['absoluteBoundingBox']['height'] * SCALE_FACTOR)
         base_img = base_img.resize((w, h), Image.Resampling.LANCZOS)

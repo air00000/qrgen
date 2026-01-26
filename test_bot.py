@@ -1,323 +1,342 @@
 #!/usr/bin/env python3
 """
-Скрипт для тестирования всех сервисов через Telegram бота
-Генерирует тестовые изображения и отправляет их в бота
+Скрипт для тестирования генерации через Telegram бота (напрямую через сервисы)
 
 Использование:
-    python test_bot.py YOUR_TELEGRAM_ID
+    python test_bot.py YOUR_CHAT_ID [--quick]
     
-Пример:
+Примеры:
     python test_bot.py 123456789
+    python test_bot.py 123456789 --quick
 """
 
 import sys
 import asyncio
-import os
 from pathlib import Path
-from telegram import Bot, InputFile
 from io import BytesIO
 
-# Добавляем путь к app
+# Add app to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+from telegram import Bot, InputFile
 from app.config import CFG
-from app.services.pdf import create_image_marktplaats, create_image_subito, create_image_wallapop
+from app.services.pdf import create_image_marktplaats, create_image_subito
 from app.services.subito_variants import (
     create_image_subito_email_request, create_image_subito_email_confirm,
     create_image_subito_sms_request, create_image_subito_sms_confirm
+)
+from app.services.wallapop_variants import (
+    create_wallapop_email_request, create_wallapop_phone_request,
+    create_wallapop_email_payment, create_wallapop_sms_payment,
+    create_wallapop_qr
 )
 from app.services.twodehands import create_2dehands_image
 from app.services.kleize import create_kleize_image
 from app.services.conto import create_conto_image
 from app.services.depop import create_depop_image
+from app.services.depop_variants import (
+    create_depop_email_request, create_depop_email_confirm,
+    create_depop_sms_request, create_depop_sms_confirm
+)
 
-# Тестовые данные
-TEST_DATA = {
-    "marktplaats": {
-        "title": "iPhone 13 Pro Max 256GB",
-        "price": 799.99,
-        "url": "https://marktplaats.nl/test",
-        "photo": None
+# Тестовые данные - такие же как в API, но с генераторами
+TEST_DATA = [
+    # === NETHERLANDS ===
+    {
+        "name": "nl_marktplaats_qr",
+        "country": "nl",
+        "gen": lambda: create_image_marktplaats(
+            "iPhone 13 Pro Max 256GB", 799.99, None, "https://marktplaats.nl/test"
+        )
     },
-    "subito": {
-        "title": "MacBook Pro 2023 M3",
-        "price": 1499.00,
-        "url": "https://subito.it/test",
-        "name": "Mario Rossi",
-        "address": "Milano, IT",
-        "photo": None
+    {
+        "name": "nl_2dehands_qr",
+        "country": "nl",
+        "gen": lambda: create_2dehands_image(
+            "Samsung Galaxy S23 Ultra", 699.99, None, "https://2dehands.be/test", "nl"
+        )
     },
-    "subito_email_request": {
-        "title": "iPad Air 2024",
-        "price": 599.00,
-        "name": "Giuseppe Verdi",
-        "address": "Roma, IT",
-        "photo": None
+    
+    # === BELGIUM ===
+    {
+        "name": "be_2ememain_qr",
+        "country": "be",
+        "gen": lambda: create_2dehands_image(
+            "Nintendo Switch OLED", 299.00, None, "https://2ememain.be/test", "fr"
+        )
     },
-    "subito_email_confirm": {
-        "title": "AirPods Pro Gen 2",
-        "price": 249.00,
-        "name": "Luigi Bianchi",
-        "address": "Napoli, IT",
-        "photo": None
+    
+    # === ITALY - SUBITO ===
+    {
+        "name": "it_subito_qr",
+        "country": "it",
+        "gen": lambda: create_image_subito(
+            "MacBook Pro 2023 M3", 1499.00, None, "https://subito.it/test", "Mario Rossi", "Milano, IT"
+        )
     },
-    "subito_sms_request": {
-        "title": "Apple Watch Series 9",
-        "price": 399.00,
-        "name": "Antonio Rossi",
-        "address": "Torino, IT",
-        "photo": None
+    {
+        "name": "it_subito_email_request",
+        "country": "it",
+        "gen": lambda: create_image_subito_email_request(
+            "iPad Air 2024", 599.00, None, "Giuseppe Verdi", "Roma, IT"
+        )
     },
-    "subito_sms_confirm": {
-        "title": "MacBook Air M2",
-        "price": 1099.00,
-        "name": "Francesco Nero",
-        "address": "Firenze, IT",
-        "photo": None
+    {
+        "name": "it_subito_email_confirm",
+        "country": "it",
+        "gen": lambda: create_image_subito_email_confirm(
+            "AirPods Pro Gen 2", 249.00, None, "Luigi Bianchi", "Napoli, IT"
+        )
     },
-    "wallapop": {
-        "lang": "es",
-        "title": "PlayStation 5 + 2 Mandos",
-        "price": 450.00,
-        "photo": None
+    {
+        "name": "it_subito_sms_request",
+        "country": "it",
+        "gen": lambda: create_image_subito_sms_request(
+            "Apple Watch Series 9", 399.00, None, "Antonio Rossi", "Torino, IT"
+        )
     },
-    "2dehands": {
-        "title": "Samsung Galaxy S23 Ultra",
-        "price": 699.99,
-        "url": "https://2dehands.be/test",
-        "lang": "nl",
-        "photo": None
+    {
+        "name": "it_subito_sms_confirm",
+        "country": "it",
+        "gen": lambda: create_image_subito_sms_confirm(
+            "MacBook Air M2", 1099.00, None, "Francesco Nero", "Firenze, IT"
+        )
     },
-    "2ememain": {
-        "title": "Nintendo Switch OLED",
-        "price": 299.00,
-        "url": "https://2ememain.be/test",
-        "lang": "fr",
-        "photo": None
+    
+    # === ITALY - CONTO ===
+    {
+        "name": "it_conto_payment",
+        "country": "it",
+        "gen": lambda: create_conto_image("Xiaomi 13T Pro 5G", 549.99)
     },
-    "kleize": {
-        "title": "Canon EOS R6 Mark II",
-        "price": 2299.00,
-        "url": "https://kleinanzeigen.de/test",
-        "photo": None
+    
+    # === GERMANY ===
+    {
+        "name": "de_kleinanzeigen_qr",
+        "country": "de",
+        "gen": lambda: create_kleize_image(
+            "Canon EOS R6 Mark II", 2299.00, None, "https://kleinanzeigen.de/test"
+        )
     },
-    "conto": {
-        "title": "Xiaomi 13T Pro 5G",
-        "price": 549.99
+    
+    # === SPAIN - WALLAPOP ===
+    {
+        "name": "es_wallapop_email_request",
+        "country": "es",
+        "gen": lambda: create_wallapop_email_request(
+            "es", "PlayStation 5 + 2 Mandos", 450.00, None, "Carlos García", None
+        )
     },
-    "depop": {
-        "title": "Vintage Nike Jacket 90s",
-        "price": 89.99,
-        "seller_name": "vintage_store",
-        "url": "https://depop.com/test",
-        "photo": None,
-        "avatar": None
+    {
+        "name": "es_wallapop_phone_request",
+        "country": "es",
+        "gen": lambda: create_wallapop_phone_request(
+            "es", "iPhone 14 Pro", 899.00, None, "María López", None
+        )
+    },
+    {
+        "name": "es_wallapop_email_payment",
+        "country": "es",
+        "gen": lambda: create_wallapop_email_payment(
+            "es", "MacBook Air M2", 1099.00, None, "Juan Martínez", None
+        )
+    },
+    {
+        "name": "es_wallapop_sms_payment",
+        "country": "es",
+        "gen": lambda: create_wallapop_sms_payment(
+            "es", "iPad Pro 12.9", 1199.00, None, "Ana Rodríguez", None
+        )
+    },
+    {
+        "name": "es_wallapop_qr",
+        "country": "es",
+        "gen": lambda: create_wallapop_qr(
+            "es", "Nintendo Switch OLED", 299.00, None, "Pedro García", None, "https://wallapop.com/test"
+        )
+    },
+    
+    # === UK ===
+    {
+        "name": "uk_wallapop_email_request",
+        "country": "uk",
+        "gen": lambda: create_wallapop_email_request(
+            "uk", "Sony WH-1000XM5", 279.00, None, "John Smith", None
+        )
+    },
+    
+    # === FRANCE ===
+    {
+        "name": "fr_wallapop_email_request",
+        "country": "fr",
+        "gen": lambda: create_wallapop_email_request(
+            "fr", "Dyson V15 Detect", 599.00, None, "Pierre Dupont", None
+        )
+    },
+    
+    # === PORTUGAL ===
+    {
+        "name": "pt_wallapop_email_request",
+        "country": "pt",
+        "gen": lambda: create_wallapop_email_request(
+            "pt", "Samsung Galaxy S24", 849.00, None, "João Silva", None
+        )
+    },
+    
+    # === AUSTRALIA - DEPOP ===
+    {
+        "name": "au_depop_qr",
+        "country": "au",
+        "gen": lambda: create_depop_image(
+            "Vintage Nike Jacket 90s", 89.99, "vintage_store", None, None, "https://depop.com/test"
+        )
+    },
+    {
+        "name": "au_depop_email_request",
+        "country": "au",
+        "gen": lambda: create_depop_email_request("Retro Levi's 501", 65.00, None)
+    },
+    {
+        "name": "au_depop_email_confirm",
+        "country": "au",
+        "gen": lambda: create_depop_email_confirm("Y2K Crop Top", 35.00, None)
+    },
+    {
+        "name": "au_depop_sms_request",
+        "country": "au",
+        "gen": lambda: create_depop_sms_request("Vintage Carhartt Jacket", 120.00, None)
+    },
+    {
+        "name": "au_depop_sms_confirm",
+        "country": "au",
+        "gen": lambda: create_depop_sms_confirm("90s Tommy Hilfiger Shirt", 55.00, None)
     }
-}
+]
 
 
-async def test_service(bot: Bot, chat_id: int, service_name: str, generate_func, data: dict):
-    """Тестировать один сервис"""
+async def test_one(bot: Bot, chat_id: int, tc: dict) -> bool:
+    """Тест одного генератора"""
+    name = tc["name"]
+    country = tc["country"]
+    gen = tc["gen"]
+    
     try:
-        print(f"📸 Генерирую {service_name}...", end=" ")
+        print(f"📸 {name}...", end=" ", flush=True)
         
-        # Маппинг аргументов для разных сервисов
-        if service_name == "marktplaats":
-            image_data = generate_func(data["title"], data["price"], data["photo"], data["url"])
-        elif service_name == "subito":
-            # Оригинальный subito с QR требует URL
-            image_data = generate_func(data["title"], data["price"], data["photo"], data["url"], data.get("name", ""), data.get("address", ""))
-        elif service_name in ["subito_email_request", "subito_email_confirm", "subito_sms_request", "subito_sms_confirm"]:
-            # Email/SMS варианты без URL
-            image_data = generate_func(data["title"], data["price"], data["photo"], data.get("name", ""), data.get("address", ""))
-        elif service_name == "wallapop":
-            image_data = generate_func(data["lang"], data["title"], data["price"], data.get("photo"))
-        elif service_name in ["2dehands", "2ememain"]:
-            image_data = generate_func(data["title"], data["price"], data["url"], data["lang"], data.get("photo"))
-        elif service_name == "kleize":
-            image_data = generate_func(data["title"], data["price"], data["url"], data.get("photo"))
-        elif service_name == "conto":
-            image_data = generate_func(data["title"], data["price"])
-        elif service_name == "depop":
-            image_data = generate_func(data["title"], data["price"], data["seller_name"], data["url"], data.get("photo"), data.get("avatar"))
-        else:
-            raise ValueError(f"Unknown service: {service_name}")
+        # Generate
+        image_data = gen()
+        size_kb = len(image_data) / 1024
         
-        # Отправляем в бот
+        # Send
         await bot.send_photo(
             chat_id=chat_id,
-            photo=InputFile(BytesIO(image_data), filename=f"{service_name}_test.png"),
-            caption=f"✅ {service_name.upper()}\n\n"
-                    f"📝 {data.get('title', 'Test Product')}\n"
-                    f"💵 €{data.get('price', 0):.2f}"
+            photo=InputFile(BytesIO(image_data), filename=f"{name}.png"),
+            caption=f"✅ <b>{name}</b>\n🌍 {country.upper()}\n📦 {size_kb:.1f}KB",
+            parse_mode="HTML"
         )
         
-        print("✅")
+        print(f"✅ {size_kb:.1f}KB")
         return True
         
     except Exception as e:
-        print(f"❌ Ошибка: {e}")
-        await bot.send_message(
-            chat_id=chat_id,
-            text=f"❌ {service_name.upper()}: Ошибка\n\n<code>{str(e)[:200]}</code>",
-            parse_mode="HTML"
-        )
+        print(f"❌ {e}")
+        try:
+            await bot.send_message(
+                chat_id=chat_id,
+                text=f"❌ <b>{name}</b>\n<code>{str(e)[:200]}</code>",
+                parse_mode="HTML"
+            )
+        except:
+            pass
         return False
 
 
-async def main(chat_id: int):
-    """Основная функция"""
-    
-    # Проверяем токен бота
+async def main(chat_id: int, quick: bool = False):
+    """Main"""
     if not CFG.TELEGRAM_BOT_TOKEN:
-        print("❌ TELEGRAM_BOT_TOKEN не настроен в .env")
+        print("❌ TELEGRAM_BOT_TOKEN not set")
         return
     
     bot = Bot(token=CFG.TELEGRAM_BOT_TOKEN)
     
-    print(f"🤖 Запуск тестирования для chat_id: {chat_id}")
-    print(f"📨 Все изображения будут отправлены в чат\n")
+    # Filter tests
+    test_cases = TEST_DATA
+    if quick:
+        seen = set()
+        filtered = []
+        for tc in TEST_DATA:
+            key = tc["country"]
+            if key not in seen:
+                seen.add(key)
+                filtered.append(tc)
+        test_cases = filtered
     
-    # Отправляем стартовое сообщение
+    print("=" * 50)
+    print("🤖 Bot Test")
+    print("=" * 50)
+    print(f"Chat: {chat_id}")
+    print(f"Tests: {len(test_cases)} {'(quick)' if quick else ''}")
+    print("=" * 50)
+    print()
+    
+    # Start message
     await bot.send_message(
         chat_id=chat_id,
-        text="🧪 <b>Начинаю тестирование всех сервисов...</b>\n\n"
-             "Это может занять ~30 секунд",
+        text=f"🧪 <b>Starting test...</b>\n📊 {len(test_cases)} tests",
         parse_mode="HTML"
     )
     
+    # Run
     results = {}
+    for tc in test_cases:
+        results[tc["name"]] = await test_one(bot, chat_id, tc)
+        await asyncio.sleep(0.3)
     
-    # Тест Marktplaats
-    results['marktplaats'] = await test_service(
-        bot, chat_id, "marktplaats",
-        create_image_marktplaats,
-        TEST_DATA['marktplaats']
-    )
-    
-    # Тест Subito
-    results['subito'] = await test_service(
-        bot, chat_id, "subito",
-        create_image_subito,
-        TEST_DATA['subito']
-    )
-    
-    # Тест Subito Email Request
-    results['subito_email_request'] = await test_service(
-        bot, chat_id, "subito_email_request",
-        create_image_subito_email_request,
-        TEST_DATA['subito_email_request']
-    )
-    
-    # Тест Subito Email Confirm
-    results['subito_email_confirm'] = await test_service(
-        bot, chat_id, "subito_email_confirm",
-        create_image_subito_email_confirm,
-        TEST_DATA['subito_email_confirm']
-    )
-    
-    # Тест Subito SMS Request
-    results['subito_sms_request'] = await test_service(
-        bot, chat_id, "subito_sms_request",
-        create_image_subito_sms_request,
-        TEST_DATA['subito_sms_request']
-    )
-    
-    # Тест Subito SMS Confirm
-    results['subito_sms_confirm'] = await test_service(
-        bot, chat_id, "subito_sms_confirm",
-        create_image_subito_sms_confirm,
-        TEST_DATA['subito_sms_confirm']
-    )
-    
-    # Тест Wallapop
-    results['wallapop'] = await test_service(
-        bot, chat_id, "wallapop",
-        create_image_wallapop,
-        TEST_DATA['wallapop']
-    )
-    
-    # Тест 2dehands
-    results['2dehands'] = await test_service(
-        bot, chat_id, "2dehands",
-        create_2dehands_image,
-        TEST_DATA['2dehands']
-    )
-    
-    # Тест 2ememain
-    results['2ememain'] = await test_service(
-        bot, chat_id, "2ememain",
-        create_2dehands_image,
-        TEST_DATA['2ememain']
-    )
-    
-    # Тест Kleize
-    results['kleize'] = await test_service(
-        bot, chat_id, "kleize",
-        create_kleize_image,
-        TEST_DATA['kleize']
-    )
-    
-    # Тест Conto
-    results['conto'] = await test_service(
-        bot, chat_id, "conto",
-        create_conto_image,
-        TEST_DATA['conto']
-    )
-    
-    # Тест Depop
-    results['depop'] = await test_service(
-        bot, chat_id, "depop",
-        create_depop_image,
-        TEST_DATA['depop']
-    )
-    
-    # Итоговый отчет
+    # Summary
     success = sum(results.values())
     total = len(results)
     
-    report = f"📊 <b>Результаты тестирования:</b>\n\n"
+    # Group
+    by_country = {}
+    for tc in test_cases:
+        c = tc["country"]
+        n = tc["name"]
+        if c not in by_country:
+            by_country[c] = []
+        by_country[c].append((n, results.get(n, False)))
     
-    for service, result in results.items():
-        emoji = "✅" if result else "❌"
-        report += f"{emoji} {service.upper()}\n"
+    report = "📊 <b>Results</b>\n"
+    for country in sorted(by_country.keys()):
+        tests = by_country[country]
+        ok = sum(1 for _, r in tests if r)
+        report += f"\n🌍 <b>{country.upper()}</b> ({ok}/{len(tests)})\n"
+        for name, result in tests:
+            short = name.replace(f"{country}_", "")
+            report += f"  {'✅' if result else '❌'} {short}\n"
     
-    report += f"\n<b>Успешно:</b> {success}/{total}"
-    
+    report += f"\n<b>Total:</b> {success}/{total}"
     if success == total:
-        report += "\n\n🎉 Все сервисы работают!"
-    else:
-        report += f"\n\n⚠️ Неудачно: {total - success}"
+        report += " ✅"
     
-    await bot.send_message(
-        chat_id=chat_id,
-        text=report,
-        parse_mode="HTML"
-    )
+    await bot.send_message(chat_id=chat_id, text=report, parse_mode="HTML")
     
-    print(f"\n{'='*50}")
-    print(f"✅ Успешно: {success}/{total}")
-    print(f"❌ Ошибки: {total - success}/{total}")
-    print(f"{'='*50}\n")
+    print()
+    print("=" * 50)
+    print(f"Total: {success}/{total}")
+    print("=" * 50)
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("❌ Не указан CHAT_ID")
-        print("\nИспользование:")
-        print("  python test_bot.py YOUR_TELEGRAM_ID")
-        print("\nПример:")
-        print("  python test_bot.py 123456789")
-        print("\nКак узнать свой ID:")
-        print("  1. Напиши @userinfobot в Telegram")
-        print("  2. Он покажет твой ID")
+        print("Usage: python test_bot.py CHAT_ID [--quick]")
+        print("\nGet your ID: message @userinfobot on Telegram")
         sys.exit(1)
     
     try:
         chat_id = int(sys.argv[1])
     except ValueError:
-        print(f"❌ Неверный формат CHAT_ID: {sys.argv[1]}")
-        print("   CHAT_ID должен быть числом")
+        print(f"Invalid CHAT_ID: {sys.argv[1]}")
         sys.exit(1)
     
-    asyncio.run(main(chat_id))
+    quick = "--quick" in sys.argv
+    asyncio.run(main(chat_id, quick))

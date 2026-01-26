@@ -40,7 +40,7 @@ logger.info(f"🚀 ThreadPoolExecutor создан с {MAX_WORKERS} воркер
 
 def start_api():
     """Запуск API сервера"""
-    uvicorn.run("app.api:app", host="0.0.0.0", port=8000, workers=2)
+    uvicorn.run("app.api:app", host="127.0.0.1", port=8080, log_level="info")
 
 
 def start_bot():

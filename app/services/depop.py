@@ -14,6 +14,7 @@ from pytz import timezone
 
 from app.config import CFG
 from app.cache.figma_cache import FigmaCache, cache_exists, load_cache
+from app.services.cache_wrapper import load_template_with_cache, get_frame_image
 
 logger = logging.getLogger(__name__)
 
@@ -189,20 +190,19 @@ def create_depop_image(nazvanie: str, price: float, seller_name: str,
     logger.info(f"🎨 Генерация Depop: {nazvanie}, ${price}")
     
     try:
-        # === ЗАГРУЗКА ИЗ КЭША ===
-        cache = FigmaCache(SERVICE_NAME)
+        # === ЗАГРУЗКА С КЭШЕМ ИЛИ FIGMA API ===
+        frame_name = 'depop1_au'
+        template_json, frame_img_cached, frame_node, use_cache = load_template_with_cache(
+            SERVICE_NAME, "Page 2", frame_name
+        )
         
-        if not cache.exists():
-            logger.error(f"❌ Кэш для {SERVICE_NAME} не найден!")
-            raise DepopGenerationError(
-                "Кэш Figma не найден. Администратор должен выполнить команду /refresh_cache"
-            )
+        if not frame_node:
+            raise DepopGenerationError(f"Фрейм {frame_name} не найден")
         
-        logger.info("📦 Загрузка из кэша...")
-        template_json, template_img = cache.load()
+        # Получаем изображение (из кэша или Figma API)
+        template_img = get_frame_image(frame_node, frame_img_cached, use_cache)
         
         # === ПОИСК УЗЛОВ ===
-        frame_name = 'depop1_au'
         layer_names = {
             'nazvanie': 'nazvanie_depop1_au',
             'price': 'price_depop1_au',
@@ -215,10 +215,6 @@ def create_depop_image(nazvanie: str, price: float, seller_name: str,
             'qr': 'qr_depop1_au',
         }
         
-        frame_node = find_node(template_json, 'Page 2', frame_name)
-        if not frame_node:
-            raise DepopGenerationError(f"Фрейм {frame_name} не найден")
-        
         nodes = {k: find_node(template_json, 'Page 2', v) for k, v in layer_names.items()}
         missing = [k for k, v in nodes.items() if not v]
         
@@ -226,6 +222,11 @@ def create_depop_image(nazvanie: str, price: float, seller_name: str,
             logger.warning(f"⚠️  Не найдены узлы: {', '.join(missing)}")
         
         # === СОЗДАНИЕ ИЗОБРАЖЕНИЯ ===
+        # Ресайзим до нужного размера
+        w = int(frame_node["absoluteBoundingBox"]["width"] * SCALE_FACTOR)
+        h = int(frame_node["absoluteBoundingBox"]["height"] * SCALE_FACTOR)
+        template_img = template_img.resize((w, h), Image.Resampling.LANCZOS)
+        
         result_img = Image.new("RGBA", template_img.size, (255, 255, 255, 0))
         result_img.paste(template_img, (0, 0))
         draw = ImageDraw.Draw(result_img)

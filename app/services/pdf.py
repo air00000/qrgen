@@ -500,9 +500,8 @@ def create_image_marktplaats(nazvanie: str, price: float, photo: str, url: str) 
         miss = [k for k, v in nodes.items() if v is None]
         raise FigmaNodeNotFoundError(f"Не найдены узлы: {', '.join(miss)}")
 
-    # Фон из Figma
-    frame_png = export_frame_as_png(CFG.FIGMA_PAT, CFG.TEMPLATE_FILE_KEY, frame_node["id"])
-    frame_img = Image.open(io.BytesIO(frame_png)).convert("RGBA")
+    # Фон из кэша или Figma
+    frame_img = get_frame_image(frame_node, frame_img_cached, use_cache)
     w = int(frame_node["absoluteBoundingBox"]["width"] * CFG.SCALE_FACTOR)
     h = int(frame_node["absoluteBoundingBox"]["height"] * CFG.SCALE_FACTOR)
     frame_img = frame_img.resize((w, h), Image.Resampling.LANCZOS)
@@ -574,8 +573,7 @@ def create_image_marktplaats(nazvanie: str, price: float, photo: str, url: str) 
 
 def create_image_subito(nazvanie: str, price: float, photo: str, url: str, name: str = '', address: str = '') -> bytes:
     """Генерирует изображение для Subito, возвращает bytes PNG"""
-    template_json = get_template_json(CFG.FIGMA_PAT, CFG.TEMPLATE_FILE_KEY)
-
+    
     frame_name = "subito1"
     nazvanie_layer = "NAZVANIE_SUB1"
     price_layer = "PRICE_SUB1"
@@ -586,7 +584,11 @@ def create_image_subito(nazvanie: str, price: float, photo: str, url: str, name:
     foto_layer = "PHOTO_SUB1"
     qr_layer = "QR_SUB1"
 
-    frame_node = find_node(template_json, "Page 2", frame_name)
+    # Загружаем с кэшем если доступен
+    template_json, frame_img_cached, frame_node, use_cache = load_template_with_cache(
+        "subito", "Page 2", frame_name
+    )
+    
     if not frame_node:
         raise FigmaNodeNotFoundError(f"Фрейм {frame_name} не найден")
 
@@ -604,9 +606,8 @@ def create_image_subito(nazvanie: str, price: float, photo: str, url: str, name:
         miss = [k for k, v in nodes.items() if v is None]
         raise FigmaNodeNotFoundError(f"Не найдены узлы: {', '.join(miss)}")
 
-    # Фон из Figma
-    frame_png = export_frame_as_png(CFG.FIGMA_PAT, CFG.TEMPLATE_FILE_KEY, frame_node["id"])
-    frame_img = Image.open(io.BytesIO(frame_png)).convert("RGBA")
+    # Фон из кэша или Figma
+    frame_img = get_frame_image(frame_node, frame_img_cached, use_cache)
     w = int(frame_node["absoluteBoundingBox"]["width"] * CFG.SCALE_FACTOR)
     h = int(frame_node["absoluteBoundingBox"]["height"] * CFG.SCALE_FACTOR)
     frame_img = frame_img.resize((w, h), Image.Resampling.LANCZOS)

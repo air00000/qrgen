@@ -16,6 +16,8 @@ import numpy as np
 import random
 
 from app.config import CFG
+from app.services.cache_wrapper import load_template_with_cache, get_frame_image
+from app.services.figma import find_node
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -198,11 +200,13 @@ def create_kleize_image(nazvanie: str, price: float, photo: str, url: str) -> by
     logger.info(f"🎨 Генерация Kleize: {nazvanie}, {price}€")
     
     try:
-        # Получаем шаблон из Figma
-        logger.info("📥 Запрос шаблона из Figma...")
-        template_json = get_template_json()
+        # Загружаем с кэшем если доступен
+        logger.info("📥 Загрузка шаблона...")
+        template_json, frame_img_cached, frame_node, use_cache = load_template_with_cache(
+            "kleize", "Page 2", "kleinan2",
+            figma_pat=FIGMA_PAT, file_key=TEMPLATE_FILE_KEY
+        )
         
-        frame_node = find_node(template_json, 'Page 2', 'kleinan2')
         if not frame_node:
             raise KleizeGenerationError("Фрейм kleinan2 не найден")
         
@@ -227,10 +231,10 @@ def create_kleize_image(nazvanie: str, price: float, photo: str, url: str) -> by
         
         logger.info("=== Конец поиска узлов ===\n")
         
-        # Экспорт базового шаблона
-        logger.info("📥 Экспорт шаблона из Figma...")
-        base_png = export_frame_as_png(TEMPLATE_FILE_KEY, frame_node['id'])
-        base_img = Image.open(BytesIO(base_png)).convert("RGBA")
+        # Получаем изображение из кэша или Figma
+        logger.info("📥 Загрузка изображения шаблона...")
+        base_img = get_frame_image(frame_node, frame_img_cached, use_cache,
+                                   figma_pat=FIGMA_PAT, file_key=TEMPLATE_FILE_KEY)
         w = int(frame_node['absoluteBoundingBox']['width'] * SCALE_FACTOR)
         h = int(frame_node['absoluteBoundingBox']['height'] * SCALE_FACTOR)
         base_img = base_img.resize((w, h), Image.Resampling.LANCZOS)

@@ -454,16 +454,9 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif service == "depop":
             # Импортируем функцию для Depop
             from app.services.depop import create_depop_image
-            from app.cache.figma_cache import cache_exists
             
-            # Проверка кэша
-            if not cache_exists("depop_au"):
-                await update.message.reply_text(
-                    "❌ Кэш Depop не найден!\n\n"
-                    "Администратор должен выполнить:\n"
-                    "/refresh_cache depop_au"
-                )
-                return ConversationHandler.END
+            # Кэш проверяется автоматически внутри сервиса
+            # Если кэша нет - будет использован Figma API
             
             try:
                 price_float = float(price)
@@ -545,16 +538,9 @@ async def generate_wallapop_variant(update: Update, context: ContextTypes.DEFAUL
             create_wallapop_sms_payment,
             create_wallapop_qr,
         )
-        from app.cache.figma_cache import cache_exists
 
-        cache_name = f"wallapop_{wallapop_type}_{lang}"
-        if not cache_exists(cache_name):
-            await message.reply_text(
-                f"❌ Кэш {cache_name} не найден!\n\n"
-                f"Администратор должен выполнить:\n"
-                f"/refresh_cache {cache_name}"
-            )
-            return ConversationHandler.END
+        # Кэш проверяется автоматически внутри сервиса
+        # Если кэша нет - будет использован Figma API
 
         try:
             price_float = float(price)
@@ -631,23 +617,9 @@ async def generate_depop_variant(update: Update, context: ContextTypes.DEFAULT_T
             create_depop_email_request, create_depop_email_confirm,
             create_depop_sms_request, create_depop_sms_confirm
         )
-        from app.cache.figma_cache import cache_exists
         
-        # Проверка кэша - имена в формате depop_au_email_request
-        cache_name_map = {
-            "depop_email_request": "depop_au_email_request",
-            "depop_email_confirm": "depop_au_email_confirm",
-            "depop_sms_request": "depop_au_sms_request",
-            "depop_sms_confirm": "depop_au_sms_confirm"
-        }
-        cache_name = cache_name_map.get(service, service)
-        if not cache_exists(cache_name):
-            await message.reply_text(
-                f"❌ Кэш {cache_name} не найден!\n\n"
-                f"Администратор должен выполнить:\n"
-                f"/refresh_cache {cache_name}"
-            )
-            return ConversationHandler.END
+        # Кэш проверяется автоматически внутри сервиса
+        # Если кэша нет - будет использован Figma API
         
         try:
             price_float = float(price)

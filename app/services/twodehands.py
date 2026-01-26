@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 from pytz import timezone
 
 from app.services.figma import get_template_json, find_node, export_frame_as_png
+from app.services.cache_wrapper import load_template_with_cache, get_frame_image
 from app.config import CFG
 
 # Константы для 2dehands
@@ -168,15 +169,6 @@ def create_2dehands_image(nazvanie: str, price: float, photo: Optional[str], url
     logger.info(f"🚀 Начало генерации 2dehands: {nazvanie}, {price}€, язык={language}")
     logger.info(f"📷 Фото: {'есть' if photo else 'нет'}, URL: {url}")
     
-    # Получаем JSON шаблона из Figma
-    logger.info("📥 Запрос шаблона из Figma...")
-    try:
-        template_json = get_template_json(TWODEHANDS_FIGMA_PAT, TWODEHANDS_FILE_KEY)
-        logger.info("✅ Шаблон получен из Figma")
-    except Exception as e:
-        logger.error(f"❌ Ошибка получения шаблона Figma: {e}")
-        raise
-    
     # Определяем имена фреймов и слоев в зависимости от языка
     frame_name = '2dehands1' if language == 'nl' else '2ememain1'
     nazvanie_layer = f'nazv_{frame_name}'
@@ -185,10 +177,21 @@ def create_2dehands_image(nazvanie: str, price: float, photo: Optional[str], url
     foto_layer = f'pic_{frame_name}'
     qr_layer = f'qr_{frame_name}'
     
+    # Загружаем с кэшем если доступен
+    service_name = frame_name  # "2dehands1" или "2ememain1"
+    logger.info("📥 Загрузка шаблона...")
+    try:
+        template_json, frame_img_cached, frame_node, use_cache = load_template_with_cache(
+            service_name, "Page 2", frame_name,
+            figma_pat=TWODEHANDS_FIGMA_PAT, file_key=TWODEHANDS_FILE_KEY
+        )
+        logger.info(f"✅ Шаблон загружен (кэш: {use_cache})")
+    except Exception as e:
+        logger.error(f"❌ Ошибка загрузки шаблона: {e}")
+        raise
+    
     logger.info(f"🔍 Поиск фрейма: {frame_name}")
     
-    # Находим узлы в Figma
-    frame_node = find_node(template_json, 'Page 2', frame_name)
     if not frame_node:
         logger.error(f"❌ Фрейм {frame_name} не найден")
         raise DehandsGenerationError(f"Фрейм {frame_name} не найден")
@@ -210,15 +213,16 @@ def create_2dehands_image(nazvanie: str, price: float, photo: Optional[str], url
     
     logger.info("✅ Все узлы найдены")
     
-    # Экспортируем фрейм как PNG
-    logger.info("🖼️  Экспорт фрейма из Figma...")
+    # Получаем изображение из кэша или Figma
+    logger.info("🖼️  Загрузка изображения шаблона...")
     try:
-        template_png_content = export_frame_as_png(TWODEHANDS_FIGMA_PAT, TWODEHANDS_FILE_KEY, frame_node['id'], TWODEHANDS_SCALE_FACTOR)
-        logger.info(f"✅ Фрейм экспортирован, размер: {len(template_png_content)} байт")
+        template_img = get_frame_image(frame_node, frame_img_cached, use_cache,
+                                       figma_pat=TWODEHANDS_FIGMA_PAT, file_key=TWODEHANDS_FILE_KEY)
+        logger.info(f"✅ Изображение загружено")
     except Exception as e:
-        logger.error(f"❌ Ошибка экспорта фрейма: {e}")
+        logger.error(f"❌ Ошибка загрузки изображения: {e}")
         raise
-    template_img = Image.open(io.BytesIO(template_png_content)).convert("RGBA")
+    
     frame_width = frame_node['absoluteBoundingBox']['width'] * TWODEHANDS_SCALE_FACTOR
     frame_height = frame_node['absoluteBoundingBox']['height'] * TWODEHANDS_SCALE_FACTOR
     template_img = template_img.resize((int(frame_width), int(frame_height)), Image.Resampling.LANCZOS)

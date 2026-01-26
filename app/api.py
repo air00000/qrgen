@@ -1,12 +1,8 @@
 # app/api.py
-import base64
-import io
-
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header, Depends, Request
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.responses import Response
-from pydantic import BaseModel
-from typing import Optional
-from urllib.parse import parse_qs
+from pydantic import BaseModel, Extra
+from typing import Optional, Any, List
 
 from app.services.pdf import (
     create_image_marktplaats, create_image_subito, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError
@@ -36,6 +32,241 @@ from app.utils.notifications import send_api_notification_sync
 
 app = FastAPI(title="QR Generator API")
 
+
+# ======== Конфигурация GEO с полями ========
+GEO_CONFIG = {
+    "nl": {
+        "name": "Netherlands",
+        "services": {
+            "marktplaats": {
+                "methods": {
+                    "qr": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "url", "photo"]
+                    }
+                }
+            },
+            "2dehands": {
+                "methods": {
+                    "qr": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "url", "photo"]
+                    }
+                }
+            }
+        }
+    },
+    "be": {
+        "name": "Belgium",
+        "services": {
+            "2ememain": {
+                "methods": {
+                    "qr": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "url", "photo"]
+                    }
+                }
+            }
+        }
+    },
+    "it": {
+        "name": "Italy",
+        "services": {
+            "subito": {
+                "methods": {
+                    "qr": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "url", "photo", "name", "address"]
+                    },
+                    "email_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "name", "address"]
+                    },
+                    "email_confirm": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "name", "address"]
+                    },
+                    "sms_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "name", "address"]
+                    },
+                    "sms_confirm": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "name", "address"]
+                    }
+                }
+            },
+            "conto": {
+                "methods": {
+                    "payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price"]
+                    }
+                }
+            }
+        }
+    },
+    "de": {
+        "name": "Germany",
+        "services": {
+            "kleinanzeigen": {
+                "methods": {
+                    "qr": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "url", "photo"]
+                    }
+                }
+            }
+        }
+    },
+    "es": {
+        "name": "Spain",
+        "services": {
+            "wallapop": {
+                "methods": {
+                    "email_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "phone_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "email_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "sms_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "qr": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "url", "photo", "seller_name", "seller_photo"]
+                    }
+                }
+            }
+        }
+    },
+    "uk": {
+        "name": "United Kingdom",
+        "services": {
+            "wallapop": {
+                "methods": {
+                    "email_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "phone_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "email_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "sms_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "qr": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "url", "photo", "seller_name", "seller_photo"]
+                    }
+                }
+            }
+        }
+    },
+    "fr": {
+        "name": "France",
+        "services": {
+            "wallapop": {
+                "methods": {
+                    "email_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "phone_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "email_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "sms_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "qr": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "url", "photo", "seller_name", "seller_photo"]
+                    }
+                }
+            }
+        }
+    },
+    "pt": {
+        "name": "Portugal",
+        "services": {
+            "wallapop": {
+                "methods": {
+                    "email_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "phone_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "email_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "sms_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "qr": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "url", "photo", "seller_name", "seller_photo"]
+                    }
+                }
+            }
+        }
+    },
+    "au": {
+        "name": "Australia",
+        "services": {
+            "depop": {
+                "methods": {
+                    "qr": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "url", "photo", "seller_name", "avatar"]
+                    },
+                    "email_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    },
+                    "email_confirm": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    },
+                    "sms_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    },
+                    "sms_confirm": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 # ======== Зависимость для проверки API ключа ========
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
     if not x_api_key:
@@ -52,989 +283,329 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None)):
 
     return get_key_name(x_api_key)
 
-# ======== JSON-модели ========
-class ImageMarktplaats(BaseModel):
-    title: str
-    price: float
-    photo: str = None
-    url: str
 
-class ImageSubito(BaseModel):
-    title: str
-    price: float
-    photo: str= None
-    url: str
-    name: str = ""
-    address: str = ""
+# ======== Универсальная модель запроса ========
+class UniversalRequest(BaseModel):
+    """
+    Универсальная модель - принимает любые поля.
+    Отправляй все поля сразу, API возьмёт только нужные.
+    """
+    country: str
+    service: str
+    method: str
+    
+    # Все возможные поля - отправляй всё, API возьмёт нужное
+    title: Optional[str] = None
+    price: Optional[float] = None
+    url: Optional[str] = None
+    photo: Optional[str] = None          # base64
+    name: Optional[str] = None           # для Subito
+    address: Optional[str] = None        # для Subito
+    seller_name: Optional[str] = None    # для Wallapop/Depop
+    seller_photo: Optional[str] = None   # base64, для Wallapop
+    avatar: Optional[str] = None         # base64, для Depop
+    
+    class Config:
+        extra = Extra.ignore  # Игнорируем лишние поля
 
-class ImageSubitoNoURL(BaseModel):
-    """Модель для Subito вариантов без URL (email/sms request/confirm)"""
-    title: str
-    price: float
-    photo: str = None
-    name: str = ""
-    address: str = ""
 
-class ImageWallapopBase(BaseModel):
-    lang: str
-    title: str
-    price: float
-    photo: str = None
-    seller_name: str
-    seller_photo: str = None
+class GenerationError(Exception):
+    """Ошибка генерации - не хватает данных"""
+    pass
 
-class ImageWallapopQR(ImageWallapopBase):
-    url: str
 
-class Image2dehands(BaseModel):
-    """Модель для 2dehands (нидерландский)"""
-    title: str
-    price: float
-    photo: str = None
-    url: str
-
-class Image2ememain(BaseModel):
-    """Модель для 2ememain (французский)"""
-    title: str
-    price: float
-    photo: str = None
-    url: str
-
-class ImageKleize(BaseModel):
-    """Модель для Kleize"""
-    title: str
-    price: float
-    photo: str = None
-    url: str
-
-class ImageConto(BaseModel):
-    """Модель для Conto (Subito Payment)"""
-    title: str
-    price: float
-
-class ImageDepop(BaseModel):
-    """Модель для Depop (AU)"""
-    title: str
-    price: float
-    seller_name: str
-    photo: str = None
-    avatar: str = None
-    url: str
-
-class ImageDepopNoURL(BaseModel):
-    """Модель для Depop вариантов без URL (email/sms request/confirm)"""
-    title: str
-    price: float
-    photo: str = None
-
-# ======== Защищенные эндпоинты ========
-@app.post("/generate_image_marktplaats")
-async def generate_image_marktplaats_endpoint(
-        req: ImageMarktplaats,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Marktplaats (JSON)"""
-    try:
-        image_data = create_image_marktplaats(req.title, req.price, req.photo, req.url)
-        send_api_notification_sync(service="marktplaats", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="marktplaats", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="marktplaats", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_subito")
-async def generate_image_subito_endpoint(
-        req: ImageSubito,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Subito (JSON)"""
-    try:
-        image_data = create_image_subito(req.title, req.price, req.photo, req.url, req.name, req.address)
-        send_api_notification_sync(service="subito", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="subito", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="subito", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_wallapop_email_request")
-async def generate_image_wallapop_email_request_endpoint(
-        req: ImageWallapopBase,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Wallapop Email Request (JSON)"""
-    try:
-        image_data = create_wallapop_email_request(
-            req.lang, req.title, req.price, req.photo, req.seller_name, req.seller_photo
+def check_fields(data: dict, fields: List[str], context: str) -> None:
+    """
+    Проверка что нужные поля не пустые.
+    Выбрасывает GenerationError с понятным сообщением.
+    """
+    missing = []
+    for field in fields:
+        value = data.get(field)
+        # Проверяем что поле есть и не пустое (для строк)
+        if value is None:
+            missing.append(field)
+        elif isinstance(value, str) and not value.strip():
+            missing.append(field)
+    
+    if missing:
+        raise GenerationError(
+            f"Missing data for {context}: {', '.join(missing)}. "
+            f"Required fields: {', '.join(fields)}"
         )
-        send_api_notification_sync(service="wallapop_email_request", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="wallapop_email_request", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="wallapop_email_request", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/generate_image_wallapop_phone_request")
-async def generate_image_wallapop_phone_request_endpoint(
-        req: ImageWallapopBase,
-        key_name: str = Depends(verify_api_key)
+
+# ======== GET /get-geo ========
+@app.get("/get-geo")
+async def get_geo(key_name: str = Depends(verify_api_key)):
+    """
+    Получить список доступных стран, сервисов, методов и полей.
+    
+    Возвращает структуру с полями которые используются для каждого метода.
+    Отправляй запрос со всеми полями - API возьмёт только нужные.
+    
+    Пример ответа:
+    {
+        "nl": {
+            "name": "Netherlands",
+            "services": {
+                "marktplaats": {
+                    "methods": {
+                        "qr": {
+                            "endpoint": "/generate",
+                            "fields": ["title", "price", "url", "photo"]
+                        }
+                    }
+                }
+            }
+        }
+    }
+    """
+    return GEO_CONFIG
+
+
+# ======== POST /generate ========
+@app.post("/generate")
+async def generate(
+    req: UniversalRequest,
+    key_name: str = Depends(verify_api_key)
 ):
-    """Генерация изображения для Wallapop Phone Request (JSON)"""
-    try:
-        image_data = create_wallapop_phone_request(
-            req.lang, req.title, req.price, req.photo, req.seller_name, req.seller_photo
+    """
+    Универсальный эндпоинт генерации.
+    
+    Отправляй все поля сразу - API возьмёт только нужные для выбранного country/service/method.
+    Если каких-то данных не хватает - вернётся ошибка с указанием чего не хватает.
+    
+    Пример запроса:
+    {
+        "country": "nl",
+        "service": "marktplaats",
+        "method": "qr",
+        "title": "iPhone 15",
+        "price": 999.99,
+        "url": "https://example.com",
+        "photo": "base64...",
+        "seller_name": "будет проигнорировано для marktplaats",
+        "name": "тоже будет проигнорировано"
+    }
+    """
+    country = req.country.lower()
+    service = req.service.lower()
+    method = req.method.lower()
+    
+    # Собираем все данные в dict
+    data = {
+        "title": req.title,
+        "price": req.price,
+        "url": req.url,
+        "photo": req.photo,
+        "name": req.name,
+        "address": req.address,
+        "seller_name": req.seller_name,
+        "seller_photo": req.seller_photo,
+        "avatar": req.avatar,
+    }
+    
+    # Валидация country
+    if country not in GEO_CONFIG:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Unknown country: {country}. Available: {list(GEO_CONFIG.keys())}"
         )
-        send_api_notification_sync(service="wallapop_phone_request", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="wallapop_phone_request", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="wallapop_phone_request", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_wallapop_email_payment")
-async def generate_image_wallapop_email_payment_endpoint(
-        req: ImageWallapopBase,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Wallapop Email Payment (JSON)"""
-    try:
-        image_data = create_wallapop_email_payment(
-            req.lang, req.title, req.price, req.photo, req.seller_name, req.seller_photo
+    
+    # Валидация service
+    if service not in GEO_CONFIG[country]["services"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown service '{service}' for country '{country}'. "
+                   f"Available: {list(GEO_CONFIG[country]['services'].keys())}"
         )
-        send_api_notification_sync(service="wallapop_email_payment", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="wallapop_email_payment", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="wallapop_email_payment", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_wallapop_sms_payment")
-async def generate_image_wallapop_sms_payment_endpoint(
-        req: ImageWallapopBase,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Wallapop SMS Payment (JSON)"""
-    try:
-        image_data = create_wallapop_sms_payment(
-            req.lang, req.title, req.price, req.photo, req.seller_name, req.seller_photo
+    
+    # Валидация method
+    service_methods = GEO_CONFIG[country]["services"][service]["methods"]
+    if method not in service_methods:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown method '{method}' for service '{service}'. "
+                   f"Available: {list(service_methods.keys())}"
         )
-        send_api_notification_sync(service="wallapop_sms_payment", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="wallapop_sms_payment", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="wallapop_sms_payment", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_wallapop_qr")
-async def generate_image_wallapop_qr_endpoint(
-        req: ImageWallapopQR,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Wallapop QR (JSON)"""
+    
+    # Роутинг и генерация
     try:
-        image_data = create_wallapop_qr(
-            req.lang, req.title, req.price, req.photo, req.seller_name, req.seller_photo, req.url
-        )
-        send_api_notification_sync(service="wallapop_qr", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="wallapop_qr", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="wallapop_qr", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_marktplaats_form")
-async def generate_image_marktplaats_form(
-        title: str = Form(...),
-        price: float = Form(...),
-        url: str = Form(...),
-        photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Marktplaats (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        image_data = create_image_marktplaats(title, price, photo_b64, url)
-        send_api_notification_sync(service="marktplaats", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="marktplaats", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="marktplaats", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_subito_form")
-async def generate_image_subito_form(
-        title: str = Form(...),
-        price: float = Form(...),
-        url: str = Form(...),
-        name: str = Form(""),
-        address: str = Form(""),
-        photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Subito (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        image_data = create_image_subito(title, price, photo_b64, url, name, address)
-        send_api_notification_sync(service="subito", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="subito", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="subito", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-# ======== Subito Email Request ========
-@app.post("/generate_image_subito_email_request")
-async def generate_image_subito_email_request_endpoint(
-        req: ImageSubitoNoURL,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Subito Email Request (JSON)"""
-    try:
-        image_data = create_image_subito_email_request(req.title, req.price, req.photo, req.name, req.address)
-        send_api_notification_sync(service="subito_email_request", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="subito_email_request", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="subito_email_request", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_subito_email_request_form")
-async def generate_image_subito_email_request_form(
-        title: str = Form(...),
-        price: float = Form(...),
-        name: str = Form(""),
-        address: str = Form(""),
-        photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Subito Email Request (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        image_data = create_image_subito_email_request(title, price, photo_b64, name, address)
-        send_api_notification_sync(service="subito_email_request", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="subito_email_request", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="subito_email_request", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-# ======== Subito Email Confirm ========
-@app.post("/generate_image_subito_email_confirm")
-async def generate_image_subito_email_confirm_endpoint(
-        req: ImageSubitoNoURL,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Subito Email Confirm (JSON)"""
-    try:
-        image_data = create_image_subito_email_confirm(req.title, req.price, req.photo, req.name, req.address)
-        send_api_notification_sync(service="subito_email_confirm", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="subito_email_confirm", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="subito_email_confirm", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_subito_email_confirm_form")
-async def generate_image_subito_email_confirm_form(
-        title: str = Form(...),
-        price: float = Form(...),
-        name: str = Form(""),
-        address: str = Form(""),
-        photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Subito Email Confirm (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        image_data = create_image_subito_email_confirm(title, price, photo_b64, name, address)
-        send_api_notification_sync(service="subito_email_confirm", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="subito_email_confirm", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="subito_email_confirm", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-# ======== Subito SMS Request ========
-@app.post("/generate_image_subito_sms_request")
-async def generate_image_subito_sms_request_endpoint(
-        req: ImageSubitoNoURL,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Subito SMS Request (JSON)"""
-    try:
-        image_data = create_image_subito_sms_request(req.title, req.price, req.photo, req.name, req.address)
-        send_api_notification_sync(service="subito_sms_request", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="subito_sms_request", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="subito_sms_request", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_subito_sms_request_form")
-async def generate_image_subito_sms_request_form(
-        title: str = Form(...),
-        price: float = Form(...),
-        name: str = Form(""),
-        address: str = Form(""),
-        photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Subito SMS Request (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        image_data = create_image_subito_sms_request(title, price, photo_b64, name, address)
-        send_api_notification_sync(service="subito_sms_request", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="subito_sms_request", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="subito_sms_request", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-# ======== Subito SMS Confirm ========
-@app.post("/generate_image_subito_sms_confirm")
-async def generate_image_subito_sms_confirm_endpoint(
-        req: ImageSubitoNoURL,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Subito SMS Confirm (JSON)"""
-    try:
-        image_data = create_image_subito_sms_confirm(req.title, req.price, req.photo, req.name, req.address)
-        send_api_notification_sync(service="subito_sms_confirm", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="subito_sms_confirm", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="subito_sms_confirm", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_subito_sms_confirm_form")
-async def generate_image_subito_sms_confirm_form(
-        title: str = Form(...),
-        price: float = Form(...),
-        name: str = Form(""),
-        address: str = Form(""),
-        photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Subito SMS Confirm (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        image_data = create_image_subito_sms_confirm(title, price, photo_b64, name, address)
-        send_api_notification_sync(service="subito_sms_confirm", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="subito_sms_confirm", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="subito_sms_confirm", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_wallapop_email_request_form")
-async def generate_image_wallapop_email_request_form(
-        lang: str = Form(...),
-        title: str = Form(...),
-        price: float = Form(...),
-        seller_name: str = Form(...),
-        photo: UploadFile = File(None),
-        seller_photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Wallapop Email Request (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        seller_photo_b64 = None
-        if seller_photo:
-            seller_photo_b64 = base64.b64encode(await seller_photo.read()).decode("utf-8")
-
-        image_data = create_wallapop_email_request(lang, title, price, photo_b64, seller_name, seller_photo_b64)
-        send_api_notification_sync(service="wallapop_email_request", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="wallapop_email_request", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="wallapop_email_request", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_wallapop_phone_request_form")
-async def generate_image_wallapop_phone_request_form(
-        lang: str = Form(...),
-        title: str = Form(...),
-        price: float = Form(...),
-        seller_name: str = Form(...),
-        photo: UploadFile = File(None),
-        seller_photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Wallapop Phone Request (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        seller_photo_b64 = None
-        if seller_photo:
-            seller_photo_b64 = base64.b64encode(await seller_photo.read()).decode("utf-8")
-
-        image_data = create_wallapop_phone_request(lang, title, price, photo_b64, seller_name, seller_photo_b64)
-        send_api_notification_sync(service="wallapop_phone_request", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="wallapop_phone_request", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="wallapop_phone_request", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_wallapop_email_payment_form")
-async def generate_image_wallapop_email_payment_form(
-        lang: str = Form(...),
-        title: str = Form(...),
-        price: float = Form(...),
-        seller_name: str = Form(...),
-        photo: UploadFile = File(None),
-        seller_photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Wallapop Email Payment (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        seller_photo_b64 = None
-        if seller_photo:
-            seller_photo_b64 = base64.b64encode(await seller_photo.read()).decode("utf-8")
-
-        image_data = create_wallapop_email_payment(lang, title, price, photo_b64, seller_name, seller_photo_b64)
-        send_api_notification_sync(service="wallapop_email_payment", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="wallapop_email_payment", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="wallapop_email_payment", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_wallapop_sms_payment_form")
-async def generate_image_wallapop_sms_payment_form(
-        lang: str = Form(...),
-        title: str = Form(...),
-        price: float = Form(...),
-        seller_name: str = Form(...),
-        photo: UploadFile = File(None),
-        seller_photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Wallapop SMS Payment (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        seller_photo_b64 = None
-        if seller_photo:
-            seller_photo_b64 = base64.b64encode(await seller_photo.read()).decode("utf-8")
-
-        image_data = create_wallapop_sms_payment(lang, title, price, photo_b64, seller_name, seller_photo_b64)
-        send_api_notification_sync(service="wallapop_sms_payment", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="wallapop_sms_payment", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="wallapop_sms_payment", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_wallapop_qr_form")
-async def generate_image_wallapop_qr_form(
-        lang: str = Form(...),
-        title: str = Form(...),
-        price: float = Form(...),
-        url: str = Form(...),
-        seller_name: str = Form(...),
-        photo: UploadFile = File(None),
-        seller_photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Wallapop QR (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        seller_photo_b64 = None
-        if seller_photo:
-            seller_photo_b64 = base64.b64encode(await seller_photo.read()).decode("utf-8")
-
-        image_data = create_wallapop_qr(lang, title, price, photo_b64, seller_name, seller_photo_b64, url)
-        send_api_notification_sync(service="wallapop_qr", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="wallapop_qr", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="wallapop_qr", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_2dehands")
-async def generate_image_2dehands_endpoint(
-        req: Image2dehands,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для 2dehands - нидерландский (JSON)"""
-    try:
-        image_data = create_2dehands_image(req.title, req.price, req.photo, req.url, "nl")
-        send_api_notification_sync(service="2dehands", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (DehandsGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="2dehands", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="2dehands", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_2ememain")
-async def generate_image_2ememain_endpoint(
-        req: Image2ememain,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для 2ememain - французский (JSON)"""
-    try:
-        image_data = create_2dehands_image(req.title, req.price, req.photo, req.url, "fr")
-        send_api_notification_sync(service="2ememain", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (DehandsGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="2ememain", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="2ememain", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_2dehands_form")
-async def generate_image_2dehands_form(
-        title: str = Form(...),
-        price: float = Form(...),
-        url: str = Form(...),
-        photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для 2dehands - нидерландский (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        image_data = create_2dehands_image(title, price, photo_b64, url, "nl")
-        send_api_notification_sync(service="2dehands", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (DehandsGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="2dehands", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="2dehands", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_2ememain_form")
-async def generate_image_2ememain_form(
-        title: str = Form(...),
-        price: float = Form(...),
-        url: str = Form(...),
-        photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для 2ememain - французский (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        image_data = create_2dehands_image(title, price, photo_b64, url, "fr")
-        send_api_notification_sync(service="2ememain", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (DehandsGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="2ememain", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="2ememain", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/generate_image_kleize")
-async def generate_image_kleize_endpoint(
-        req: ImageKleize,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Kleize (JSON)"""
-    try:
-        image_data = create_kleize_image(req.title, req.price, req.photo, req.url)
-        send_api_notification_sync(service="kleize", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (KleizeGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="kleize", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="kleize", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_kleize_form")
-async def generate_image_kleize_form(
-        title: str = Form(...),
-        price: float = Form(...),
-        url: str = Form(...),
-        photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Kleize (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        image_data = create_kleize_image(title, price, photo_b64, url)
-        send_api_notification_sync(service="kleize", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (KleizeGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="kleize", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="kleize", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_conto")
-async def generate_image_conto_endpoint(
-        req: ImageConto,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Conto (Subito Payment) - JSON"""
-    try:
-        image_data = create_conto_image(req.title, req.price)
-        send_api_notification_sync(service="conto", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (ContoGenerationError, PDFGenerationError, FigmaNodeNotFoundError) as e:
-        send_api_notification_sync(service="conto", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="conto", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_conto_form")
-async def generate_image_conto_form(
-        request: Request,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Conto (Subito Payment) - Form Data (multipart или urlencoded)"""
-    try:
-        content_type = request.headers.get("content-type", "")
+        image_data = _route_generation(country, service, method, data)
         
-        if "multipart/form-data" in content_type:
-            form = await request.form()
-            title = form.get("title", "")
-            price = float(form.get("price", 0))
-        elif "application/x-www-form-urlencoded" in content_type:
-            body = await request.body()
-            parsed = parse_qs(body.decode("utf-8"))
-            title = parsed.get("title", [""])[0]
-            price = float(parsed.get("price", [0])[0])
-        else:
-            # Пробуем как JSON
-            data = await request.json()
-            title = data.get("title", "")
-            price = float(data.get("price", 0))
-        
-        if not title:
-            raise HTTPException(status_code=422, detail="title is required")
-        
-        image_data = create_conto_image(title, price)
-        send_api_notification_sync(service="conto", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (ContoGenerationError, PDFGenerationError, FigmaNodeNotFoundError) as e:
-        send_api_notification_sync(service="conto", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="conto", key_name=key_name, title=str(locals().get('title', 'Unknown')), success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_depop")
-async def generate_image_depop_endpoint(
-        req: ImageDepop,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Depop (AU) - JSON"""
-    try:
-        image_data = create_depop_image(
-            req.title, 
-            req.price, 
-            req.seller_name, 
-            req.photo, 
-            req.avatar, 
-            req.url
+        service_name = f"{service}_{method}" if method not in ("qr", "payment") else service
+        send_api_notification_sync(
+            service=service_name, 
+            key_name=key_name, 
+            title=data.get("title") or "Unknown", 
+            success=True
         )
-        send_api_notification_sync(service="depop", key_name=key_name, title=req.title, success=True)
         return Response(content=image_data, media_type="image/png")
-    except (DepopGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="depop", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="depop", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_depop_form")
-async def generate_image_depop_form(
-        title: str = Form(...),
-        price: float = Form(...),
-        seller_name: str = Form(...),
-        url: str = Form(...),
-        photo: UploadFile = File(None),
-        avatar: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Depop (AU) - Form Data"""
-    try:
-        # Обработка фото товара
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
         
-        # Обработка аватара
-        avatar_b64 = None
-        if avatar:
-            avatar_b64 = base64.b64encode(await avatar.read()).decode("utf-8")
-        
-        image_data = create_depop_image(
-            title, 
-            price, 
-            seller_name, 
-            photo_b64, 
-            avatar_b64, 
-            url
+    except GenerationError as e:
+        # Ошибка валидации - не хватает данных
+        send_api_notification_sync(
+            service=f"{service}_{method}", 
+            key_name=key_name, 
+            title=data.get("title") or "Unknown", 
+            success=False, 
+            error=str(e)
         )
-        send_api_notification_sync(service="depop", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (DepopGenerationError, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError) as e:
-        send_api_notification_sync(service="depop", key_name=key_name, title=title, success=False, error=str(e))
+        raise HTTPException(status_code=422, detail=str(e))
+        
+    except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError, 
+            DehandsGenerationError, KleizeGenerationError, ContoGenerationError,
+            DepopGenerationError, DepopVariantError) as e:
+        # Ошибка генерации
+        send_api_notification_sync(
+            service=f"{service}_{method}", 
+            key_name=key_name, 
+            title=data.get("title") or "Unknown", 
+            success=False, 
+            error=str(e)
+        )
         raise HTTPException(status_code=400, detail=str(e))
+        
     except Exception as e:
-        send_api_notification_sync(service="depop", key_name=key_name, title=title, success=False, error=str(e))
+        # Неизвестная ошибка
+        send_api_notification_sync(
+            service=f"{service}_{method}", 
+            key_name=key_name, 
+            title=data.get("title") or "Unknown", 
+            success=False, 
+            error=str(e)
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
-# ======== Depop Email Request ========
-@app.post("/generate_image_depop_email_request")
-async def generate_image_depop_email_request_endpoint(
-        req: ImageDepopNoURL,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Depop Email Request (JSON)"""
-    try:
-        image_data = create_depop_email_request(req.title, req.price, req.photo)
-        send_api_notification_sync(service="depop_email_request", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (DepopVariantError, PDFGenerationError, FigmaNodeNotFoundError) as e:
-        send_api_notification_sync(service="depop_email_request", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="depop_email_request", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/generate_image_depop_email_request_form")
-async def generate_image_depop_email_request_form(
-        title: str = Form(...),
-        price: float = Form(...),
-        photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Depop Email Request (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
+def _route_generation(country: str, service: str, method: str, data: dict) -> bytes:
+    """Роутинг генерации с проверкой данных"""
+    
+    context = f"{country}/{service}/{method}"
+    
+    # === NETHERLANDS ===
+    if country == "nl":
+        if service == "marktplaats":
+            check_fields(data, ["title", "price", "url"], context)
+            return create_image_marktplaats(data["title"], data["price"], data.get("photo"), data["url"])
+        
+        elif service == "2dehands":
+            check_fields(data, ["title", "price", "url"], context)
+            return create_2dehands_image(data["title"], data["price"], data.get("photo"), data["url"], "nl")
+    
+    # === BELGIUM ===
+    elif country == "be":
+        if service == "2ememain":
+            check_fields(data, ["title", "price", "url"], context)
+            return create_2dehands_image(data["title"], data["price"], data.get("photo"), data["url"], "fr")
+    
+    # === ITALY ===
+    elif country == "it":
+        if service == "subito":
+            if method == "qr":
+                check_fields(data, ["title", "price", "url"], context)
+                return create_image_subito(
+                    data["title"], data["price"], data.get("photo"), data["url"],
+                    data.get("name") or "", data.get("address") or ""
+                )
+            elif method == "email_request":
+                check_fields(data, ["title", "price"], context)
+                return create_image_subito_email_request(
+                    data["title"], data["price"], data.get("photo"),
+                    data.get("name") or "", data.get("address") or ""
+                )
+            elif method == "email_confirm":
+                check_fields(data, ["title", "price"], context)
+                return create_image_subito_email_confirm(
+                    data["title"], data["price"], data.get("photo"),
+                    data.get("name") or "", data.get("address") or ""
+                )
+            elif method == "sms_request":
+                check_fields(data, ["title", "price"], context)
+                return create_image_subito_sms_request(
+                    data["title"], data["price"], data.get("photo"),
+                    data.get("name") or "", data.get("address") or ""
+                )
+            elif method == "sms_confirm":
+                check_fields(data, ["title", "price"], context)
+                return create_image_subito_sms_confirm(
+                    data["title"], data["price"], data.get("photo"),
+                    data.get("name") or "", data.get("address") or ""
+                )
+        
+        elif service == "conto":
+            check_fields(data, ["title", "price"], context)
+            return create_conto_image(data["title"], data["price"])
+    
+    # === GERMANY ===
+    elif country == "de":
+        if service == "kleinanzeigen":
+            check_fields(data, ["title", "price", "url"], context)
+            return create_kleize_image(data["title"], data["price"], data.get("photo"), data["url"])
+    
+    # === SPAIN / UK / FRANCE / PORTUGAL (Wallapop) ===
+    elif country in ("es", "uk", "fr", "pt"):
+        if service == "wallapop":
+            lang = country
+            
+            if method == "email_request":
+                check_fields(data, ["title", "price", "seller_name"], context)
+                return create_wallapop_email_request(
+                    lang, data["title"], data["price"],
+                    data.get("photo"), data["seller_name"], data.get("seller_photo")
+                )
+            elif method == "phone_request":
+                check_fields(data, ["title", "price", "seller_name"], context)
+                return create_wallapop_phone_request(
+                    lang, data["title"], data["price"],
+                    data.get("photo"), data["seller_name"], data.get("seller_photo")
+                )
+            elif method == "email_payment":
+                check_fields(data, ["title", "price", "seller_name"], context)
+                return create_wallapop_email_payment(
+                    lang, data["title"], data["price"],
+                    data.get("photo"), data["seller_name"], data.get("seller_photo")
+                )
+            elif method == "sms_payment":
+                check_fields(data, ["title", "price", "seller_name"], context)
+                return create_wallapop_sms_payment(
+                    lang, data["title"], data["price"],
+                    data.get("photo"), data["seller_name"], data.get("seller_photo")
+                )
+            elif method == "qr":
+                check_fields(data, ["title", "price", "seller_name", "url"], context)
+                return create_wallapop_qr(
+                    lang, data["title"], data["price"],
+                    data.get("photo"), data["seller_name"], data.get("seller_photo"), data["url"]
+                )
+    
+    # === AUSTRALIA ===
+    elif country == "au":
+        if service == "depop":
+            if method == "qr":
+                check_fields(data, ["title", "price", "seller_name", "url"], context)
+                return create_depop_image(
+                    data["title"], data["price"], data["seller_name"],
+                    data.get("photo"), data.get("avatar"), data["url"]
+                )
+            elif method == "email_request":
+                check_fields(data, ["title", "price"], context)
+                return create_depop_email_request(data["title"], data["price"], data.get("photo"))
+            elif method == "email_confirm":
+                check_fields(data, ["title", "price"], context)
+                return create_depop_email_confirm(data["title"], data["price"], data.get("photo"))
+            elif method == "sms_request":
+                check_fields(data, ["title", "price"], context)
+                return create_depop_sms_request(data["title"], data["price"], data.get("photo"))
+            elif method == "sms_confirm":
+                check_fields(data, ["title", "price"], context)
+                return create_depop_sms_confirm(data["title"], data["price"], data.get("photo"))
+    
+    raise GenerationError(f"Unsupported combination: {context}")
 
-        image_data = create_depop_email_request(title, price, photo_b64)
-        send_api_notification_sync(service="depop_email_request", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (DepopVariantError, PDFGenerationError, FigmaNodeNotFoundError) as e:
-        send_api_notification_sync(service="depop_email_request", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="depop_email_request", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
 
-# ======== Depop Email Confirm ========
-@app.post("/generate_image_depop_email_confirm")
-async def generate_image_depop_email_confirm_endpoint(
-        req: ImageDepopNoURL,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Depop Email Confirm (JSON)"""
-    try:
-        image_data = create_depop_email_confirm(req.title, req.price, req.photo)
-        send_api_notification_sync(service="depop_email_confirm", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (DepopVariantError, PDFGenerationError, FigmaNodeNotFoundError) as e:
-        send_api_notification_sync(service="depop_email_confirm", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="depop_email_confirm", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_depop_email_confirm_form")
-async def generate_image_depop_email_confirm_form(
-        title: str = Form(...),
-        price: float = Form(...),
-        photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Depop Email Confirm (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        image_data = create_depop_email_confirm(title, price, photo_b64)
-        send_api_notification_sync(service="depop_email_confirm", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (DepopVariantError, PDFGenerationError, FigmaNodeNotFoundError) as e:
-        send_api_notification_sync(service="depop_email_confirm", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="depop_email_confirm", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-# ======== Depop SMS Request ========
-@app.post("/generate_image_depop_sms_request")
-async def generate_image_depop_sms_request_endpoint(
-        req: ImageDepopNoURL,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Depop SMS Request (JSON)"""
-    try:
-        image_data = create_depop_sms_request(req.title, req.price, req.photo)
-        send_api_notification_sync(service="depop_sms_request", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (DepopVariantError, PDFGenerationError, FigmaNodeNotFoundError) as e:
-        send_api_notification_sync(service="depop_sms_request", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="depop_sms_request", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_depop_sms_request_form")
-async def generate_image_depop_sms_request_form(
-        title: str = Form(...),
-        price: float = Form(...),
-        photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Depop SMS Request (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        image_data = create_depop_sms_request(title, price, photo_b64)
-        send_api_notification_sync(service="depop_sms_request", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (DepopVariantError, PDFGenerationError, FigmaNodeNotFoundError) as e:
-        send_api_notification_sync(service="depop_sms_request", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="depop_sms_request", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-# ======== Depop SMS Confirm ========
-@app.post("/generate_image_depop_sms_confirm")
-async def generate_image_depop_sms_confirm_endpoint(
-        req: ImageDepopNoURL,
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Depop SMS Confirm (JSON)"""
-    try:
-        image_data = create_depop_sms_confirm(req.title, req.price, req.photo)
-        send_api_notification_sync(service="depop_sms_confirm", key_name=key_name, title=req.title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (DepopVariantError, PDFGenerationError, FigmaNodeNotFoundError) as e:
-        send_api_notification_sync(service="depop_sms_confirm", key_name=key_name, title=req.title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="depop_sms_confirm", key_name=key_name, title=req.title if hasattr(req, 'title') else "Unknown", success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate_image_depop_sms_confirm_form")
-async def generate_image_depop_sms_confirm_form(
-        title: str = Form(...),
-        price: float = Form(...),
-        photo: UploadFile = File(None),
-        key_name: str = Depends(verify_api_key)
-):
-    """Генерация изображения для Depop SMS Confirm (Form Data)"""
-    try:
-        photo_b64 = None
-        if photo:
-            photo_b64 = base64.b64encode(await photo.read()).decode("utf-8")
-
-        image_data = create_depop_sms_confirm(title, price, photo_b64)
-        send_api_notification_sync(service="depop_sms_confirm", key_name=key_name, title=title, success=True)
-        return Response(content=image_data, media_type="image/png")
-    except (DepopVariantError, PDFGenerationError, FigmaNodeNotFoundError) as e:
-        send_api_notification_sync(service="depop_sms_confirm", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        send_api_notification_sync(service="depop_sms_confirm", key_name=key_name, title=title, success=False, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
+# ======== Status ========
 @app.get("/api/status")
 async def api_status(key_name: str = Depends(verify_api_key)):
     """Проверка статуса API"""
