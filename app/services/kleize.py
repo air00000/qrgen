@@ -97,31 +97,47 @@ def create_rounded_mask(size, radius):
 
 
 def process_photo(photo_b64: str):
-    """Обработка фото - обрезка до 1:1 и скругление углов"""
+    """
+    Обработка фото - обрезка до 1:1 и скругление углов.
+    Поддерживает Data URI и plain base64.
+    """
+    from app.utils.helpers import parse_data_uri
+    
     logger.info("🖼️  Декодирование и обработка фото...")
-    img = Image.open(BytesIO(base64.b64decode(photo_b64)))
     
-    # Если есть прозрачность - наложить на белый фон
-    if img.mode in ('RGBA', 'LA', 'P'):
-        # Конвертируем в RGBA если нужно
-        if img.mode != 'RGBA':
-            img = img.convert('RGBA')
+    # Парсим Data URI для извлечения base64
+    base64_data = parse_data_uri(photo_b64)
+    if not base64_data:
+        logger.warning("⚠️  Фото пустое или неверный формат")
+        return None
+    
+    try:
+        img = Image.open(BytesIO(base64.b64decode(base64_data)))
         
-        # Создаем белый фон
-        white_bg = Image.new('RGBA', img.size, (255, 255, 255, 255))
-        # Накладываем изображение на белый фон
-        white_bg.paste(img, (0, 0), img)
-        img = white_bg
-    else:
-        img = img.convert("RGBA")
-    
-    size = min(img.size)
-    img = img.crop(((img.width - size) // 2, (img.height - size) // 2,
-                    (img.width + size) // 2, (img.height + size) // 2))
-    mask = create_rounded_mask(img.size, int(CORNER_RADIUS_PHOTO * SCALE_FACTOR))
-    img.putalpha(mask)
-    logger.info(f"✅ Фото обработано: {img.size} {img.mode}")
-    return img
+        # Если есть прозрачность - наложить на белый фон
+        if img.mode in ('RGBA', 'LA', 'P'):
+            # Конвертируем в RGBA если нужно
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
+            
+            # Создаем белый фон
+            white_bg = Image.new('RGBA', img.size, (255, 255, 255, 255))
+            # Накладываем изображение на белый фон
+            white_bg.paste(img, (0, 0), img)
+            img = white_bg
+        else:
+            img = img.convert("RGBA")
+        
+        size = min(img.size)
+        img = img.crop(((img.width - size) // 2, (img.height - size) // 2,
+                        (img.width + size) // 2, (img.height + size) // 2))
+        mask = create_rounded_mask(img.size, int(CORNER_RADIUS_PHOTO * SCALE_FACTOR))
+        img.putalpha(mask)
+        logger.info(f"✅ Фото обработано: {img.size} {img.mode}")
+        return img
+    except Exception as e:
+        logger.error(f"❌ Ошибка обработки фото: {e}")
+        return None
 
 
 def generate_qr(url: str):
@@ -186,17 +202,24 @@ def draw_text_with_spacing(draw, text, font, x, y, fill, spacing=0, align="left"
 
 def create_kleize_image(nazvanie: str, price: float, photo: str, url: str) -> bytes:
     """
-    Генерация изображения для Kleize (Kleinanzeigen)
+    Генерация изображения для Kleize (Kleinanzeigen).
+    Поддерживает Data URI для фото и обрезку длинного текста.
     
     Args:
         nazvanie: Название товара
         price: Цена товара
-        photo: Фото товара в base64 (или None)
+        photo: Фото товара в Data URI или base64 (или None)
         url: URL для QR-кода
         
     Returns:
         bytes: PNG изображение
     """
+    from app.utils.helpers import truncate_title, truncate_url
+    
+    # Обрезаем длинный текст
+    nazvanie = truncate_title(nazvanie or "")
+    url = truncate_url(url or "")
+    
     logger.info(f"🎨 Генерация Kleize: {nazvanie}, {price}€")
     
     try:

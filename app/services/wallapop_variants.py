@@ -86,29 +86,55 @@ def _draw_centered_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.Im
 
 
 def _rounded_rect_image(photo_b64: str, size: tuple[int, int], radius: int) -> Optional[Image.Image]:
-    if not photo_b64:
+    """
+    Creates rounded rectangle image from base64 or Data URI.
+    Returns None if photo_b64 is empty or malformed.
+    """
+    from app.utils.helpers import parse_data_uri
+    
+    # Parse Data URI to extract base64
+    base64_data = parse_data_uri(photo_b64)
+    if not base64_data:
         return None
-    img = Image.open(io.BytesIO(base64.b64decode(photo_b64))).convert("RGBA")
-    img = ImageOps.fit(img, size, Image.Resampling.LANCZOS)
-    mask = Image.new("L", size, 0)
-    draw = ImageDraw.Draw(mask)
-    draw.rounded_rectangle([(0, 0), size], radius=radius, fill=255)
-    rounded = Image.new("RGBA", size, (255, 255, 255, 0))
-    rounded.paste(img, (0, 0), mask)
-    return rounded
+    
+    try:
+        img = Image.open(io.BytesIO(base64.b64decode(base64_data))).convert("RGBA")
+        img = ImageOps.fit(img, size, Image.Resampling.LANCZOS)
+        mask = Image.new("L", size, 0)
+        draw = ImageDraw.Draw(mask)
+        draw.rounded_rectangle([(0, 0), size], radius=radius, fill=255)
+        rounded = Image.new("RGBA", size, (255, 255, 255, 0))
+        rounded.paste(img, (0, 0), mask)
+        return rounded
+    except Exception:
+        # If decoding fails, return None
+        return None
 
 
 def _circle_image(photo_b64: str, size: tuple[int, int]) -> Optional[Image.Image]:
-    if not photo_b64:
+    """
+    Creates circle image from base64 or Data URI.
+    Returns None if photo_b64 is empty or malformed.
+    """
+    from app.utils.helpers import parse_data_uri
+    
+    # Parse Data URI to extract base64
+    base64_data = parse_data_uri(photo_b64)
+    if not base64_data:
         return None
-    img = Image.open(io.BytesIO(base64.b64decode(photo_b64))).convert("RGBA")
-    img = ImageOps.fit(img, size, Image.Resampling.LANCZOS)
-    mask = Image.new("L", size, 0)
-    draw = ImageDraw.Draw(mask)
-    draw.ellipse([(0, 0), size], fill=255)
-    rounded = Image.new("RGBA", size, (255, 255, 255, 0))
-    rounded.paste(img, (0, 0), mask)
-    return rounded
+    
+    try:
+        img = Image.open(io.BytesIO(base64.b64decode(base64_data))).convert("RGBA")
+        img = ImageOps.fit(img, size, Image.Resampling.LANCZOS)
+        mask = Image.new("L", size, 0)
+        draw = ImageDraw.Draw(mask)
+        draw.ellipse([(0, 0), size], fill=255)
+        rounded = Image.new("RGBA", size, (255, 255, 255, 0))
+        rounded.paste(img, (0, 0), mask)
+        return rounded
+    except Exception:
+        # If decoding fails, return None
+        return None
 
 
 def _generate_wallapop_qr(url: str) -> Image.Image:
@@ -153,6 +179,18 @@ def create_wallapop_image(
     seller_photo_b64: Optional[str] = None,
     url: Optional[str] = None,
 ) -> bytes:
+    """
+    Creates Wallapop variant image.
+    Handles Data URI format for photos and truncates long text.
+    """
+    from app.utils.helpers import truncate_title, truncate_name, truncate_url
+    
+    # Truncate text fields
+    title = truncate_title(title or "")
+    seller_name = truncate_name(seller_name or "")
+    if url:
+        url = truncate_url(url)
+    
     if variant not in WALLAPOP_VARIANTS:
         raise PDFGenerationError("Unknown wallapop variant")
     if lang not in LANG_TIMEZONES:
@@ -163,7 +201,7 @@ def create_wallapop_image(
     service_name = f"wallapop_{variant}_{lang}"
 
     # Используем специальные credentials для Wallapop
-    template_json, frame_img_cached, frame_node, use_cache, pat, fkey = load_template_with_cache(
+    template_json, frame_img_cached, frame_node, use_cache = load_template_with_cache(
         service_name, "Page 2", frame_name,
         figma_pat=CFG.WALLAPOP_EMAIL_FIGMA_PAT,
         file_key=CFG.WALLAPOP_EMAIL_FILE_KEY
@@ -172,7 +210,11 @@ def create_wallapop_image(
     if not frame_node:
         raise FigmaNodeNotFoundError(f"Фрейм {frame_name} не найден")
 
-    frame_img = get_frame_image(frame_node, frame_img_cached, use_cache, figma_pat=pat, file_key=fkey)
+    frame_img = get_frame_image(
+        frame_node, frame_img_cached, use_cache,
+        figma_pat=CFG.WALLAPOP_EMAIL_FIGMA_PAT,
+        file_key=CFG.WALLAPOP_EMAIL_FILE_KEY
+    )
     width = int(frame_node["absoluteBoundingBox"]["width"] * CFG.SCALE_FACTOR)
     height = int(frame_node["absoluteBoundingBox"]["height"] * CFG.SCALE_FACTOR)
     frame_img = frame_img.resize((width, height), Image.Resampling.LANCZOS)
@@ -210,9 +252,9 @@ def create_wallapop_image(
     if WALLAPOP_VARIANTS[variant]["has_qr"]:
         nodes["qr"] = _node(f"qrwal{frame_index}_{lang}")
 
-    title_font = _get_font("Megabyte-Regular.ttf", int(46 * CFG.SCALE_FACTOR))
-    price_font = _get_font("Megabyte-Medium.ttf", int(64 * CFG.SCALE_FACTOR))
-    name_font = _get_font("Megabyte-Bold.ttf", int(48 * CFG.SCALE_FACTOR))
+    title_font = _get_font("MEGABYTEREGULAR.ttf", int(46 * CFG.SCALE_FACTOR))
+    price_font = _get_font("MEGABYTEMEDIUM.ttf", int(64 * CFG.SCALE_FACTOR))
+    name_font = _get_font("MEGABYTEBOLD.ttf", int(48 * CFG.SCALE_FACTOR))
     time_font = _get_font("SFProText-Semibold.ttf", int(53 * CFG.SCALE_FACTOR))
     big_price_font = _get_font("Montserrat-SemiBold.ttf", int(230 * CFG.SCALE_FACTOR))
     big_price_small_font = _get_font("Montserrat-SemiBold.ttf", int(137 * CFG.SCALE_FACTOR))
@@ -311,7 +353,7 @@ def create_wallapop_email_request(lang: str, title: str, price: float, photo: st
     )
 
 
-def create_wallapop_phone_request(lang: str, title: str, price: float, photo: str = None,
+def create_wallapop_sms_request(lang: str, title: str, price: float, photo: str = None,
                                   seller_name: str = "", seller_photo: str = None) -> bytes:
     return create_wallapop_image(
         "phone_request", lang, title, price, photo_b64=photo, seller_name=seller_name, seller_photo_b64=seller_photo

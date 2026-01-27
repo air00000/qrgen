@@ -7,7 +7,7 @@
 SERVICES_CONFIG = {
     "marktplaats": {
         "display_name": "Marktplaats",
-        "page": "Page 1",
+        "page": "Page 2",
         "frame": "marktplaats1",
         "scale": 2
     },
@@ -41,180 +41,191 @@ SERVICES_CONFIG = {
         "frame": "subito5",
         "scale": 2
     },
+    # === WALLAPOP (Page 2) ===
     "wallapop_email_request_uk": {
         "display_name": "Wallapop Email Request (UK)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop3_uk",
         "scale": 2
     },
     "wallapop_email_request_es": {
         "display_name": "Wallapop Email Request (ES)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop3_es",
         "scale": 2
     },
     "wallapop_email_request_it": {
         "display_name": "Wallapop Email Request (IT)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop3_it",
         "scale": 2
     },
     "wallapop_email_request_fr": {
         "display_name": "Wallapop Email Request (FR)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop3_fr",
         "scale": 2
     },
     "wallapop_email_request_pr": {
         "display_name": "Wallapop Email Request (PT)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop3_pr",
         "scale": 2
     },
     "wallapop_phone_request_uk": {
         "display_name": "Wallapop Phone Request (UK)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop4_uk",
         "scale": 2
     },
     "wallapop_phone_request_es": {
         "display_name": "Wallapop Phone Request (ES)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop4_es",
         "scale": 2
     },
     "wallapop_phone_request_it": {
         "display_name": "Wallapop Phone Request (IT)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop4_it",
         "scale": 2
     },
     "wallapop_phone_request_fr": {
         "display_name": "Wallapop Phone Request (FR)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop4_fr",
         "scale": 2
     },
     "wallapop_phone_request_pr": {
         "display_name": "Wallapop Phone Request (PT)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop4_pr",
         "scale": 2
     },
     "wallapop_email_payment_uk": {
         "display_name": "Wallapop Email Payment (UK)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop5_uk",
         "scale": 2
     },
     "wallapop_email_payment_es": {
         "display_name": "Wallapop Email Payment (ES)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop5_es",
         "scale": 2
     },
     "wallapop_email_payment_it": {
         "display_name": "Wallapop Email Payment (IT)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop5_it",
         "scale": 2
     },
     "wallapop_email_payment_fr": {
         "display_name": "Wallapop Email Payment (FR)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop5_fr",
         "scale": 2
     },
     "wallapop_email_payment_pr": {
         "display_name": "Wallapop Email Payment (PT)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop5_pr",
         "scale": 2
     },
     "wallapop_sms_payment_uk": {
         "display_name": "Wallapop SMS Payment (UK)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop6_uk",
         "scale": 2
     },
     "wallapop_sms_payment_es": {
         "display_name": "Wallapop SMS Payment (ES)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop6_es",
         "scale": 2
     },
     "wallapop_sms_payment_it": {
         "display_name": "Wallapop SMS Payment (IT)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop6_it",
         "scale": 2
     },
     "wallapop_sms_payment_fr": {
         "display_name": "Wallapop SMS Payment (FR)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop6_fr",
         "scale": 2
     },
     "wallapop_sms_payment_pr": {
         "display_name": "Wallapop SMS Payment (PT)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop6_pr",
         "scale": 2
     },
     "wallapop_qr_uk": {
         "display_name": "Wallapop QR (UK)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop7_uk",
         "scale": 2
     },
     "wallapop_qr_es": {
         "display_name": "Wallapop QR (ES)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop7_es",
         "scale": 2
     },
     "wallapop_qr_it": {
         "display_name": "Wallapop QR (IT)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop7_it",
         "scale": 2
     },
     "wallapop_qr_fr": {
         "display_name": "Wallapop QR (FR)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop7_fr",
         "scale": 2
     },
     "wallapop_qr_pr": {
         "display_name": "Wallapop QR (PT)",
-        "page": "Page 3",
+        "page": "Page 2",
         "frame": "wallapop7_pr",
         "scale": 2
     },
+    # === 2DEHANDS / 2EMEMAIN ===
     "2dehands": {
         "display_name": "2dehands (NL)",
-        "page": "Page 4",
+        "page": "Page 2",
         "frame": "2dehands1",
         "scale": 2
     },
     "2ememain": {
         "display_name": "2ememain (FR)",
-        "page": "Page 4",
+        "page": "Page 2",
         "frame": "2ememain1",
         "scale": 2
     },
+    # === KLEINANZEIGEN ===
     "kleize": {
         "display_name": "Kleinanzeigen",
-        "page": "Page 5",
+        "page": "Page 2",
         "frame": "kleize1",
         "scale": 2
     },
-    "conto": {
-        "display_name": "Conto (Subito Payment)",
-        "page": "Page 6",
-        "frame": "conto1",
+    # === CONTO (2 фрейма) ===
+    "conto_long": {
+        "display_name": "Conto Long",
+        "page": "Page 2",
+        "frame": "conto1_long",
         "scale": 2
     },
+    "conto_short": {
+        "display_name": "Conto Short",
+        "page": "Page 2",
+        "frame": "conto1_short",
+        "scale": 2
+    },
+    # === DEPOP ===
     "depop_au": {
         "display_name": "Depop QR (Australia)",
         "page": "Page 2",
@@ -319,7 +330,7 @@ def get_services_by_group():
             "2ememain"
         ],
         "Kleinanzeigen": ["kleize"],
-        "Conto": ["conto"],
+        "Conto": ["conto_long", "conto_short"],
         "Depop": [
             "depop_au",
             "depop_au_email_request",

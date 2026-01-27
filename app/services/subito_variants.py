@@ -23,7 +23,16 @@ from app.services.cache_wrapper import load_template_with_cache, get_frame_image
 
 
 def create_image_subito_email_request(nazvanie: str, price: float, photo: str, name: str = '', address: str = '') -> bytes:
-    """Генерирует изображение для Subito Email Request (subito2), возвращает bytes PNG"""
+    """
+    Generates image for Subito Email Request (subito2), returns PNG bytes.
+    Handles Data URI format for photos and truncates long text.
+    """
+    from app.utils.helpers import truncate_title, truncate_name, truncate_address
+    
+    # Truncate text fields
+    nazvanie = truncate_title(nazvanie or "")
+    name = truncate_name(name or "")
+    address = truncate_address(address or "")
     
     frame_name = "subito2"
     nazvanie_layer = "NAZVANIE_SUB2"
@@ -136,7 +145,16 @@ def create_image_subito_email_request(nazvanie: str, price: float, photo: str, n
 
 
 def create_image_subito_email_confirm(nazvanie: str, price: float, photo: str, name: str = '', address: str = '') -> bytes:
-    """Генерирует изображение для Subito Email Confirm (subito3), возвращает bytes PNG"""
+    """
+    Generates image for Subito Email Confirm (subito3), returns PNG bytes.
+    Handles Data URI format for photos and truncates long text.
+    """
+    from app.utils.helpers import truncate_title, truncate_name, truncate_address
+    
+    # Truncate text fields
+    nazvanie = truncate_title(nazvanie or "")
+    name = truncate_name(name or "")
+    address = truncate_address(address or "")
     
     frame_name = "subito3"
     # Загружаем с кэшем если доступен
@@ -250,7 +268,16 @@ def create_image_subito_email_confirm(nazvanie: str, price: float, photo: str, n
 
 
 def create_image_subito_sms_request(nazvanie: str, price: float, photo: str, name: str = '', address: str = '') -> bytes:
-    """Генерирует изображение для Subito SMS Request (subito4), возвращает bytes PNG"""
+    """
+    Generates image for Subito SMS Request (subito4), returns PNG bytes.
+    Handles Data URI format for photos and truncates long text.
+    """
+    from app.utils.helpers import truncate_title, truncate_name, truncate_address
+    
+    # Truncate text fields
+    nazvanie = truncate_title(nazvanie or "")
+    name = truncate_name(name or "")
+    address = truncate_address(address or "")
     
     frame_name = "subito4"
     # Загружаем с кэшем если доступен
@@ -364,7 +391,16 @@ def create_image_subito_sms_request(nazvanie: str, price: float, photo: str, nam
 
 
 def create_image_subito_sms_confirm(nazvanie: str, price: float, photo: str, name: str = '', address: str = '') -> bytes:
-    """Генерирует изображение для Subito SMS Confirm (subito5), возвращает bytes PNG"""
+    """
+    Generates image for Subito SMS Confirm (subito5), returns PNG bytes.
+    Handles Data URI format for photos and truncates long text.
+    """
+    from app.utils.helpers import truncate_title, truncate_name, truncate_address
+    
+    # Truncate text fields
+    nazvanie = truncate_title(nazvanie or "")
+    name = truncate_name(name or "")
+    address = truncate_address(address or "")
     
     frame_name = "subito5"
     # Загружаем с кэшем если доступен

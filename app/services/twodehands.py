@@ -41,32 +41,43 @@ def create_rounded_mask(size, radius):
 
 
 def process_photo_2dehands(photo_data: str) -> Image.Image:
-    """Обработка фото: обрезка до 1:1 и скругление углов"""
-    if not photo_data:
+    """
+    Process photo: crop to 1:1 and round corners.
+    Accepts both Data URI and plain base64 formats.
+    """
+    from app.utils.helpers import parse_data_uri
+    
+    # Parse Data URI to extract base64
+    base64_data = parse_data_uri(photo_data)
+    if not base64_data:
         return None
     
-    photo_bytes = base64.b64decode(photo_data)
-    img = Image.open(io.BytesIO(photo_bytes))
-    
-    # Если есть прозрачность - наложить на белый фон
-    if img.mode in ('RGBA', 'LA', 'P'):
-        if img.mode != 'RGBA':
-            img = img.convert('RGBA')
+    try:
+        photo_bytes = base64.b64decode(base64_data)
+        img = Image.open(io.BytesIO(photo_bytes))
         
-        white_bg = Image.new('RGBA', img.size, (255, 255, 255, 255))
-        white_bg.paste(img, (0, 0), img)
-        img = white_bg
-    else:
-        img = img.convert("RGBA")
-    
-    width, height = img.size
-    size = min(width, height)
-    left = (width - size) // 2
-    top = (height - size) // 2
-    img = img.crop((left, top, left + size, top + size))
-    mask = create_rounded_mask((size, size), int(CORNER_RADIUS_PHOTO * TWODEHANDS_SCALE_FACTOR))
-    img.putalpha(mask)
-    return img
+        # If has transparency - overlay on white background
+        if img.mode in ('RGBA', 'LA', 'P'):
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
+            
+            white_bg = Image.new('RGBA', img.size, (255, 255, 255, 255))
+            white_bg.paste(img, (0, 0), img)
+            img = white_bg
+        else:
+            img = img.convert("RGBA")
+        
+        width, height = img.size
+        size = min(width, height)
+        left = (width - size) // 2
+        top = (height - size) // 2
+        img = img.crop((left, top, left + size, top + size))
+        mask = create_rounded_mask((size, size), int(CORNER_RADIUS_PHOTO * TWODEHANDS_SCALE_FACTOR))
+        img.putalpha(mask)
+        return img
+    except Exception:
+        # If decoding fails, return None
+        return None
 
 
 def generate_qr_2dehands(url: str) -> Image.Image:
@@ -161,10 +172,18 @@ def draw_text_with_letter_spacing(draw, text, font, x, y, fill, letter_spacing=0
 
 
 def create_2dehands_image(nazvanie: str, price: float, photo: Optional[str], url: str, language: str) -> bytes:
-    """Создание изображения для 2dehands"""
+    """
+    Create image for 2dehands.
+    Handles Data URI format for photos and truncates long text.
+    """
+    from app.utils.helpers import truncate_title, truncate_url
     
     import logging
     logger = logging.getLogger(__name__)
+    
+    # Truncate text fields
+    nazvanie = truncate_title(nazvanie or "")
+    url = truncate_url(url or "")
     
     logger.info(f"🚀 Начало генерации 2dehands: {nazvanie}, {price}€, язык={language}")
     logger.info(f"📷 Фото: {'есть' if photo else 'нет'}, URL: {url}")

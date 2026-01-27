@@ -11,9 +11,10 @@ from app.services.subito_variants import (
     create_image_subito_email_request, create_image_subito_email_confirm,
     create_image_subito_sms_request, create_image_subito_sms_confirm
 )
+# create_wallapop_phone_request,
 from app.services.wallapop_variants import (
     create_wallapop_email_request,
-    create_wallapop_phone_request,
+    create_wallapop_sms_request,
     create_wallapop_email_payment,
     create_wallapop_sms_payment,
     create_wallapop_qr,
@@ -103,6 +104,30 @@ GEO_CONFIG = {
                         "fields": ["title", "price"]
                     }
                 }
+            },
+            "wallapop": {
+                "methods": {
+                    "email_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "sms_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "email_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "sms_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
+                    },
+                    "qr": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "url", "photo", "seller_name", "seller_photo"]
+                    }
+                }
             }
         }
     },
@@ -128,7 +153,7 @@ GEO_CONFIG = {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
-                    "phone_request": {
+                    "sms_request": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
@@ -157,7 +182,7 @@ GEO_CONFIG = {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
-                    "phone_request": {
+                    "sms_request": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
@@ -186,7 +211,7 @@ GEO_CONFIG = {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
-                    "phone_request": {
+                    "sms_request": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
@@ -206,7 +231,7 @@ GEO_CONFIG = {
             }
         }
     },
-    "pt": {
+    "pr": {
         "name": "Portugal",
         "services": {
             "wallapop": {
@@ -215,7 +240,7 @@ GEO_CONFIG = {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
-                    "phone_request": {
+                    "sms_request": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
@@ -308,30 +333,10 @@ class UniversalRequest(BaseModel):
         extra = Extra.ignore  # Игнорируем лишние поля
 
 
-class GenerationError(Exception):
-    """Ошибка генерации - не хватает данных"""
-    pass
-
-
-def check_fields(data: dict, fields: List[str], context: str) -> None:
-    """
-    Проверка что нужные поля не пустые.
-    Выбрасывает GenerationError с понятным сообщением.
-    """
-    missing = []
-    for field in fields:
-        value = data.get(field)
-        # Проверяем что поле есть и не пустое (для строк)
-        if value is None:
-            missing.append(field)
-        elif isinstance(value, str) and not value.strip():
-            missing.append(field)
-    
-    if missing:
-        raise GenerationError(
-            f"Missing data for {context}: {', '.join(missing)}. "
-            f"Required fields: {', '.join(fields)}"
-        )
+# ===== Field validation removed =====
+# Per requirements: missing data should not raise errors
+# Treat missing fields as empty values ("" / None / empty object)
+# Only return errors for truly invalid request structure or unrecoverable internal failures
 
 
 # ======== GET /get-geo ========
@@ -441,21 +446,10 @@ async def generate(
         )
         return Response(content=image_data, media_type="image/png")
         
-    except GenerationError as e:
-        # Ошибка валидации - не хватает данных
-        send_api_notification_sync(
-            service=f"{service}_{method}", 
-            key_name=key_name, 
-            title=data.get("title") or "Unknown", 
-            success=False, 
-            error=str(e)
-        )
-        raise HTTPException(status_code=422, detail=str(e))
-        
     except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError, 
             DehandsGenerationError, KleizeGenerationError, ContoGenerationError,
             DepopGenerationError, DepopVariantError) as e:
-        # Ошибка генерации
+        # Ошибка генерации (технические проблемы)
         send_api_notification_sync(
             service=f"{service}_{method}", 
             key_name=key_name, 
@@ -478,129 +472,160 @@ async def generate(
 
 
 def _route_generation(country: str, service: str, method: str, data: dict) -> bytes:
-    """Роутинг генерации с проверкой данных"""
+    """Роутинг генерации без проверки данных - missing fields treated as empty"""
+    
+    from app.utils.helpers import get_field_with_default
     
     context = f"{country}/{service}/{method}"
+    
+    # Helper to safely get fields with defaults
+    def get(field, default=""):
+        return get_field_with_default(data, field, default)
     
     # === NETHERLANDS ===
     if country == "nl":
         if service == "marktplaats":
-            check_fields(data, ["title", "price", "url"], context)
-            return create_image_marktplaats(data["title"], data["price"], data.get("photo"), data["url"])
+            return create_image_marktplaats(
+                get("title"), get("price", 0.0), get("photo"), get("url")
+            )
         
         elif service == "2dehands":
-            check_fields(data, ["title", "price", "url"], context)
-            return create_2dehands_image(data["title"], data["price"], data.get("photo"), data["url"], "nl")
+            return create_2dehands_image(
+                get("title"), get("price", 0.0), get("photo"), get("url"), "nl"
+            )
     
     # === BELGIUM ===
     elif country == "be":
         if service == "2ememain":
-            check_fields(data, ["title", "price", "url"], context)
-            return create_2dehands_image(data["title"], data["price"], data.get("photo"), data["url"], "fr")
+            return create_2dehands_image(
+                get("title"), get("price", 0.0), get("photo"), get("url"), "fr"
+            )
     
     # === ITALY ===
     elif country == "it":
         if service == "subito":
             if method == "qr":
-                check_fields(data, ["title", "price", "url"], context)
                 return create_image_subito(
-                    data["title"], data["price"], data.get("photo"), data["url"],
-                    data.get("name") or "", data.get("address") or ""
+                    get("title"), get("price", 0.0), get("photo"), get("url"),
+                    get("name"), get("address")
                 )
             elif method == "email_request":
-                check_fields(data, ["title", "price"], context)
                 return create_image_subito_email_request(
-                    data["title"], data["price"], data.get("photo"),
-                    data.get("name") or "", data.get("address") or ""
+                    get("title"), get("price", 0.0), get("photo"),
+                    get("name"), get("address")
                 )
             elif method == "email_confirm":
-                check_fields(data, ["title", "price"], context)
                 return create_image_subito_email_confirm(
-                    data["title"], data["price"], data.get("photo"),
-                    data.get("name") or "", data.get("address") or ""
+                    get("title"), get("price", 0.0), get("photo"),
+                    get("name"), get("address")
                 )
             elif method == "sms_request":
-                check_fields(data, ["title", "price"], context)
                 return create_image_subito_sms_request(
-                    data["title"], data["price"], data.get("photo"),
-                    data.get("name") or "", data.get("address") or ""
+                    get("title"), get("price", 0.0), get("photo"),
+                    get("name"), get("address")
                 )
             elif method == "sms_confirm":
-                check_fields(data, ["title", "price"], context)
                 return create_image_subito_sms_confirm(
-                    data["title"], data["price"], data.get("photo"),
-                    data.get("name") or "", data.get("address") or ""
+                    get("title"), get("price", 0.0), get("photo"),
+                    get("name"), get("address")
                 )
         
         elif service == "conto":
-            check_fields(data, ["title", "price"], context)
-            return create_conto_image(data["title"], data["price"])
+            return create_conto_image(get("title"), get("price", 0.0))
+        
+        elif service == "wallapop":
+            lang = "it"
+            
+            if method == "email_request":
+                return create_wallapop_email_request(
+                    lang, get("title"), get("price", 0.0),
+                    get("photo"), get("seller_name"), get("seller_photo")
+                )
+            elif method == "sms_request":
+                return create_wallapop_sms_request(
+                    lang, get("title"), get("price", 0.0),
+                    get("photo"), get("seller_name"), get("seller_photo")
+                )
+            elif method == "email_payment":
+                return create_wallapop_email_payment(
+                    lang, get("title"), get("price", 0.0),
+                    get("photo"), get("seller_name"), get("seller_photo")
+                )
+            elif method == "sms_payment":
+                return create_wallapop_sms_payment(
+                    lang, get("title"), get("price", 0.0),
+                    get("photo"), get("seller_name"), get("seller_photo")
+                )
+            elif method == "qr":
+                return create_wallapop_qr(
+                    lang, get("title"), get("price", 0.0),
+                    get("photo"), get("seller_name"), get("seller_photo"), get("url")
+                )
     
     # === GERMANY ===
     elif country == "de":
         if service == "kleinanzeigen":
-            check_fields(data, ["title", "price", "url"], context)
-            return create_kleize_image(data["title"], data["price"], data.get("photo"), data["url"])
+            return create_kleize_image(
+                get("title"), get("price", 0.0), get("photo"), get("url")
+            )
     
     # === SPAIN / UK / FRANCE / PORTUGAL (Wallapop) ===
-    elif country in ("es", "uk", "fr", "pt"):
+    elif country in ("es", "uk", "fr", "pr"):
         if service == "wallapop":
             lang = country
             
             if method == "email_request":
-                check_fields(data, ["title", "price", "seller_name"], context)
                 return create_wallapop_email_request(
-                    lang, data["title"], data["price"],
-                    data.get("photo"), data["seller_name"], data.get("seller_photo")
+                    lang, get("title"), get("price", 0.0),
+                    get("photo"), get("seller_name"), get("seller_photo")
                 )
-            elif method == "phone_request":
-                check_fields(data, ["title", "price", "seller_name"], context)
-                return create_wallapop_phone_request(
-                    lang, data["title"], data["price"],
-                    data.get("photo"), data["seller_name"], data.get("seller_photo")
+            elif method == "sms_request":
+                return create_wallapop_sms_request(
+                    lang, get("title"), get("price", 0.0),
+                    get("photo"), get("seller_name"), get("seller_photo")
                 )
             elif method == "email_payment":
-                check_fields(data, ["title", "price", "seller_name"], context)
                 return create_wallapop_email_payment(
-                    lang, data["title"], data["price"],
-                    data.get("photo"), data["seller_name"], data.get("seller_photo")
+                    lang, get("title"), get("price", 0.0),
+                    get("photo"), get("seller_name"), get("seller_photo")
                 )
             elif method == "sms_payment":
-                check_fields(data, ["title", "price", "seller_name"], context)
                 return create_wallapop_sms_payment(
-                    lang, data["title"], data["price"],
-                    data.get("photo"), data["seller_name"], data.get("seller_photo")
+                    lang, get("title"), get("price", 0.0),
+                    get("photo"), get("seller_name"), get("seller_photo")
                 )
             elif method == "qr":
-                check_fields(data, ["title", "price", "seller_name", "url"], context)
                 return create_wallapop_qr(
-                    lang, data["title"], data["price"],
-                    data.get("photo"), data["seller_name"], data.get("seller_photo"), data["url"]
+                    lang, get("title"), get("price", 0.0),
+                    get("photo"), get("seller_name"), get("seller_photo"), get("url")
                 )
     
     # === AUSTRALIA ===
     elif country == "au":
         if service == "depop":
             if method == "qr":
-                check_fields(data, ["title", "price", "seller_name", "url"], context)
                 return create_depop_image(
-                    data["title"], data["price"], data["seller_name"],
-                    data.get("photo"), data.get("seller_photo"), data["url"]
+                    get("title"), get("price", 0.0), get("seller_name"),
+                    get("photo"), get("seller_photo"), get("url")
                 )
             elif method == "email_request":
-                check_fields(data, ["title", "price"], context)
-                return create_depop_email_request(data["title"], data["price"], data.get("photo"))
+                return create_depop_email_request(
+                    get("title"), get("price", 0.0), get("photo")
+                )
             elif method == "email_confirm":
-                check_fields(data, ["title", "price"], context)
-                return create_depop_email_confirm(data["title"], data["price"], data.get("photo"))
+                return create_depop_email_confirm(
+                    get("title"), get("price", 0.0), get("photo")
+                )
             elif method == "sms_request":
-                check_fields(data, ["title", "price"], context)
-                return create_depop_sms_request(data["title"], data["price"], data.get("photo"))
+                return create_depop_sms_request(
+                    get("title"), get("price", 0.0), get("photo")
+                )
             elif method == "sms_confirm":
-                check_fields(data, ["title", "price"], context)
-                return create_depop_sms_confirm(data["title"], data["price"], data.get("photo"))
+                return create_depop_sms_confirm(
+                    get("title"), get("price", 0.0), get("photo")
+                )
     
-    raise GenerationError(f"Unsupported combination: {context}")
+    raise PDFGenerationError(f"Unsupported combination: {context}")
 
 
 # ======== Status ========

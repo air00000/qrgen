@@ -106,33 +106,49 @@ def create_rounded_mask(size, radius):
 
 
 def process_square_photo(photo_b64: str, corner_radius: int):
-    """Обработка фото - обрезка до 1:1 и скругление углов"""
+    """
+    Обработка фото - обрезка до 1:1 и скругление углов.
+    Поддерживает Data URI и plain base64.
+    """
+    from app.utils.helpers import parse_data_uri
+    
     logger.info("🖼️  Обработка фото товара...")
-    photo_bytes = base64.b64decode(photo_b64)
-    img = Image.open(BytesIO(photo_bytes))
     
-    # Если есть прозрачность - наложить на белый фон
-    if img.mode in ('RGBA', 'LA', 'P'):
-        if img.mode != 'RGBA':
-            img = img.convert('RGBA')
-        white_bg = Image.new('RGBA', img.size, (255, 255, 255, 255))
-        white_bg.paste(img, (0, 0), img)
-        img = white_bg
-    else:
-        img = img.convert("RGBA")
+    # Парсим Data URI
+    base64_data = parse_data_uri(photo_b64)
+    if not base64_data:
+        logger.warning("⚠️  Фото пустое или неверный формат")
+        return None
     
-    w, h = img.size
-    size = min(w, h)
-    left = (w - size) // 2
-    top = (h - size) // 2
-    img = img.crop((left, top, left + size, top + size))
-    
-    if corner_radius > 0:
-        mask = create_rounded_mask((size, size), int(corner_radius * SCALE_FACTOR))
-        img.putalpha(mask)
-    
-    logger.info(f"✅ Фото обработано: {img.size} {img.mode}")
-    return img
+    try:
+        photo_bytes = base64.b64decode(base64_data)
+        img = Image.open(BytesIO(photo_bytes))
+        
+        # Если есть прозрачность - наложить на белый фон
+        if img.mode in ('RGBA', 'LA', 'P'):
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
+            white_bg = Image.new('RGBA', img.size, (255, 255, 255, 255))
+            white_bg.paste(img, (0, 0), img)
+            img = white_bg
+        else:
+            img = img.convert("RGBA")
+        
+        w, h = img.size
+        size = min(w, h)
+        left = (w - size) // 2
+        top = (h - size) // 2
+        img = img.crop((left, top, left + size, top + size))
+        
+        if corner_radius > 0:
+            mask = create_rounded_mask((size, size), int(corner_radius * SCALE_FACTOR))
+            img.putalpha(mask)
+        
+        logger.info(f"✅ Фото обработано: {img.size} {img.mode}")
+        return img
+    except Exception as e:
+        logger.error(f"❌ Ошибка обработки фото: {e}")
+        return None
 
 
 def get_rome_time():
@@ -150,18 +166,24 @@ def _create_depop_variant_image(
     photo: str = None
 ) -> bytes:
     """
-    Общая функция генерации изображения для Depop вариантов (без QR)
+    Общая функция генерации изображения для Depop вариантов (без QR).
+    Поддерживает Data URI для фото и обрезку длинного текста.
     
     Args:
         frame_name: Имя фрейма в Figma (depop2_au, depop3_au, etc.)
         service_name: Имя сервиса для кэша
         nazvanie: Название товара
         price: Цена товара
-        photo: Фото товара в base64 (или None)
+        photo: Фото товара в Data URI или base64 (или None)
         
     Returns:
         bytes: PNG изображение
     """
+    from app.utils.helpers import truncate_title
+    
+    # Обрезаем длинный текст
+    nazvanie = truncate_title(nazvanie or "")
+    
     logger.info(f"🎨 Генерация {service_name}: {nazvanie}, ${price}")
     
     try:

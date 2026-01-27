@@ -26,14 +26,10 @@ def load_template_with_cache(service_name: str, page: str, frame_name: str,
         file_key: Custom Figma file key (опционально, по умолчанию CFG.TEMPLATE_FILE_KEY)
     
     Returns:
-        Если figma_pat или file_key переданы:
-            (template_json, frame_img, frame_node, use_cache, figma_pat, file_key)
-        Иначе (обратная совместимость):
-            (template_json, frame_img, frame_node, use_cache)
+        (template_json, frame_img, frame_node, use_cache)
     """
     pat = figma_pat or CFG.FIGMA_PAT
     fkey = file_key or CFG.TEMPLATE_FILE_KEY
-    custom_credentials = figma_pat is not None or file_key is not None
     
     cache = FigmaCache(service_name)
     use_cache = cache.exists()
@@ -48,8 +44,6 @@ def load_template_with_cache(service_name: str, page: str, frame_name: str,
                 logger.warning(f"⚠️  Фрейм {frame_name} не найден в кэше, переключаемся на Figma API")
                 use_cache = False
             else:
-                if custom_credentials:
-                    return template_json, frame_img, frame_node, True, pat, fkey
                 return template_json, frame_img, frame_node, True
                 
         except Exception as e:
@@ -64,8 +58,6 @@ def load_template_with_cache(service_name: str, page: str, frame_name: str,
         frame_node = find_node(template_json, page, frame_name)
         
         # frame_img будет загружен позже через get_frame_image()
-        if custom_credentials:
-            return template_json, None, frame_node, False, pat, fkey
         return template_json, None, frame_node, False
 
 

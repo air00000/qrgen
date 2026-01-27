@@ -59,20 +59,37 @@ def create_rounded_mask(size, radius):
 
 
 def process_photo_in_memory(photo_data: str) -> Image.Image:
-    """Обрабатывает фото в памяти, возвращает PIL Image"""
-    if not photo_data:
+    """
+    Processes photo in memory, returns PIL Image.
+    Accepts both Data URI format and plain base64 for backward compatibility.
+    
+    Args:
+        photo_data: Data URI (data:image/png;base64,...) or plain base64 string
+    
+    Returns:
+        PIL Image or None if photo_data is empty/malformed
+    """
+    from app.utils.helpers import parse_data_uri
+    
+    # Parse Data URI to extract base64
+    base64_data = parse_data_uri(photo_data)
+    if not base64_data:
         return None
 
-    photo_bytes = base64.b64decode(photo_data)
-    img = Image.open(io.BytesIO(photo_bytes)).convert("RGBA")
-    w, h = img.size
-    s = min(w, h)
-    l = (w - s) // 2
-    t = (h - s) // 2
-    img = img.crop((l, t, l + s, t + s))
-    mask = create_rounded_mask((s, s), int(CFG.CORNER_RADIUS * CFG.SCALE_FACTOR))
-    img.putalpha(mask)
-    return img
+    try:
+        photo_bytes = base64.b64decode(base64_data)
+        img = Image.open(io.BytesIO(photo_bytes)).convert("RGBA")
+        w, h = img.size
+        s = min(w, h)
+        l = (w - s) // 2
+        t = (h - s) // 2
+        img = img.crop((l, t, l + s, t + s))
+        mask = create_rounded_mask((s, s), int(CFG.CORNER_RADIUS * CFG.SCALE_FACTOR))
+        img.putalpha(mask)
+        return img
+    except Exception:
+        # If decoding fails, return None (treat as missing photo)
+        return None
 
 
 def draw_text_with_letter_spacing(draw, text, font, x, y, fill, letter_spacing=0, align="left"):
@@ -184,17 +201,37 @@ def truncate_text(draw, text, font, max_width):
 
 
 def create_rounded_email(img_b64: str, size: tuple, radius: int) -> Image.Image:
-    """Создает скругленное изображение для Wallapop Email"""
-    if not img_b64:
+    """
+    Creates rounded image for Wallapop Email.
+    Accepts both Data URI format and plain base64.
+    
+    Args:
+        img_b64: Data URI or plain base64 string
+        size: Target size tuple (width, height)
+        radius: Corner radius
+    
+    Returns:
+        PIL Image or None if img_b64 is empty/malformed
+    """
+    from app.utils.helpers import parse_data_uri
+    
+    # Parse Data URI to extract base64
+    base64_data = parse_data_uri(img_b64)
+    if not base64_data:
         return None
-    img = Image.open(io.BytesIO(base64.b64decode(img_b64))).convert("RGBA")
-    img = ImageOps.fit(img, size, Image.Resampling.LANCZOS)
-    mask = Image.new('L', size, 0)
-    draw = ImageDraw.Draw(mask)
-    draw.rounded_rectangle([(0, 0), size], radius=radius, fill=255)
-    rounded = Image.new('RGBA', size, (255, 255, 255, 0))
-    rounded.paste(img, (0, 0), mask)
-    return rounded
+    
+    try:
+        img = Image.open(io.BytesIO(base64.b64decode(base64_data))).convert("RGBA")
+        img = ImageOps.fit(img, size, Image.Resampling.LANCZOS)
+        mask = Image.new('L', size, 0)
+        draw = ImageDraw.Draw(mask)
+        draw.rounded_rectangle([(0, 0), size], radius=radius, fill=255)
+        rounded = Image.new('RGBA', size, (255, 255, 255, 0))
+        rounded.paste(img, (0, 0), mask)
+        return rounded
+    except Exception:
+        # If decoding fails, return None (treat as missing photo)
+        return None
 
 
 def create_image_wallapop_email(lang: str, nazvanie: str, price: float, photo: str = None,
@@ -472,7 +509,15 @@ def create_image_wallapop_sms(lang: str, nazvanie: str, price: float, photo: str
 
 # ===== Основные функции генерации (существующие) =====
 def create_image_marktplaats(nazvanie: str, price: float, photo: str, url: str) -> bytes:
-    """Генерирует изображение для Marktplaats, возвращает bytes PNG"""
+    """
+    Generates image for Marktplaats, returns PNG bytes.
+    Handles Data URI format for photos and truncates long text.
+    """
+    from app.utils.helpers import truncate_title, truncate_url
+    
+    # Truncate text fields
+    nazvanie = truncate_title(nazvanie or "")
+    url = truncate_url(url or "")
     
     frame_name = "marktplaats2_nl"
     nazvanie_layer = "NAZVANIE_marktplaats2_nl"
@@ -572,7 +617,17 @@ def create_image_marktplaats(nazvanie: str, price: float, photo: str, url: str) 
 
 
 def create_image_subito(nazvanie: str, price: float, photo: str, url: str, name: str = '', address: str = '') -> bytes:
-    """Генерирует изображение для Subito, возвращает bytes PNG"""
+    """
+    Generates image for Subito, returns PNG bytes.
+    Handles Data URI format for photos and truncates long text.
+    """
+    from app.utils.helpers import truncate_title, truncate_name, truncate_address, truncate_url
+    
+    # Truncate text fields
+    nazvanie = truncate_title(nazvanie or "")
+    name = truncate_name(name or "")
+    address = truncate_address(address or "")
+    url = truncate_url(url or "")
     
     frame_name = "subito1"
     nazvanie_layer = "NAZVANIE_SUB1"
@@ -695,22 +750,29 @@ def create_image_subito(nazvanie: str, price: float, photo: str, url: str, name:
 
 
 def create_image_wallapop(lang: str, nazvanie: str, price: float, photo: str = None) -> bytes:
-    """Генерация изображения для Wallapop v2, возвращает bytes PNG"""
+    """
+    Генерация изображения для Wallapop v2, возвращает bytes PNG.
+    Использует кеширование Figma макетов.
+    """
     if lang not in ('uk', 'es', 'it', 'fr'):
         raise PDFGenerationError("lang must be: uk/es/it/fr")
 
-    template_json = get_template_json(CFG.FIGMA_PAT, CFG.TEMPLATE_FILE_KEY)
-
     frame_name = f"wallapop2_{lang}"
+    service_name = f"wallapop2_{lang}"
+    
+    # Загружаем с кэшем если доступен
+    template_json, frame_img_cached, frame_node, use_cache = load_template_with_cache(
+        service_name, "Page 2", frame_name
+    )
+    
+    if not frame_node:
+        raise FigmaNodeNotFoundError(f"Фрейм {frame_name} не найден")
+
     nazvanie_layer = f"nazvwal2_{lang}"
     price_layer = f"pricewal2_{lang}"
     time_layer = f"timewa2_{lang}"
     photo_layer = f"photowal2_{lang}"
     small_price_layer = f"smallpricewal2_{lang}"
-
-    frame_node = find_node(template_json, "Page 2", frame_name)
-    if not frame_node:
-        raise FigmaNodeNotFoundError(f"Фрейм {frame_name} не найден")
 
     nodes = {
         "nazvanie": find_node(template_json, "Page 2", nazvanie_layer),
@@ -724,9 +786,8 @@ def create_image_wallapop(lang: str, nazvanie: str, price: float, photo: str = N
         miss = [k for k, v in nodes.items() if v is None]
         raise FigmaNodeNotFoundError(f"Не найдены узлы: {', '.join(miss)}")
 
-    # Фон из Figma
-    frame_png = export_frame_as_png(CFG.FIGMA_PAT, CFG.TEMPLATE_FILE_KEY, frame_node["id"])
-    frame_img = Image.open(io.BytesIO(frame_png)).convert("RGBA")
+    # Фон из кэша или Figma
+    frame_img = get_frame_image(frame_node, frame_img_cached, use_cache)
     w = int(frame_node["absoluteBoundingBox"]["width"] * CFG.SCALE_FACTOR)
     h = int(frame_node["absoluteBoundingBox"]["height"] * CFG.SCALE_FACTOR)
     frame_img = frame_img.resize((w, h), Image.Resampling.LANCZOS)

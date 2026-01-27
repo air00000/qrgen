@@ -123,7 +123,8 @@ def wrap_text(text, font, max_width, spacing):
 
 def create_conto_image(nazvanie: str, price: float) -> bytes:
     """
-    Генерация изображения для Conto (Subito)
+    Генерация изображения для Conto (Subito).
+    Обрезает длинный текст.
     
     Args:
         nazvanie: Название товара
@@ -132,6 +133,11 @@ def create_conto_image(nazvanie: str, price: float) -> bytes:
     Returns:
         bytes: PNG изображение
     """
+    from app.utils.helpers import truncate_title
+    
+    # Обрезаем длинный текст
+    nazvanie = truncate_title(nazvanie or "")
+    
     logger.info(f"🎨 Генерация Conto: {nazvanie}, {price}€")
     
     try:

@@ -26,7 +26,7 @@ from app.services.subito_variants import (
     create_image_subito_sms_request, create_image_subito_sms_confirm
 )
 from app.services.wallapop_variants import (
-    create_wallapop_email_request, create_wallapop_phone_request,
+    create_wallapop_email_request, create_wallapop_sms_request,
     create_wallapop_email_payment, create_wallapop_sms_payment,
     create_wallapop_qr
 )
@@ -130,7 +130,7 @@ TEST_DATA = [
     {
         "name": "es_wallapop_phone_request",
         "country": "es",
-        "gen": lambda: create_wallapop_phone_request(
+        "gen": lambda: create_wallapop_sms_request(
             "es", "iPhone 14 Pro", 899.00, None, "María López", None
         )
     },

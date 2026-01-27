@@ -187,22 +187,22 @@ TEST_DATA = [
         }
     },
     {
-        "name": "es_wallapop_email_payment",
+        "name": "es_wallapop_email_confirm",
         "data": {
             "country": "es",
             "service": "wallapop",
-            "method": "email_payment",
+            "method": "email_confirm",
             "title": "MacBook Air M2",
             "price": 1099.00,
             "seller_name": "Juan Martínez"
         }
     },
     {
-        "name": "es_wallapop_sms_payment",
+        "name": "es_wallapop_sms_confirm",
         "data": {
             "country": "es",
             "service": "wallapop",
-            "method": "sms_payment",
+            "method": "sms_confirm",
             "title": "iPad Pro 12.9",
             "price": 1199.00,
             "seller_name": "Ana Rodríguez"
