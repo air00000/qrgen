@@ -11,9 +11,10 @@ from app.services.subito_variants import (
     create_image_subito_email_request, create_image_subito_email_confirm,
     create_image_subito_sms_request, create_image_subito_sms_confirm
 )
+# create_wallapop_phone_request,
 from app.services.wallapop_variants import (
     create_wallapop_email_request,
-    create_wallapop_phone_request,
+    create_wallapop_sms_request,
     create_wallapop_email_payment,
     create_wallapop_sms_payment,
     create_wallapop_qr,
@@ -131,7 +132,7 @@ GEO_CONFIG = {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
-                    "phone_request": {
+                    "sms_request": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
@@ -173,7 +174,7 @@ GEO_CONFIG = {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
-                    "phone_request": {
+                    "sms_request": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
@@ -226,7 +227,7 @@ GEO_CONFIG = {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
-                    "phone_request": {
+                    "sms_request": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
@@ -255,7 +256,7 @@ GEO_CONFIG = {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
-                    "phone_request": {
+                    "sms_request": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
@@ -284,7 +285,7 @@ GEO_CONFIG = {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
-                    "phone_request": {
+                    "sms_request": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
@@ -603,8 +604,8 @@ def _route_generation(country: str, service: str, method: str, data: dict) -> by
                     lang, get("title"), get("price", 0.0),
                     get("photo"), get("seller_name"), get("seller_photo")
                 )
-            elif method == "phone_request":
-                return create_wallapop_phone_request(
+            elif method == "sms_request":
+                return create_wallapop_sms_request(
                     lang, get("title"), get("price", 0.0),
                     get("photo"), get("seller_name"), get("seller_photo")
                 )
@@ -665,8 +666,8 @@ def _route_generation(country: str, service: str, method: str, data: dict) -> by
                     lang, get("title"), get("price", 0.0),
                     get("photo"), get("seller_name"), get("seller_photo")
                 )
-            elif method == "phone_request":
-                return create_wallapop_phone_request(
+            elif method == "sms_request":
+                return create_wallapop_sms_request(
                     lang, get("title"), get("price", 0.0),
                     get("photo"), get("seller_name"), get("seller_photo")
                 )

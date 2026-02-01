@@ -151,7 +151,7 @@ Test-Generate -Name "uk/markt/email_payment" -OutputFile "uk_markt_email_payment
 }
 
 # UK - Markt SMS Payment
-Test-Generate -Name "uk/markt/phone_request" -OutputFile "uk_markt_phone_request.png" -Body @{
+Test-Generate -Name "uk/markt/phone_request" -OutputFile "uk_markt_/phone_request.png" -Body @{
     country = "uk"; service = "markt"; method = "phone_request"
     title = "Xbox Series X"; price = 449.00; photo = $PRODUCT_B64
 }
