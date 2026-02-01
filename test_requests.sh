@@ -35,20 +35,63 @@ echo "=============================================="
 echo "📸 Тесты генерации изображений"
 echo "=============================================="
 
-# 2. Netherlands - Marktplaats
-echo "📍 2. NL/Marktplaats/QR..."
+# 2. Netherlands - Markt QR
+echo "📍 2. NL/Markt/QR..."
 curl -s -X POST "$API_URL/generate" \
   -H "X-API-Key: $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "country": "nl",
-    "service": "marktplaats",
+    "service": "markt",
     "method": "qr",
     "title": "iPhone 15 Pro Max 256GB",
     "price": 1199.99,
-    "url": "https://marktplaats.nl/item/123456",
+    "url": "https://example.nl/item/123456",
     "photo": "'"$PRODUCT_B64"'"
-  }' -o nl_marktplaats.png && echo "✅ Сохранено: nl_marktplaats.png" || echo "❌ Ошибка"
+  }' -o nl_markt_qr.png && echo "✅ Сохранено: nl_markt_qr.png" || echo "❌ Ошибка"
+
+# 2b. Netherlands - Markt Email Request
+echo "📍 2b. NL/Markt/Email Request..."
+curl -s -X POST "$API_URL/generate" \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "country": "nl",
+    "service": "markt",
+    "method": "email_request",
+    "title": "Samsung Galaxy S24",
+    "price": 899.00,
+    "photo": "'"$PRODUCT_B64"'"
+  }' -o nl_markt_email_request.png && echo "✅ Сохранено: nl_markt_email_request.png" || echo "❌ Ошибка"
+
+# 2c. UK - Markt QR
+echo "📍 2c. UK/Markt/QR..."
+curl -s -X POST "$API_URL/generate" \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "country": "uk",
+    "service": "markt",
+    "method": "qr",
+    "title": "PlayStation 5",
+    "price": 499.99,
+    "url": "https://example.co.uk/item/789",
+    "photo": "'"$PRODUCT_B64"'"
+  }' -o uk_markt_qr.png && echo "✅ Сохранено: uk_markt_qr.png" || echo "❌ Ошибка"
+
+# 2d. UK - Markt SMS Payment
+echo "📍 2d. UK/Markt/SMS Payment..."
+curl -s -X POST "$API_URL/generate" \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "country": "uk",
+    "service": "markt",
+    "method": "sms_payment",
+    "title": "Nintendo Switch OLED",
+    "price": 349.00,
+    "photo": "'"$PRODUCT_B64"'"
+  }' -o uk_markt_sms_payment.png && echo "✅ Сохранено: uk_markt_sms_payment.png" || echo "❌ Ошибка"
 
 # 3. Italy - Subito QR
 echo "📍 3. IT/Subito/QR..."

@@ -533,7 +533,7 @@ async def generate_wallapop_variant(update: Update, context: ContextTypes.DEFAUL
     try:
         from app.services.wallapop_variants import (
             create_wallapop_email_request,
-            create_wallapop_sms_request,
+            create_wallapop_phone_request,
             create_wallapop_email_payment,
             create_wallapop_sms_payment,
             create_wallapop_qr,
@@ -558,7 +558,7 @@ async def generate_wallapop_variant(update: Update, context: ContextTypes.DEFAUL
             )
         elif wallapop_type == "phone_request":
             image_data = await generate_with_queue(
-                executor, create_wallapop_sms_request, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
+                executor, create_wallapop_phone_request, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
             )
         elif wallapop_type == "email_payment":
             image_data = await generate_with_queue(
@@ -740,7 +740,6 @@ async def wallapop_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 qr_conv = ConversationHandler(
     name="qr_flow",
     entry_points=[
-        CallbackQueryHandler(qr_entry, pattern=r"^QR:START$"),
         # QR:SUBITO теперь обрабатывается в subito_variants_conv
         CallbackQueryHandler(qr_entry_wallapop_menu, pattern=r"^QR:WALLAPOP_MENU$"),
         CallbackQueryHandler(qr_entry_2dehands, pattern=r"^QR:2DEHANDS$"),

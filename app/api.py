@@ -5,16 +5,15 @@ from pydantic import BaseModel, Extra
 from typing import Optional, Any, List
 
 from app.services.pdf import (
-    create_image_marktplaats, create_image_subito, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError
+    create_image_subito, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError
 )
 from app.services.subito_variants import (
     create_image_subito_email_request, create_image_subito_email_confirm,
     create_image_subito_sms_request, create_image_subito_sms_confirm
 )
-# create_wallapop_phone_request,
 from app.services.wallapop_variants import (
     create_wallapop_email_request,
-    create_wallapop_sms_request,
+    create_wallapop_phone_request,
     create_wallapop_email_payment,
     create_wallapop_sms_payment,
     create_wallapop_qr,
@@ -28,6 +27,11 @@ from app.services.depop_variants import (
     create_depop_sms_request, create_depop_sms_confirm,
     DepopVariantError
 )
+from app.services.markt import (
+    create_markt_qr, create_markt_email_request, create_markt_phone_request,
+    create_markt_email_payment, create_markt_sms_payment,
+    MarktGenerationError
+)
 from app.services.apikey import validate_key, get_key_name
 from app.utils.notifications import send_api_notification_sync
 
@@ -39,11 +43,27 @@ GEO_CONFIG = {
     "nl": {
         "name": "Netherlands",
         "services": {
-            "marktplaats": {
+            "markt": {
                 "methods": {
                     "qr": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "url", "photo"]
+                    },
+                    "email_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    },
+                    "phone_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    },
+                    "email_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    },
+                    "sms_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
                     }
                 }
             },
@@ -111,7 +131,7 @@ GEO_CONFIG = {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
-                    "sms_request": {
+                    "phone_request": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
@@ -153,7 +173,7 @@ GEO_CONFIG = {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
-                    "sms_request": {
+                    "phone_request": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
@@ -176,13 +196,37 @@ GEO_CONFIG = {
     "uk": {
         "name": "United Kingdom",
         "services": {
+            "markt": {
+                "methods": {
+                    "qr": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "url", "photo"]
+                    },
+                    "email_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    },
+                    "phone_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    },
+                    "email_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    },
+                    "sms_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    }
+                }
+            },
             "wallapop": {
                 "methods": {
                     "email_request": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
-                    "sms_request": {
+                    "phone_request": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
@@ -211,7 +255,7 @@ GEO_CONFIG = {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
-                    "sms_request": {
+                    "phone_request": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
@@ -240,7 +284,7 @@ GEO_CONFIG = {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
-                    "sms_request": {
+                    "phone_request": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "seller_name", "seller_photo"]
                     },
@@ -448,7 +492,7 @@ async def generate(
         
     except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError, 
             DehandsGenerationError, KleizeGenerationError, ContoGenerationError,
-            DepopGenerationError, DepopVariantError) as e:
+            DepopGenerationError, DepopVariantError, MarktGenerationError) as e:
         # Ошибка генерации (технические проблемы)
         send_api_notification_sync(
             service=f"{service}_{method}", 
@@ -484,10 +528,28 @@ def _route_generation(country: str, service: str, method: str, data: dict) -> by
     
     # === NETHERLANDS ===
     if country == "nl":
-        if service == "marktplaats":
-            return create_image_marktplaats(
-                get("title"), get("price", 0.0), get("photo"), get("url")
-            )
+        if service == "markt":
+            lang = "nl"
+            if method == "qr":
+                return create_markt_qr(
+                    lang, get("title"), get("price", 0.0), get("photo"), get("url")
+                )
+            elif method == "email_request":
+                return create_markt_email_request(
+                    lang, get("title"), get("price", 0.0), get("photo")
+                )
+            elif method == "phone_request":
+                return create_markt_phone_request(
+                    lang, get("title"), get("price", 0.0), get("photo")
+                )
+            elif method == "email_payment":
+                return create_markt_email_payment(
+                    lang, get("title"), get("price", 0.0), get("photo")
+                )
+            elif method == "sms_payment":
+                return create_markt_sms_payment(
+                    lang, get("title"), get("price", 0.0), get("photo")
+                )
         
         elif service == "2dehands":
             return create_2dehands_image(
@@ -541,8 +603,8 @@ def _route_generation(country: str, service: str, method: str, data: dict) -> by
                     lang, get("title"), get("price", 0.0),
                     get("photo"), get("seller_name"), get("seller_photo")
                 )
-            elif method == "sms_request":
-                return create_wallapop_sms_request(
+            elif method == "phone_request":
+                return create_wallapop_phone_request(
                     lang, get("title"), get("price", 0.0),
                     get("photo"), get("seller_name"), get("seller_photo")
                 )
@@ -571,7 +633,31 @@ def _route_generation(country: str, service: str, method: str, data: dict) -> by
     
     # === SPAIN / UK / FRANCE / PORTUGAL (Wallapop) ===
     elif country in ("es", "uk", "fr", "pr"):
-        if service == "wallapop":
+        # Markt is only available in UK
+        if service == "markt" and country == "uk":
+            lang = "uk"
+            if method == "qr":
+                return create_markt_qr(
+                    lang, get("title"), get("price", 0.0), get("photo"), get("url")
+                )
+            elif method == "email_request":
+                return create_markt_email_request(
+                    lang, get("title"), get("price", 0.0), get("photo")
+                )
+            elif method == "phone_request":
+                return create_markt_phone_request(
+                    lang, get("title"), get("price", 0.0), get("photo")
+                )
+            elif method == "email_payment":
+                return create_markt_email_payment(
+                    lang, get("title"), get("price", 0.0), get("photo")
+                )
+            elif method == "sms_payment":
+                return create_markt_sms_payment(
+                    lang, get("title"), get("price", 0.0), get("photo")
+                )
+        
+        elif service == "wallapop":
             lang = country
             
             if method == "email_request":
@@ -579,8 +665,8 @@ def _route_generation(country: str, service: str, method: str, data: dict) -> by
                     lang, get("title"), get("price", 0.0),
                     get("photo"), get("seller_name"), get("seller_photo")
                 )
-            elif method == "sms_request":
-                return create_wallapop_sms_request(
+            elif method == "phone_request":
+                return create_wallapop_phone_request(
                     lang, get("title"), get("price", 0.0),
                     get("photo"), get("seller_name"), get("seller_photo")
                 )

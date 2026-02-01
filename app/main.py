@@ -24,6 +24,7 @@ from app.handlers.qr import qr_conv, qr_back_cb, qr_menu_cb
 from app.handlers.admin_api_keys import api_keys_conv
 from app.handlers.cache_admin import get_cache_handlers
 from app.handlers.subito_variants import subito_variants_conv
+from app.handlers.markt_variants import markt_conv
 from app.utils.notifications import set_bot_instance
 
 logging.basicConfig(
@@ -80,6 +81,7 @@ def start_bot():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(menu_cb, pattern=r"^MENU$"))
     app.add_handler(subito_variants_conv)
+    app.add_handler(markt_conv)  # Markt handlers
     app.add_handler(qr_conv)
     app.add_handler(CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"))
     app.add_handler(CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$"))

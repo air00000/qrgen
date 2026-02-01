@@ -15,7 +15,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Базовая клавиатура
     keyboard = [
         [
-            InlineKeyboardButton("📦 Marktplaats", callback_data="QR:START"),
+            InlineKeyboardButton("🛒 Markt", callback_data="QR:MARKT_MENU"),
             InlineKeyboardButton("🇮🇹 Subito", callback_data="QR:SUBITO"),
         ],
         [

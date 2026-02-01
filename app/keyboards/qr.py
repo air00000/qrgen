@@ -31,7 +31,7 @@ def service_select_kb(is_admin: bool = False):
     """Клавиатура выбора типа скриншота (+ админ-кнопка при наличии прав)."""
     rows = [
         [
-            InlineKeyboardButton("📦 Marktplaats", callback_data="QR:START"),
+            InlineKeyboardButton("🛒 Markt", callback_data="QR:MARKT_MENU"),
             InlineKeyboardButton("🇮🇹 Subito", callback_data="QR:SUBITO"),
         ],
         [
@@ -50,6 +50,44 @@ def service_select_kb(is_admin: bool = False):
         rows.append([InlineKeyboardButton("🔐 API ключи", callback_data="API:MENU")])
     rows.append([InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")])
     return InlineKeyboardMarkup(rows)
+
+
+def markt_type_kb():
+    """Клавиатура выбора типа Markt"""
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🔳 QR", callback_data="QR:MARKT_QR"),
+        ],
+        [
+            InlineKeyboardButton("📧 Email запрос", callback_data="QR:MARKT_EMAIL_REQUEST"),
+            InlineKeyboardButton("📞 Телефон запрос", callback_data="QR:MARKT_PHONE_REQUEST"),
+        ],
+        [
+            InlineKeyboardButton("💳 Email оплата", callback_data="QR:MARKT_EMAIL_PAYMENT"),
+            InlineKeyboardButton("📱 SMS оплата", callback_data="QR:MARKT_SMS_PAYMENT"),
+        ],
+        [
+            InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK"),
+            InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")
+        ],
+    ])
+
+
+def markt_lang_kb():
+    """Клавиатура выбора языка для Markt"""
+    callback_prefix = "MARKT_LANG_"
+    
+    keyboard = [
+        [
+            InlineKeyboardButton("🇬🇧 UK", callback_data=f"{callback_prefix}uk"),
+            InlineKeyboardButton("🇳🇱 NL", callback_data=f"{callback_prefix}nl"),
+        ],
+        [
+            InlineKeyboardButton("⬅️ Назад", callback_data="QR:MARKT_BACK"),
+            InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")
+        ]
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
 
 def wallapop_type_kb():

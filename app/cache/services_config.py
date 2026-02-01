@@ -5,10 +5,65 @@
 
 # Конфигурация всех сервисов с Figma фреймами
 SERVICES_CONFIG = {
-    "marktplaats": {
-        "display_name": "Marktplaats",
+    # === MARKT (UK and NL) ===
+    "markt_qr_uk": {
+        "display_name": "Markt QR (UK)",
         "page": "Page 2",
-        "frame": "marktplaats1",
+        "frame": "markt1_uk",
+        "scale": 2
+    },
+    "markt_qr_nl": {
+        "display_name": "Markt QR (NL)",
+        "page": "Page 2",
+        "frame": "markt1_nl",
+        "scale": 2
+    },
+    "markt_email_request_uk": {
+        "display_name": "Markt Email Request (UK)",
+        "page": "Page 2",
+        "frame": "markt2_uk",
+        "scale": 2
+    },
+    "markt_email_request_nl": {
+        "display_name": "Markt Email Request (NL)",
+        "page": "Page 2",
+        "frame": "markt2_nl",
+        "scale": 2
+    },
+    "markt_phone_request_uk": {
+        "display_name": "Markt Phone Request (UK)",
+        "page": "Page 2",
+        "frame": "markt3_uk",
+        "scale": 2
+    },
+    "markt_phone_request_nl": {
+        "display_name": "Markt Phone Request (NL)",
+        "page": "Page 2",
+        "frame": "markt3_nl",
+        "scale": 2
+    },
+    "markt_email_payment_uk": {
+        "display_name": "Markt Email Payment (UK)",
+        "page": "Page 2",
+        "frame": "markt4_uk",
+        "scale": 2
+    },
+    "markt_email_payment_nl": {
+        "display_name": "Markt Email Payment (NL)",
+        "page": "Page 2",
+        "frame": "markt4_nl",
+        "scale": 2
+    },
+    "markt_sms_payment_uk": {
+        "display_name": "Markt SMS Payment (UK)",
+        "page": "Page 2",
+        "frame": "markt5_uk",
+        "scale": 2
+    },
+    "markt_sms_payment_nl": {
+        "display_name": "Markt SMS Payment (NL)",
+        "page": "Page 2",
+        "frame": "markt5_nl",
         "scale": 2
     },
     "subito": {
@@ -290,7 +345,18 @@ def get_service_config(service_name: str) -> dict:
 def get_services_by_group():
     """Получить сервисы сгруппированные"""
     return {
-        "Marktplaats": ["marktplaats"],
+        "Markt": [
+            "markt_qr_uk",
+            "markt_qr_nl",
+            "markt_email_request_uk",
+            "markt_email_request_nl",
+            "markt_phone_request_uk",
+            "markt_phone_request_nl",
+            "markt_email_payment_uk",
+            "markt_email_payment_nl",
+            "markt_sms_payment_uk",
+            "markt_sms_payment_nl"
+        ],
         "Subito": [
             "subito",
             "subito_email_request",

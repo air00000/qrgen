@@ -1,7 +1,7 @@
 # Полные тесты API QRGen для Windows PowerShell
 # Использование: powershell -ExecutionPolicy Bypass -File .\test_requests.ps1
 
-$API_URL = "http://127.0.0.1:8080"
+$API_URL = "http://localhost:8080"
 $API_KEY = "api_33015d5be8724745935e4d6cecee97d4"
 
 # Папка для результатов
@@ -82,11 +82,35 @@ Write-Host "==============================================" -ForegroundColor Cya
 Write-Host "NETHERLANDS (nl)" -ForegroundColor Cyan
 Write-Host "==============================================" -ForegroundColor Cyan
 
-# NL - Marktplaats
-Test-Generate -Name "nl/marktplaats/qr" -OutputFile "nl_marktplaats_qr.png" -Body @{
-    country = "nl"; service = "marktplaats"; method = "qr"
+# NL - Markt QR
+Test-Generate -Name "nl/markt/qr" -OutputFile "nl_markt_qr.png" -Body @{
+    country = "nl"; service = "markt"; method = "qr"
     title = "iPhone 15 Pro Max 256GB"; price = 1199.99
-    url = "https://marktplaats.nl/item/123456"; photo = $PRODUCT_B64
+    url = "https://example.nl/item/123456"; photo = $PRODUCT_B64
+}
+
+# NL - Markt Email Request
+Test-Generate -Name "nl/markt/email_request" -OutputFile "nl_markt_email_request.png" -Body @{
+    country = "nl"; service = "markt"; method = "email_request"
+    title = "Samsung Galaxy S24"; price = 899.00; photo = $PRODUCT_B64
+}
+
+# NL - Markt Phone Request
+Test-Generate -Name "nl/markt/phone_request" -OutputFile "nl_markt_phone_request.png" -Body @{
+    country = "nl"; service = "markt"; method = "phone_request"
+    title = "MacBook Pro 14"; price = 2199.00; photo = $PRODUCT_B64
+}
+
+# NL - Markt Email Payment
+Test-Generate -Name "nl/markt/email_payment" -OutputFile "nl_markt_email_payment.png" -Body @{
+    country = "nl"; service = "markt"; method = "email_payment"
+    title = "PlayStation 5"; price = 499.99; photo = $PRODUCT_B64
+}
+
+# NL - Markt SMS Payment
+Test-Generate -Name "nl/markt/sms_payment" -OutputFile "nl_markt_sms_payment.png" -Body @{
+    country = "nl"; service = "markt"; method = "sms_payment"
+    title = "Nintendo Switch"; price = 349.00; photo = $PRODUCT_B64
 }
 
 # NL - 2dehands
@@ -94,6 +118,42 @@ Test-Generate -Name "nl/2dehands/qr" -OutputFile "nl_2dehands_qr.png" -Body @{
     country = "nl"; service = "2dehands"; method = "qr"
     title = "Samsung Galaxy S24 Ultra"; price = 899.00
     url = "https://2dehands.be/item/789"; photo = $PRODUCT_B64
+}
+
+Write-Host ""
+Write-Host "==============================================" -ForegroundColor Cyan
+Write-Host "UNITED KINGDOM (uk)" -ForegroundColor Cyan
+Write-Host "==============================================" -ForegroundColor Cyan
+
+# UK - Markt QR
+Test-Generate -Name "uk/markt/qr" -OutputFile "uk_markt_qr.png" -Body @{
+    country = "uk"; service = "markt"; method = "qr"
+    title = "iPhone 15 Pro"; price = 1099.00
+    url = "https://example.co.uk/item/789"; photo = $PRODUCT_B64
+}
+
+# UK - Markt Email Request
+Test-Generate -Name "uk/markt/email_request" -OutputFile "uk_markt_email_request.png" -Body @{
+    country = "uk"; service = "markt"; method = "email_request"
+    title = "MacBook Air M3"; price = 1299.00; photo = $PRODUCT_B64
+}
+
+# UK - Markt SMS Payment
+Test-Generate -Name "uk/markt/sms_payment" -OutputFile "uk_markt_sms_payment.png" -Body @{
+    country = "uk"; service = "markt"; method = "sms_payment"
+    title = "Xbox Series X"; price = 449.00; photo = $PRODUCT_B64
+}
+
+# UK - Markt Email Request
+Test-Generate -Name "uk/markt/email_payment" -OutputFile "uk_markt_email_payment.png" -Body @{
+    country = "uk"; service = "markt"; method = "email_payment"
+    title = "MacBook Air M3"; price = 1299.00; photo = $PRODUCT_B64
+}
+
+# UK - Markt SMS Payment
+Test-Generate -Name "uk/markt/phone_request" -OutputFile "uk_markt_phone_request.png" -Body @{
+    country = "uk"; service = "markt"; method = "phone_request"
+    title = "Xbox Series X"; price = 449.00; photo = $PRODUCT_B64
 }
 
 Write-Host ""
@@ -180,8 +240,8 @@ Test-Generate -Name "es/wallapop/email_request" -OutputFile "es_wallapop_email_r
 }
 
 # ES - Wallapop Phone Request
-Test-Generate -Name "es/wallapop/sms_request" -OutputFile "es_wallapop_sms_request.png" -Body @{
-    country = "es"; service = "wallapop"; method = "sms_request"
+Test-Generate -Name "es/wallapop/phone_request" -OutputFile "es_wallapop_phone_request.png" -Body @{
+    country = "es"; service = "wallapop"; method = "phone_request"
     title = "iPhone 14 Pro"; price = 799.00; photo = $PRODUCT_B64
     seller_name = "Maria Lopez"; seller_photo = $AVATAR_B64
 }
@@ -221,8 +281,8 @@ Test-Generate -Name "uk/wallapop/email_request" -OutputFile "uk_wallapop_email_r
 }
 
 # UK - Wallapop Phone Request
-Test-Generate -Name "uk/wallapop/sms_request" -OutputFile "uk_wallapop_sms_request.png" -Body @{
-    country = "uk"; service = "wallapop"; method = "sms_request"
+Test-Generate -Name "uk/wallapop/phone_request" -OutputFile "uk_wallapop_phone_request.png" -Body @{
+    country = "uk"; service = "wallapop"; method = "phone_request"
     title = "Samsung TV 65 OLED"; price = 1299.00; photo = $PRODUCT_B64
     seller_name = "James Wilson"; seller_photo = $AVATAR_B64
 }
@@ -262,8 +322,8 @@ Test-Generate -Name "fr/wallapop/email_request" -OutputFile "fr_wallapop_email_r
 }
 
 # FR - Wallapop Phone Request
-Test-Generate -Name "fr/wallapop/sms_request" -OutputFile "fr_wallapop_sms_request.png" -Body @{
-    country = "fr"; service = "wallapop"; method = "sms_request"
+Test-Generate -Name "fr/wallapop/phone_request" -OutputFile "fr_wallapop_phone_request.png" -Body @{
+    country = "fr"; service = "wallapop"; method = "phone_request"
     title = "Montre Rolex Submariner"; price = 8500.00; photo = $PRODUCT_B64
     seller_name = "Marie Martin"; seller_photo = $AVATAR_B64
 }
@@ -303,8 +363,8 @@ Test-Generate -Name "pr/wallapop/email_request" -OutputFile "pr_wallapop_email_r
 }
 
 # PR - Wallapop Phone Request
-Test-Generate -Name "pr/wallapop/sms_request" -OutputFile "pr_wallapop_sms_request.png" -Body @{
-    country = "pr"; service = "wallapop"; method = "sms_request"
+Test-Generate -Name "pr/wallapop/phone_request" -OutputFile "pr_wallapop_phone_request.png" -Body @{
+    country = "pr"; service = "wallapop"; method = "phone_request"
     title = "Guitarra Fender"; price = 899.00; photo = $PRODUCT_B64
     seller_name = "Maria Santos"; seller_photo = $AVATAR_B64
 }
@@ -382,17 +442,17 @@ Test-Generate -Name "it/wallapop/sms_payment" -OutputFile "it_wallapop_sms_payme
     seller_name = "Marco"; seller_photo = $SELLER_B64
 }
 
-# IT - Wallapop QR
-Test-Generate -Name "it/wallapop/email_request" -OutputFile "it_wallapop_qr.png" -Body @{
-    country = "it"; service = "wallapop"; method = "qr"
+# IT - Wallapop phone request
+Test-Generate -Name "it/wallapop/phone_request" -OutputFile "it_wallapop_phone_request.png" -Body @{
+    country = "it"; service = "wallapop"; method = "phone_request"
     title = "Samsung Galaxy S24"; price = 900.00; photo = $PRODUCT_B64
     url = "https://example.com/item"
     seller_name = "Giovanni"; seller_photo = $SELLER_B64
 }
 
-# IT - Wallapop QR
-Test-Generate -Name "it/wallapop/sms_request" -OutputFile "it_wallapop_qr.png" -Body @{
-    country = "it"; service = "wallapop"; method = "qr"
+# IT - Wallapop phone request
+Test-Generate -Name "it/wallapop/phone_request" -OutputFile "it_wallapop_phone_request.png" -Body @{
+    country = "it"; service = "wallapop"; method = "phone_request"
     title = "Samsung Galaxy S24"; price = 900.00; photo = $PRODUCT_B64
     url = "https://example.com/item"
     seller_name = "Giovanni"; seller_photo = $SELLER_B64
