@@ -161,15 +161,17 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
         img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
     } else if let Some(url) = req.logo_url.as_deref() {
         if url.starts_with("http://") || url.starts_with("https://") {
-            let allow = std::env::var("ALLOW_REMOTE_LOGO").unwrap_or_default();
-            if allow == "1" || allow.eq_ignore_ascii_case("true") {
-                let logo = fetch_logo_http_cached(http, url).await?;
-                img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
-            } else {
+            // Remote logos are allowed by default to preserve the original Python behavior.
+            // If you need to hard-disable network fetches, set DISABLE_REMOTE_LOGO=1.
+            let disable = std::env::var("DISABLE_REMOTE_LOGO").unwrap_or_default();
+            if disable == "1" || disable.eq_ignore_ascii_case("true") {
                 return Err(QrError::LogoFetch(
-                    "remote logoUrl is disabled; set LOGO_DIR/LOGO_PATH_* or ALLOW_REMOTE_LOGO=1".to_string(),
+                    "remote logoUrl is disabled by DISABLE_REMOTE_LOGO=1".to_string(),
                 ));
             }
+
+            let logo = fetch_logo_http_cached(http, url).await?;
+            img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
         }
     }
 
