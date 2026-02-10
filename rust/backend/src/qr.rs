@@ -119,7 +119,11 @@ pub async fn build_qr_png(http: &reqwest::Client, req: QrRequest) -> Result<Vec<
     let dark = parse_hex_color(req.color_dark.as_deref().unwrap_or(default_dark))?;
     let light = parse_hex_color(req.color_light.as_deref().unwrap_or("#FFFFFF"))?;
 
-    let os = req.os.unwrap_or(3).clamp(1, 8);
+    let os_default_env = std::env::var("QR_OS")
+        .ok()
+        .and_then(|s| s.parse::<u32>().ok());
+    // Default oversampling: OS=2 (user decision). Can be overridden via request or QR_OS env.
+    let os = req.os.or(os_default_env).unwrap_or(2).clamp(1, 8);
     let module_roundness = req.module_roundness.unwrap_or(0.45).clamp(0.0, 0.5);
 
     let finder_inner_corner = match req.finder_inner_corner.as_deref().unwrap_or("outerOnly") {
