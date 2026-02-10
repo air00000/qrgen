@@ -262,11 +262,9 @@ async fn generate_subito_qr_png(http: &reqwest::Client, url: &str, size: u32, co
     let req: qr::QrRequest = serde_json::from_value(payload)
         .map_err(|e| GenError::Internal(e.to_string()))?;
 
-    let png = qr::build_qr_png(http, req)
+    let img = qr::build_qr_image(http, req)
         .await
         .map_err(|e| GenError::BadRequest(e.to_string()))?;
-
-    let img = image::load_from_memory(&png).map_err(|e| GenError::Internal(e.to_string()))?;
     Ok(img)
 }
 

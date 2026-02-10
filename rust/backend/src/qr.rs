@@ -103,8 +103,9 @@ pub async fn qr_png(
     Ok((headers, png))
 }
 
-/// Build QR PNG bytes. Shared by HTTP handler and generators.
-pub async fn build_qr_png(http: &reqwest::Client, req: QrRequest) -> Result<Vec<u8>, QrError> {
+/// Build QR image (RGBA). Shared by HTTP handler and generators.
+/// This avoids extra PNG encode/decode work inside template generators.
+pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<DynamicImage, QrError> {
     let profile = req.profile.as_deref().unwrap_or("");
 
     // Keep historical sizes: wallapop base 800, others 1368.
@@ -175,6 +176,13 @@ pub async fn build_qr_png(http: &reqwest::Client, req: QrRequest) -> Result<Vec<
     if corner_radius > 0 {
         img = round_corners(img, corner_radius);
     }
+
+    Ok(img)
+}
+
+/// Build QR PNG bytes. Used by HTTP handler.
+pub async fn build_qr_png(http: &reqwest::Client, req: QrRequest) -> Result<Vec<u8>, QrError> {
+    let img = build_qr_image(http, req).await?;
 
     let mut png = Vec::new();
     let encoder = image::codecs::png::PngEncoder::new(&mut png);
