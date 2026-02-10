@@ -287,14 +287,20 @@ fn resolve_logo_path(profile: &str, logo_url: Option<&str>) -> Option<PathBuf> {
         }
     }
 
-    // 4) Default file name in LOGO_DIR.
-    let dir = std::env::var("LOGO_DIR").ok()?;
-    let dir = dir.trim();
-    if dir.is_empty() {
-        return None;
-    }
+    // 4) Default file name in LOGO_DIR (or fallback to repo-local ./app/data/logos).
+    let dir = std::env::var("LOGO_DIR")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| {
+            // Convenience fallback: when running from repo root (common in dev), keep logos inside the project.
+            let p = PathBuf::from("app/data/logos");
+            if p.exists() { Some(p) } else { None }
+        })?;
+
     let fname = profile_logo_default_filename(profile)?;
-    Some(PathBuf::from(dir).join(fname))
+    Some(dir.join(fname))
 }
 
 fn load_logo_from_disk_cached(path: &PathBuf) -> Result<DynamicImage, QrError> {
