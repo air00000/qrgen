@@ -12,6 +12,8 @@ use image::{
     ImageEncoder,
     Rgba,
 };
+
+use crate::qr_render::{FinderInnerCorner, RenderOpts};
 use qrcode::{EcLevel, QrCode};
 use serde::Deserialize;
 use utoipa::ToSchema;
@@ -24,12 +26,34 @@ use crate::AppState;
 #[serde(rename_all = "camelCase")]
 pub struct QrRequest {
     pub text: String,
+
+    /// Optional style profile name (service-specific defaults).
+    /// Supported: depop, markt, 2dehands, 2ememain, wallapop, subito, kleinanzeigen.
+    pub profile: Option<String>,
+
     pub size: Option<u32>,
     pub margin: Option<u32>,
+
     pub color_dark: Option<String>,
     pub color_light: Option<String>,
+
+    /// Oversampling factor (render at size*os and downscale with Lanczos).
+    pub os: Option<u32>,
+
+    /// Module roundness in [0..0.5]. 0 = square; 0.5 = circle.
+    pub module_roundness: Option<f32>,
+
+    /// Finder inner corner behavior: "outerOnly" (default) or "both".
+    pub finder_inner_corner: Option<String>,
+
     pub logo_url: Option<String>,
     pub logo_scale: Option<f32>,
+
+    /// Draw a solid badge circle behind logo (helps readability).
+    pub logo_badge: Option<bool>,
+    pub logo_badge_scale: Option<f32>,
+    pub logo_badge_color: Option<String>,
+
     pub corner_radius: Option<u32>,
 }
 
@@ -37,6 +61,8 @@ pub struct QrRequest {
 pub enum QrError {
     #[error("invalid color: {0}")]
     InvalidColor(String),
+    #[error("invalid option: {0}")]
+    InvalidOption(String),
     #[error("failed to encode png")]
     PngEncode,
     #[error("failed to build qr")]
@@ -76,22 +102,48 @@ pub async fn qr_png(
 
 /// Build QR PNG bytes. Shared by HTTP handler and generators.
 pub async fn build_qr_png(http: &reqwest::Client, req: QrRequest) -> Result<Vec<u8>, QrError> {
-    let size = req.size.unwrap_or(1368).clamp(128, 4096);
+    let profile = req.profile.as_deref().unwrap_or("");
+
+    // Keep historical sizes: wallapop base 800, others 1368.
+    let default_size = if profile.eq_ignore_ascii_case("wallapop") { 800 } else { 1368 };
+    let size = req.size.unwrap_or(default_size).clamp(128, 4096);
+
     let margin = req.margin.unwrap_or(2).clamp(0, 16);
-    let dark = parse_hex_color(req.color_dark.as_deref().unwrap_or("#4B6179"))?;
+
+    let default_dark = match profile.to_ascii_lowercase().as_str() {
+        // Most templates use black; fall back to old default for generic usage.
+        "wallapop" | "markt" | "subito" | "depop" | "kleinanzeigen" | "2dehands" | "2ememain" => "#000000",
+        _ => "#4B6179",
+    };
+
+    let dark = parse_hex_color(req.color_dark.as_deref().unwrap_or(default_dark))?;
     let light = parse_hex_color(req.color_light.as_deref().unwrap_or("#FFFFFF"))?;
+
+    let os = req.os.unwrap_or(3).clamp(1, 8);
+    let module_roundness = req.module_roundness.unwrap_or(0.45).clamp(0.0, 0.5);
+
+    let finder_inner_corner = match req.finder_inner_corner.as_deref().unwrap_or("outerOnly") {
+        "outerOnly" | "outer_only" | "outer" => FinderInnerCorner::OuterOnly,
+        "both" => FinderInnerCorner::Both,
+        other => return Err(QrError::InvalidOption(format!("finderInnerCorner={other}"))),
+    };
+
     let logo_scale = req.logo_scale.unwrap_or(0.22).clamp(0.05, 0.5);
+    let logo_badge = req.logo_badge.unwrap_or(false);
+    let logo_badge_scale = req.logo_badge_scale.unwrap_or(1.25).clamp(1.0, 2.0);
+    let logo_badge_color = parse_hex_color(req.logo_badge_color.as_deref().unwrap_or("#FFFFFF"))?;
+
     let corner_radius = req.corner_radius.unwrap_or(30).clamp(0, size / 2);
 
     let code = QrCode::with_error_correction_level(req.text.as_bytes(), EcLevel::H)
         .map_err(|_| QrError::QrBuild)?;
 
-    let img = render_qr(&code, size, margin, dark, light);
+    let img = render_qr(&code, size, margin, os, module_roundness, finder_inner_corner, dark, light);
     let mut img = DynamicImage::ImageRgba8(img);
 
     if let Some(url) = req.logo_url.as_deref() {
         let logo = fetch_logo(http, url).await?;
-        img = overlay_logo(img, logo, logo_scale);
+        img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
     }
 
     if corner_radius > 0 {
@@ -112,40 +164,31 @@ pub async fn build_qr_png(http: &reqwest::Client, req: QrRequest) -> Result<Vec<
     Ok(png)
 }
 
-fn render_qr(code: &QrCode, size: u32, margin: u32, dark: [u8; 3], light: [u8; 3]) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
-    let width_modules = code.width() as u32;
-    let total_modules = width_modules + 2 * margin;
-    let pixels_per_module = (size / total_modules).max(1);
-    let actual_size = total_modules * pixels_per_module;
+fn render_qr(
+    code: &QrCode,
+    size: u32,
+    margin: u32,
+    os: u32,
+    module_roundness: f32,
+    finder_inner_corner: FinderInnerCorner,
+    dark: [u8; 3],
+    light: [u8; 3],
+) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
+    let opts = RenderOpts {
+        size,
+        margin,
+        os,
+        dark,
+        light,
+        module_roundness,
+        finder_inner_corner,
+    };
 
-    let mut img = ImageBuffer::from_pixel(
-        actual_size,
-        actual_size,
-        Rgba([light[0], light[1], light[2], 255]),
-    );
+    let os_img = crate::qr_render::render_stylized(code, opts);
 
-    for y in 0..width_modules {
-        for x in 0..width_modules {
-            if matches!(code[(x as usize, y as usize)], qrcode::Color::Dark) {
-                let px0 = (x + margin) * pixels_per_module;
-                let py0 = (y + margin) * pixels_per_module;
-                for py in py0..(py0 + pixels_per_module) {
-                    for px in px0..(px0 + pixels_per_module) {
-                        img.put_pixel(px, py, Rgba([dark[0], dark[1], dark[2], 255]));
-                    }
-                }
-            }
-        }
-    }
-
-    if actual_size != size {
-        let dyn_img = DynamicImage::ImageRgba8(img);
-        dyn_img
-            .resize_exact(size, size, FilterType::Lanczos3)
-            .to_rgba8()
-    } else {
-        img
-    }
+    // Always downscale to requested size for anti-aliasing and predictable output.
+    let dyn_img = DynamicImage::ImageRgba8(os_img);
+    dyn_img.resize_exact(size, size, FilterType::Lanczos3).to_rgba8()
 }
 
 async fn fetch_logo(http: &reqwest::Client, url: &str) -> Result<DynamicImage, QrError> {
@@ -165,7 +208,14 @@ async fn fetch_logo(http: &reqwest::Client, url: &str) -> Result<DynamicImage, Q
     image::load_from_memory(&bytes).map_err(|_| QrError::LogoDecode)
 }
 
-fn overlay_logo(qr: DynamicImage, logo: DynamicImage, logo_scale: f32) -> DynamicImage {
+fn overlay_logo(
+    qr: DynamicImage,
+    logo: DynamicImage,
+    logo_scale: f32,
+    badge: bool,
+    badge_scale: f32,
+    badge_color: [u8; 3],
+) -> DynamicImage {
     let (w, h) = qr.dimensions();
     let target = ((w.min(h) as f32) * logo_scale) as u32;
 
@@ -175,6 +225,26 @@ fn overlay_logo(qr: DynamicImage, logo: DynamicImage, logo_scale: f32) -> Dynami
     let y = (h - target) / 2;
 
     let mut base = qr.to_rgba8();
+
+    if badge {
+        let badge_d = ((target as f32) * badge_scale).round() as u32;
+        let badge_d = badge_d.clamp(target, w.min(h));
+        let r = (badge_d as i32) / 2;
+        let cx = (w as i32) / 2;
+        let cy = (h as i32) / 2;
+        let col = Rgba([badge_color[0], badge_color[1], badge_color[2], 255]);
+
+        for yy in (cy - r).max(0)..(cy + r).min(h as i32) {
+            for xx in (cx - r).max(0)..(cx + r).min(w as i32) {
+                let dx = xx - cx;
+                let dy = yy - cy;
+                if dx * dx + dy * dy <= r * r {
+                    base.put_pixel(xx as u32, yy as u32, col);
+                }
+            }
+        }
+    }
+
     let overlay = logo.to_rgba8();
 
     for oy in 0..target {

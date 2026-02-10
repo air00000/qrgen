@@ -2,6 +2,7 @@ mod api;
 mod apikey;
 mod geo;
 mod qr;
+mod qr_render;
 mod util;
 mod figma;
 mod cache;
