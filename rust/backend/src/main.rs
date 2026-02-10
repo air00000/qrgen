@@ -52,7 +52,6 @@ async fn main() {
             SwaggerUi::new("/docs")
                 .url("/openapi.json", openapi)
         )
-        .route("/openapi.json", get(|| async { axum::Json(openapi::ApiDoc::openapi()) }))
 
         // API
         .route("/get-geo", get(api::get_geo))
