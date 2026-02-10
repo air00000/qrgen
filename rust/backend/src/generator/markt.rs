@@ -13,8 +13,9 @@ use super::GenError;
 
 const PAGE: &str = "Page 2";
 
-// qr logo from python implementation
-// logo is resolved locally by qr::build_qr_png via LOGO_DIR/LOGO_PATH_*
+// qr logo from python implementation (remote)
+// NOTE: remote logos are disabled by default in qr::build_qr_png; set ALLOW_REMOTE_LOGO=1 to enable.
+const QR_LOGO_URL: &str = "https://i.ibb.co/DfXf3X7x/Frame-40.png";
 
 const DELIVERY_FEE: Decimal = dec!(6.25);
 const SERVICE_FEE: Decimal = dec!(0.40);
@@ -282,6 +283,7 @@ async fn generate_qr_png(http: &reqwest::Client, url: &str, size: u32, corner_ra
         "size": size,
         "margin": 2,
         "cornerRadius": corner_radius,
+        "logoUrl": QR_LOGO_URL,
         "os": 1
     });
     let req: qr::QrRequest = serde_json::from_value(payload).map_err(|e| GenError::Internal(e.to_string()))?;

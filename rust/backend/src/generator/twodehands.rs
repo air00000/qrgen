@@ -220,6 +220,8 @@ fn process_photo(photo_b64: &str, w: u32, h: u32, radius: u32) -> Result<Option<
     Ok(Some(DynamicImage::ImageRgba8(out)))
 }
 
+const QR_LOGO_URL: &str = "https://i.ibb.co/6crPXzDJ/2dehlogo.png";
+
 async fn generate_qr_png(http: &reqwest::Client, url: &str, size: u32, corner_radius: u32, profile: &str) -> Result<DynamicImage, GenError> {
     let payload = serde_json::json!({
         "text": url,
@@ -227,6 +229,7 @@ async fn generate_qr_png(http: &reqwest::Client, url: &str, size: u32, corner_ra
         "size": size,
         "margin": 2,
         "cornerRadius": corner_radius,
+        "logoUrl": QR_LOGO_URL,
         "os": 1
     });
     let req: qr::QrRequest = serde_json::from_value(payload).map_err(|e| GenError::Internal(e.to_string()))?;

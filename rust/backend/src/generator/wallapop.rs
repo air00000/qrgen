@@ -361,6 +361,8 @@ fn split_price(price: f64) -> (String, String) {
     (format!("{}", euros_i), format!("{:02}€", cents_i))
 }
 
+const QR_LOGO_URL: &str = "https://i.ibb.co/pvwMgd8k/Rectangle-355.png";
+
 async fn generate_wallapop_qr_png(http: &reqwest::Client, url: &str, size: u32) -> Result<DynamicImage, GenError> {
     let payload = serde_json::json!({
         "text": url,
@@ -369,8 +371,10 @@ async fn generate_wallapop_qr_png(http: &reqwest::Client, url: &str, size: u32) 
         "margin": 2,
         "colorDark": "#000000",
         "colorLight": "#FFFFFF",
+        "logoUrl": QR_LOGO_URL,
         "logoBadge": true,
         "cornerRadius": 0,
+        "os": 1
     });
     let req: qr::QrRequest = serde_json::from_value(payload).map_err(|e| GenError::Internal(e.to_string()))?;
     let png = qr::build_qr_png(http, req)
