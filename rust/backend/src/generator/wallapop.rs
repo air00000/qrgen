@@ -144,7 +144,7 @@ fn text_width(font: &Font<'static>, px: f32, text: &str, letter_spacing: f32) ->
     let v_metrics = font.v_metrics(scale);
     let glyphs: Vec<_> = font.layout(text, scale, point(0.0, v_metrics.ascent)).collect();
 
-    let mut width = 0.0;
+    let mut width: f32 = 0.0;
     for (i, g) in glyphs.iter().enumerate() {
         if let Some(bb) = g.pixel_bounding_box() {
             width = width.max(bb.max.x as f32);

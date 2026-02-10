@@ -13,6 +13,7 @@ use std::{net::SocketAddr, sync::Arc};
 use axum::{routing::{get, post}, Router};
 use tracing::info;
 use utoipa_swagger_ui::SwaggerUi;
+use utoipa::OpenApi;
 
 #[derive(Clone)]
 pub struct AppState {
