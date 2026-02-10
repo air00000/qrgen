@@ -141,37 +141,26 @@ def process_photo(photo_b64: str):
 
 
 def generate_qr(url: str):
-    """Генерация QR-кода через QR Tiger API"""
-    logger.info(f"🔲 Генерация QR для Kleize: {url}")
-    
+    """Генерация QR-кода через Rust QR backend."""
+    logger.info(f"🔲 Генерация QR для Kleize через backend: {url}")
+
     payload = {
-        "qrCategory": "url",
         "text": url,
-        "size": QR_SIZE,
+        "size": QR_RESIZE[0],
+        "margin": 2,
         "colorDark": QR_COLOR,
-        "backgroundColor": "#FFFFFF",
-        "transparentBkg": False,
-        "eye_outer": "eyeOuter2",
-        "eye_inner": "eyeInner2",
-        "qrData": "pattern4",
-        "logo": QR_LOGO_URL
+        "colorLight": "#FFFFFF",
+        "logoUrl": QR_LOGO_URL,
+        "cornerRadius": int(CORNER_RADIUS_QR * SCALE_FACTOR),
     }
-    headers = {"Authorization": f"Bearer {QR_API_KEY}", "Content-Type": "application/json"}
-    
+
     try:
-        r = requests.post(QR_ENDPOINT, json=payload, headers=headers, timeout=15)
+        r = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/qr", json=payload, timeout=15)
         r.raise_for_status()
-        qr_b64 = r.json()['data']
-        qr_bytes = base64.b64decode(qr_b64)
-        
-        qr_img = Image.open(BytesIO(qr_bytes)).convert("RGBA")
-        qr_img = qr_img.resize(QR_RESIZE, Image.Resampling.LANCZOS)
-        mask = create_rounded_mask(QR_RESIZE, int(CORNER_RADIUS_QR * SCALE_FACTOR))
-        qr_img.putalpha(mask)
-        
+        qr_img = Image.open(BytesIO(r.content)).convert("RGBA")
         logger.info("✅ QR-код сгенерирован")
         return qr_img
-        
+
     except Exception as e:
         logger.error(f"❌ Ошибка генерации QR: {e}")
         raise KleizeGenerationError(f"Ошибка генерации QR: {e}")

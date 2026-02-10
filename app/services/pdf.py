@@ -103,53 +103,35 @@ def draw_text_with_letter_spacing(draw, text, font, x, y, fill, letter_spacing=0
 
 # ===== QR генерация в памяти =====
 def _generate_qr_in_memory(url: str, service: str) -> Image.Image:
-    """Генерирует QR код в памяти, возвращает PIL Image"""
+    """Генерирует QR код через Rust backend и возвращает PIL Image."""
 
     if service == "subito":
         color = "#FF6E69"
-        logo_path = os.path.join(CFG.PHOTO_DIR, "subito.png")
+        # если нужен другой логотип для subito — можно передать отдельный URL
+        logo_url = CFG.LOGO_URL
     else:
         color = "#4B6179"
-        logo_path = os.path.join(CFG.PHOTO_DIR, "markt.png")
+        logo_url = CFG.LOGO_URL
 
-    headers = {"Authorization": f"Bearer {CFG.QR_API_KEY}", "Content-Type": "application/json"}
     payload = {
-        "qrCategory": "url",
         "text": url,
-        "size": CFG.QR_SIZE,
+        "size": CFG.QR_RESIZE[0],
+        "margin": 2,
         "colorDark": color,
-        "backgroundColor": "#FFFFFF",
-        "transparentBkg": False,
-        "eye_outer": "eyeOuter2",
-        "eye_inner": "eyeInner2",
-        "qrData": "pattern4",
-        "logo": None
+        "colorLight": "#FFFFFF",
+        "logoUrl": logo_url,
+        "cornerRadius": int(CFG.CORNER_RADIUS * CFG.SCALE_FACTOR),
     }
 
-    r = requests.post(CFG.QR_ENDPOINT, json=payload, headers=headers)
+    try:
+        r = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/qr", json=payload, timeout=20)
+    except Exception as e:
+        raise QRGenerationError(f"QR backend request failed: {e}")
+
     if r.status_code != 200:
-        raise QRGenerationError(f"Ошибка QR API: {r.text}")
+        raise QRGenerationError(f"QR backend error: {r.status_code} {r.text}")
 
-    data = r.json().get("data")
-    if not data:
-        raise QRGenerationError("Нет данных QR в ответе от API")
-
-    qr_bytes = base64.b64decode(data)
-    qr_img = Image.open(io.BytesIO(qr_bytes)).convert("RGBA")
-    qr_img = qr_img.resize(CFG.QR_RESIZE, Image.Resampling.BICUBIC)
-
-    # Скругление краёв
-    mask = create_rounded_mask(CFG.QR_RESIZE, int(CFG.CORNER_RADIUS * CFG.SCALE_FACTOR))
-    qr_img.putalpha(mask)
-
-    # Добавление логотипа если нужно
-    if logo_path and os.path.exists(logo_path):
-        logo = Image.open(logo_path).convert("RGBA")
-        side = int(qr_img.size[0] * 0.25)
-        logo = logo.resize((side, side), Image.Resampling.LANCZOS)
-        cx, cy = qr_img.size[0] // 2, qr_img.size[1] // 2
-        qr_img.alpha_composite(logo, (cx - side // 2, cy - side // 2))
-
+    qr_img = Image.open(io.BytesIO(r.content)).convert("RGBA")
     return qr_img
 
 

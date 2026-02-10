@@ -1,83 +1,173 @@
-# Зависимости
-```text
-pip install -r app/requirements.txt
-```
+# qrgen
 
------------------------------------------------------------
+Цель проекта: переписать бота так, чтобы **Telegram-бот был на Python**, а **вся генерация происходила на backend’е**, при этом **API-контракт (эндпоинты/поля/заголовки) сохраняется 1‑в‑1** с текущим `app/api.py`.
 
-# Запуск
-Добавить .env в папку App
-```text
-python app/main.py
-```
+На текущем этапе backend уже **на Rust (Axum)** и отдаёт тот же API, а генерацию PNG временно выполняет через встроенный Python-роутер (чтобы быстро сохранить 100% совместимость). Дальше генераторы будут переноситься на Rust постепенно без ломания API.
 
------------------------------------------------------------
+---
 
-# ENV
-```text
+## Что запускается
+
+- **Rust backend** (работает автономно, без Telegram):
+  - `GET /health`
+  - `GET /api/status` (требует `X-API-Key`)
+  - `GET /get-geo` (требует `X-API-Key`)
+  - `POST /generate` (требует `X-API-Key`, возвращает **PNG bytes**)
+  - `POST /qr` (внутренний генератор QR → **PNG bytes**)
+
+- **Python Telegram bot** (тонкий клиент):
+  - собирает параметры у пользователя
+  - вызывает backend (в текущем коде генераторы уже используют `QR_BACKEND_URL` для QR)
+
+---
+
+## Требования
+
+- Python **3.8+**
+- Rust toolchain (cargo)
+
+---
+
+## ENV
+
+Создай файл `app/.env`:
+
+```env
+# Telegram
 TELEGRAM_BOT_TOKEN=xxx
+
+# Figma (нужно для генерации шаблонов)
 FIGMA_PAT=xxx
 TEMPLATE_FILE_KEY=xxx
-QR_API_KEY=xxx
+
+# Backend URL (куда ходит Python-код за QR)
+# По умолчанию: http://127.0.0.1:8080
+QR_BACKEND_URL=http://127.0.0.1:8080
+
+# Опционально
 LOGO_URL=https://i.ibb.co/ZRF7byfk/coin.png
 TZ=Europe/Amsterdam
 ```
------------------------------------------------------------
 
-# Структура
-```text
-app/
-├─ assets/
-│  ├─ fonts/              # шрифты
-│  └─ foti/temp/          # скрины
-├─ handlers/              # хендлеры
-├─ keyboards/             # inline-клавиатуры
-├─ services/              # работа с Figma, PDF, QR
-├─ utils/                 # утилиты (стек состояний, IO)
-├─ config.py              # загрузка настроек из .env
-├─ main.py                # точка входа
+### API ключи
+
+Ключи хранятся в JSON как в Python-реализации: `app/data/api_keys.json`
+
+Формат:
+
+```json
+{
+  "api_xxx": "My key name",
+  "api_yyy": "Another name"
+}
 ```
 
------------------------------------------------------------
+Их можно создавать/удалять через админ-меню в Telegram-боте (когда ты включишь этот функционал).
 
-# Главный сценарий - создание QR
-app/handlers/qr.py
-  - qr_entry(update, context) - точка входа, переходит к запросу названия
-  - ask_nazvanie(update, context) — Запрос названия
-  - ask_price(update, context) — Запрос цены
-  - ask_photo(update, context) — Запрос фото
-  - ask_url(update, context) — Запрос url
-  соответствующие функции on_... сохраняют данные
-возвращает pdf
+---
 
------------------------------------------------------------
+## Сборка и запуск backend (Rust)
 
-# Figma
-app/services/figma.py
-  - get_template_json() — GET /files/{TEMPLATE_FILE_KEY} → JSON.
-  - find_node(file_json, page_name, node_name) — ищет узел по имени на нужной странице.
-  - export_frame_as_png(file_key, node_id, scale=CFG.SCALE_FACTOR) — экспортирует кадр в PNG через /images.
+Из корня репозитория:
 
------------------------------------------------------------
+### Dev
 
-# Генерация QR
-app/services/qrtiger.py
-generate_qr(url, temp_dir) -> str
-  - POST в CFG.QR_ENDPOINT с payload (text=url, стили, logo=CFG.LOGO_URL), принимает base64, сохраняет PNG, ресайзит до CFG.QR_RESIZE, накладывает скругления.
-    Возвращает: путь к PNG.
+```bash
+cargo run -p qrgen-backend
+```
 
------------------------------------------------------------
+### Release (Ubuntu 22.04, без Docker)
 
-# Сборка PDF
-app/services/pdf.py
-create_pdf(nazvanie, price, photo_path, url) -> (pdf_path, processed_photo_path, qr_path)
-  - Загружает JSON Figma, ищет узлы на Page 2: Marktplaats, 1NAZVANIE, 1PRICE, 1TIME, 1FOTO, 1QR.
-  - Экспортирует кадр в PNG → template.png.
-  - Считает размеры страницы из absoluteBoundingBox с SCALE_FACTOR и CONVERSION_FACTOR.
-  - Рисует фон, вставляет фото и QR по координатам слоёв.
+```bash
+cargo build -p qrgen-backend --release
+./target/release/qrgen-backend
+```
 
------------------------------------------------------------
+По умолчанию поднимется на `0.0.0.0:8080`.
 
-# Утилиты
-  - app/utils/state_stack.py  - стэк для меню
-  - app/utils/io.py           - утилита для файлов
+Проверка:
+
+```bash
+curl -s http://127.0.0.1:8080/health
+```
+
+Swagger UI:
+
+- http://127.0.0.1:8080/docs
+- OpenAPI JSON: http://127.0.0.1:8080/openapi.json
+
+Проверка статуса (нужен валидный ключ в `app/data/api_keys.json`):
+
+```bash
+curl -s -H 'X-API-Key: api_...' http://127.0.0.1:8080/api/status
+```
+
+---
+
+## Запуск Telegram-бота (Python)
+
+```bash
+pip install -r app/requirements.txt
+python app/main.py
+```
+
+---
+
+## Совместимость с тестами
+
+В репо есть:
+
+- `test_requests.sh` / `test_all_services.sh`
+- `test_requests.ps1`
+
+Они рассчитаны на API `http://127.0.0.1:8080` и на заголовок `X-API-Key`.
+
+---
+
+## Systemd (пример)
+
+Пример юнита для Ubuntu 22.04 (без Docker). Пути подстрой под свою установку:
+
+`/etc/systemd/system/qrgen-backend.service`:
+
+```ini
+[Unit]
+Description=qrgen backend (Rust)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=qrgen
+WorkingDirectory=/opt/qrgen
+# Можно использовать тот же .env что и для Python-кода
+EnvironmentFile=/opt/qrgen/app/.env
+Environment=RUST_LOG=info
+ExecStart=/opt/qrgen/target/release/qrgen-backend
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Дальше:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now qrgen-backend
+sudo systemctl status qrgen-backend
+```
+
+---
+
+## Примечание про миграцию на Rust
+
+`POST /generate` остаётся единым входом (API контракт сохранён), но **генераторы переносятся на Rust постепенно**.
+
+На текущий момент полностью реализованы в Rust:
+
+- `service=markt` (все 5 методов)
+- `service=subito` (5 методов: `qr`, `email_request`, `email_confirm`, `sms_request`, `sms_confirm`)
+
+Остальные сервисы пока не реализованы в Rust и вернут ошибку вида `service not implemented in Rust yet: ...`.

@@ -192,40 +192,28 @@ def _rounded_rect_image(photo_b64: str, size: tuple[int, int], radius: int) -> O
 
 
 def _generate_markt_qr(url: str) -> Image.Image:
-    """
-    Generate QR code for Markt.
-    Initial size: 600x600, then resized to 570x570
-    """
+    """Generate QR code for Markt via Rust backend."""
     import requests
-    
-    headers = {"Authorization": f"Bearer {CFG.QR_API_KEY}", "Content-Type": "application/json"}
+
     payload = {
-        "qrCategory": "url",
         "text": url,
         "size": 600,
+        "margin": 2,
         "colorDark": "#000000",
-        "backgroundColor": "#FFFFFF",
-        "transparentBkg": False,
-        "eye_outer": "eyeOuter2",
-        "eye_inner": "eyeInner2",
-        "qrData": "pattern4",
-        "logo": QR_LOGO_URL,
+        "colorLight": "#FFFFFF",
+        "logoUrl": QR_LOGO_URL,
+        "cornerRadius": 20,
     }
-    
+
     try:
-        response = requests.post(CFG.QR_ENDPOINT, json=payload, headers=headers, timeout=15)
-        if response.status_code != 200:
-            raise QRGenerationError(f"QR API error: {response.text}")
-        
-        data = response.json().get("data")
-        if not data:
-            raise QRGenerationError("No QR data in API response")
-        
-        qr_bytes = base64.b64decode(data)
-        qr_img = Image.open(io.BytesIO(qr_bytes)).convert("RGBA")
-        return qr_img
+        response = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/qr", json=payload, timeout=15)
     except requests.RequestException as e:
-        raise QRGenerationError(f"QR generation request failed: {e}")
+        raise QRGenerationError(f"QR backend request failed: {e}")
+
+    if response.status_code != 200:
+        raise QRGenerationError(f"QR backend error: {response.status_code} {response.text}")
+
+    return Image.open(io.BytesIO(response.content)).convert("RGBA")
 
 
 # ========== MAIN GENERATION FUNCTION ==========

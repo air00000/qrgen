@@ -138,35 +138,23 @@ def _circle_image(photo_b64: str, size: tuple[int, int]) -> Optional[Image.Image
 
 
 def _generate_wallapop_qr(url: str) -> Image.Image:
-    """
-    Генерирует QR код для Wallapop.
-    По документации: size=600 в запросе, генерация 800x800, сжатие до 738x738
-    """
-    headers = {"Authorization": f"Bearer {CFG.QR_API_KEY}", "Content-Type": "application/json"}
+    """Генерирует QR код для Wallapop через Rust backend."""
+
     payload = {
-        "qrCategory": "url",
         "text": url,
-        "size": 600,  # По документации size=600
+        "size": 800,
+        "margin": 2,
         "colorDark": "#000000",
-        "backgroundColor": "#FFFFFF",
-        "transparentBkg": False,
-        "eye_outer": "eyeOuter2",
-        "eye_inner": "eyeInner2",
-        "qrData": "pattern4",
-        "logo": QR_LOGO_URL,
+        "colorLight": "#FFFFFF",
+        "logoUrl": QR_LOGO_URL,
+        "cornerRadius": 0,
     }
 
-    response = requests.post(CFG.QR_ENDPOINT, json=payload, headers=headers)
+    response = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/qr", json=payload, timeout=15)
     if response.status_code != 200:
-        raise QRGenerationError(f"Ошибка QR API: {response.text}")
-    data = response.json().get("data")
-    if not data:
-        raise QRGenerationError("Нет данных QR в ответе от API")
-    qr_bytes = base64.b64decode(data)
-    # Генерация в 800x800, потом сжатие до 738x738 происходит в основной функции
-    qr_img = Image.open(io.BytesIO(qr_bytes)).convert("RGBA")
-    qr_img = qr_img.resize((800, 800), Image.Resampling.LANCZOS)
-    return qr_img
+        raise QRGenerationError(f"Ошибка QR backend: {response.status_code} {response.text}")
+
+    return Image.open(io.BytesIO(response.content)).convert("RGBA")
 
 
 def create_wallapop_image(

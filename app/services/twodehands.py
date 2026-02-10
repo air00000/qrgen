@@ -81,61 +81,37 @@ def process_photo_2dehands(photo_data: str) -> Image.Image:
 
 
 def generate_qr_2dehands(url: str) -> Image.Image:
-    """Генерация QR-кода через QR TIGER для 2dehands"""
+    """Генерация QR-кода через Rust QR backend для 2dehands."""
     import logging
     logger = logging.getLogger(__name__)
-    
-    logger.info(f"🔲 Запрос QR для URL: {url}")
-    
-    headers = {
-        "Authorization": f"Bearer {CFG.QR_API_KEY}",
-        "Content-Type": "application/json"
-    }
+
+    logger.info(f"🔲 QR backend запрос для URL: {url}")
+
     payload = {
-        "qrCategory": "url",
         "text": url,
-        "size": QR_SIZE,
+        "size": QR_RESIZE[0],
+        "margin": 2,
         "colorDark": QR_COLOR,
-        "backgroundColor": "#FFFFFF",
-        "transparentBkg": False,
-        "eye_outer": "eyeOuter2",
-        "eye_inner": "eyeInner2",
-        "qrData": "pattern4",
-        "logo": QR_LOGO_URL
+        "colorLight": "#FFFFFF",
+        "logoUrl": QR_LOGO_URL,
+        "cornerRadius": int(CORNER_RADIUS_QR * TWODEHANDS_SCALE_FACTOR),
     }
-    
-    logger.info(f"📡 Отправка запроса к QR Tiger API...")
-    
+
     try:
-        response = requests.post(CFG.QR_ENDPOINT, json=payload, headers=headers, timeout=30)
-        logger.info(f"📥 Получен ответ: {response.status_code}")
+        response = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/qr", json=payload, timeout=30)
+        logger.info(f"📥 Ответ: {response.status_code}")
     except requests.Timeout:
-        logger.error("❌ Timeout при запросе QR API")
+        logger.error("❌ Timeout при запросе QR backend")
         raise DehandsGenerationError("Timeout при генерации QR")
     except Exception as e:
-        logger.error(f"❌ Ошибка запроса QR API: {e}")
-        raise
-    
+        logger.error(f"❌ Ошибка запроса QR backend: {e}")
+        raise DehandsGenerationError(f"QR backend request failed: {e}")
+
     if response.status_code != 200:
-        logger.error(f"❌ QR API вернул ошибку: {response.status_code} - {response.text}")
-        raise DehandsGenerationError(f"Ошибка API QR: {response.text}")
-    
-    data = response.json().get('data')
-    if not data:
-        logger.error("❌ Нет данных QR в ответе")
-        raise DehandsGenerationError("Нет данных QR в ответе от QR API")
-    
-    logger.info("🎨 Обработка QR изображения...")
-    
-    qr_bytes = base64.b64decode(data)
-    qr_img = Image.open(io.BytesIO(qr_bytes)).convert("RGBA")
-    qr_img = qr_img.resize(QR_RESIZE, Image.Resampling.BICUBIC)
-    mask = create_rounded_mask(QR_RESIZE, int(CORNER_RADIUS_QR * TWODEHANDS_SCALE_FACTOR))
-    qr_img.putalpha(mask)
-    
-    logger.info("✅ QR обработан и готов")
-    
-    return qr_img
+        logger.error(f"❌ QR backend вернул ошибку: {response.status_code} - {response.text}")
+        raise DehandsGenerationError(f"Ошибка QR backend: {response.text}")
+
+    return Image.open(io.BytesIO(response.content)).convert("RGBA")
 
 
 def get_local_time(language: str) -> str:

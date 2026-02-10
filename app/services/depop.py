@@ -136,45 +136,26 @@ def process_square_photo(photo_b64: str, corner_radius: int):
 
 
 def generate_qr(url: str):
-    """Генерация QR-кода через QR Tiger API"""
-    logger.info(f"🔲 Генерация QR для Depop: {url}")
-    
-    headers = {
-        "Authorization": f"Bearer {QR_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
+    """Генерация QR-кода через Rust QR backend."""
+    logger.info(f"🔲 Генерация QR для Depop через backend: {url}")
+
     payload = {
-        "qrCategory": "url",
         "text": url,
-        "size": QR_SIZE,
+        "size": QR_RESIZE[0],
+        "margin": 2,
         "colorDark": QR_COLOR,
-        "backgroundColor": "#FFFFFF",
-        "transparentBkg": False,
-        "eye_outer": "eyeOuter2",
-        "eye_inner": "eyeInner2",
-        "qrData": "pattern4",
-        "logo": QR_LOGO_URL
+        "colorLight": "#FFFFFF",
+        "logoUrl": QR_LOGO_URL,
+        "cornerRadius": int(QR_CORNER_RADIUS * SCALE_FACTOR),
     }
-    
+
     try:
-        response = requests.post(QR_ENDPOINT, json=payload, headers=headers, timeout=15)
+        response = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/qr", json=payload, timeout=15)
         response.raise_for_status()
-        data = response.json().get('data')
-        
-        if not data:
-            raise ValueError("Не удалось получить QR-код")
-        
-        qr_bytes = base64.b64decode(data)
-        qr_img = Image.open(BytesIO(qr_bytes)).convert("RGBA")
-        qr_img = qr_img.resize(QR_RESIZE, Image.Resampling.BICUBIC)
-        
-        mask = create_rounded_mask(QR_RESIZE, int(QR_CORNER_RADIUS * SCALE_FACTOR))
-        qr_img.putalpha(mask)
-        
+        qr_img = Image.open(BytesIO(response.content)).convert("RGBA")
         logger.info("✅ QR-код сгенерирован")
         return qr_img
-        
+
     except Exception as e:
         logger.error(f"❌ Ошибка генерации QR: {e}")
         raise DepopGenerationError(f"Ошибка генерации QR: {e}")
