@@ -14,7 +14,6 @@ const TARGET_WIDTH: u32 = 1304;
 const TARGET_HEIGHT: u32 = 2838;
 
 const QR_COLOR: &str = "#0C0C0B";
-const QR_LOGO_URL: &str = "https://i.ibb.co/mV9pQDLS/Frame-36.png";
 
 // "fixed coords" workaround from python (enabled)
 const FIXED_PHOTO_X: f32 = 90.0;
@@ -213,7 +212,6 @@ async fn generate_qr_png(http: &reqwest::Client, url: &str, size: u32, corner_ra
         "margin": 2,
         "colorDark": QR_COLOR,
         "colorLight": "#FFFFFF",
-        "logoUrl": QR_LOGO_URL,
         "cornerRadius": corner_radius,
     });
     let req: qr::QrRequest = serde_json::from_value(payload).map_err(|e| GenError::Internal(e.to_string()))?;
@@ -405,8 +403,10 @@ pub async fn generate_kleinanzeigen(
     if let Some(qr_node) = qr_n {
         let (qx, qy, qw, qh) = rel_box(&qr_node, &frame_node)?;
         let corner = (16.0 * sf).round() as u32;
-        let mut qr_img = generate_qr_png(http, url, qw.max(qh), corner).await?;
-        qr_img = qr_img.resize_exact(qw, qh, image::imageops::FilterType::Lanczos3);
+        let mut qr_img = generate_qr_png(http, url, qw, corner).await?;
+        if qr_img.width() != qw || qr_img.height() != qh {
+            qr_img = qr_img.resize_exact(qw, qh, image::imageops::FilterType::Lanczos3);
+        }
         overlay_alpha(&mut out, &qr_img.to_rgba8(), qx, qy);
     }
 

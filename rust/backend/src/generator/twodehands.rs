@@ -15,7 +15,7 @@ const TARGET_WIDTH: u32 = 1304;
 const TARGET_HEIGHT: u32 = 2838;
 
 const QR_COLOR: &str = "#11223E";
-const QR_LOGO_URL: &str = "https://i.ibb.co/6crPXzDJ/2dehlogo.png";
+// logo is resolved locally by qr::build_qr_png via LOGO_DIR/LOGO_PATH_*
 
 fn scale_factor() -> f32 {
     std::env::var("SCALE_FACTOR")
@@ -226,10 +226,8 @@ async fn generate_qr_png(http: &reqwest::Client, url: &str, size: u32, corner_ra
         "profile": profile,
         "size": size,
         "margin": 2,
-        "colorDark": QR_COLOR,
-        "colorLight": "#FFFFFF",
-        "logoUrl": QR_LOGO_URL,
         "cornerRadius": corner_radius,
+        "os": 1
     });
     let req: qr::QrRequest = serde_json::from_value(payload).map_err(|e| GenError::Internal(e.to_string()))?;
     let png = qr::build_qr_png(http, req).await.map_err(|e| GenError::BadRequest(e.to_string()))?;
@@ -396,8 +394,10 @@ pub async fn generate_twodehands(
     if let Some(qr_node) = qr_n {
         let (qx, qy, qw, qh) = rel_box(&qr_node, &frame_node)?;
         let corner = (16.0 * sf).round() as u32;
-        let mut qr_img = generate_qr_png(http, url, qw.max(qh), corner, service).await?;
-        qr_img = qr_img.resize_exact(qw, qh, image::imageops::FilterType::Lanczos3);
+        let mut qr_img = generate_qr_png(http, url, qw, corner, service).await?;
+        if qr_img.width() != qw || qr_img.height() != qh {
+            qr_img = qr_img.resize_exact(qw, qh, image::imageops::FilterType::Lanczos3);
+        }
         overlay_alpha(&mut out, &qr_img.to_rgba8(), qx, qy);
     }
 

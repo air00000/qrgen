@@ -14,7 +14,6 @@ const TARGET_HEIGHT: u32 = 2868;
 const SHIPPING_COST: f64 = 8.0;
 
 const QR_COLOR: &str = "#CF2C2D";
-const QR_LOGO_URL: &str = "https://i.ibb.co/v7N8Sbs/Frame-38.png";
 
 fn scale_factor() -> f32 {
     std::env::var("SCALE_FACTOR")
@@ -248,10 +247,8 @@ async fn generate_qr_png(http: &reqwest::Client, url: &str, size: u32, corner_ra
         "profile": "depop",
         "size": size,
         "margin": 2,
-        "colorDark": QR_COLOR,
-        "colorLight": "#FFFFFF",
-        "logoUrl": QR_LOGO_URL,
         "cornerRadius": corner_radius,
+        "os": 1
     });
     let req: qr::QrRequest = serde_json::from_value(payload).map_err(|e| GenError::Internal(e.to_string()))?;
     let png = qr::build_qr_png(http, req).await.map_err(|e| GenError::BadRequest(e.to_string()))?;
@@ -496,8 +493,10 @@ pub async fn generate_depop(
     if let Some(n) = qr_n {
         let (x, y, w, h) = rel_box(&n, &frame_node)?;
         let corner = (16.0 * sf).round() as u32;
-        let mut qr_img = generate_qr_png(http, url, w.max(h), corner).await?;
-        qr_img = qr_img.resize_exact(w, h, image::imageops::FilterType::Lanczos3);
+        let mut qr_img = generate_qr_png(http, url, w, corner).await?;
+        if qr_img.width() != w || qr_img.height() != h {
+            qr_img = qr_img.resize_exact(w, h, image::imageops::FilterType::Lanczos3);
+        }
         overlay_alpha(&mut out, &qr_img.to_rgba8(), x, y + offset_base as u32);
     }
 

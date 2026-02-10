@@ -12,7 +12,7 @@ use super::GenError;
 const PAGE: &str = "Page 2";
 
 // qr logo from python implementation
-const QR_LOGO_URL: &str = "https://i.ibb.co/pvwMgd8k/Rectangle-355.png";
+// logo is resolved locally by qr::build_qr_png via LOGO_DIR/LOGO_PATH_*
 
 #[derive(Clone, Copy, Debug)]
 enum Variant {
@@ -361,15 +361,14 @@ fn split_price(price: f64) -> (String, String) {
     (format!("{}", euros_i), format!("{:02}€", cents_i))
 }
 
-async fn generate_wallapop_qr_png(http: &reqwest::Client, url: &str) -> Result<DynamicImage, GenError> {
+async fn generate_wallapop_qr_png(http: &reqwest::Client, url: &str, size: u32) -> Result<DynamicImage, GenError> {
     let payload = serde_json::json!({
         "text": url,
         "profile": "wallapop",
-        "size": 800,
+        "size": size,
         "margin": 2,
         "colorDark": "#000000",
         "colorLight": "#FFFFFF",
-        "logoUrl": QR_LOGO_URL,
         "logoBadge": true,
         "cornerRadius": 0,
     });
@@ -644,9 +643,8 @@ pub async fn generate_wallapop(
     if let Some(qr_node) = qr_node {
         let url = url_trunc.as_deref().unwrap_or("");
         let (qx, qy, qw, qh) = rel_box(&qr_node, &frame_node)?;
-        let mut qr_img = generate_wallapop_qr_png(http, url).await?;
         let target = (738.0 * sf).round() as u32;
-        qr_img = qr_img.resize_exact(target, target, image::imageops::FilterType::Lanczos3);
+        let qr_img = generate_wallapop_qr_png(http, url, target).await?;
         let radius = (16.0 * sf).round() as u32;
         let qr_rgba = apply_round_corners_alpha(qr_img.to_rgba8(), radius);
 

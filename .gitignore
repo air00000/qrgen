@@ -3,3 +3,6 @@ app/.env
 # Project exclude paths
 /.venv/
 .idea/
+
+# Rust build output
+/target/

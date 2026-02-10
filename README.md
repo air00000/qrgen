@@ -44,8 +44,21 @@ TEMPLATE_FILE_KEY=xxx
 # По умолчанию: http://127.0.0.1:8080
 QR_BACKEND_URL=http://127.0.0.1:8080
 
-# Опционально
-LOGO_URL=https://i.ibb.co/ZRF7byfk/coin.png
+# Локальные логотипы для QR (ускорение):
+# Backend больше не должен скачивать logoUrl по HTTP на каждый запрос.
+# 1) скачай логотипы:
+#    ./scripts/download_logos.sh app/assets/logos
+# 2) укажи директорию:
+#    LOGO_DIR=app/assets/logos
+#
+# Можно переопределить по профилю:
+#   LOGO_PATH_DEPOP=/abs/path/to/depop.png
+#   LOGO_FILE_MARKT=markt.png   (ищется в LOGO_DIR)
+#
+# Если очень нужно разрешить remote http(s) logoUrl (не рекомендуется):
+#   ALLOW_REMOTE_LOGO=1
+LOGO_DIR=app/assets/logos
+
 TZ=Europe/Amsterdam
 ```
 

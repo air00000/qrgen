@@ -17,8 +17,11 @@ use crate::qr_render::{FinderInnerCorner, RenderOpts};
 use qrcode::{EcLevel, QrCode};
 use serde::Deserialize;
 use utoipa::ToSchema;
-use std::sync::Arc;
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use thiserror::Error;
+
+use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 
 use crate::AppState;
 
@@ -122,9 +125,9 @@ pub async fn build_qr_png(http: &reqwest::Client, req: QrRequest) -> Result<Vec<
     let os_default_env = std::env::var("QR_OS")
         .ok()
         .and_then(|s| s.parse::<u32>().ok());
-    // Default oversampling: OS=2 (user decision). Can be overridden via request or QR_OS env.
+    // Default oversampling: OS=1 for performance. Can be overridden via request or QR_OS env.
     // Allowed values: 1/2/3/5.
-    let os = req.os.or(os_default_env).unwrap_or(2);
+    let os = req.os.or(os_default_env).unwrap_or(1);
     if !matches!(os, 1 | 2 | 3 | 5) {
         return Err(QrError::InvalidOption(format!("os={os} (allowed: 1,2,3,5)")));
     }
@@ -149,9 +152,24 @@ pub async fn build_qr_png(http: &reqwest::Client, req: QrRequest) -> Result<Vec<
     let img = render_qr(&code, size, margin, os, module_roundness, finder_inner_corner, dark, light);
     let mut img = DynamicImage::ImageRgba8(img);
 
-    if let Some(url) = req.logo_url.as_deref() {
-        let logo = fetch_logo(http, url).await?;
+    // Logo overlay:
+    // - Prefer local disk logos (LOGO_DIR/LOGO_PATH_*/LOGO_FILE_*), optionally selected by profile.
+    // - Remote http(s) logos are disabled by default for performance/reliability; enable with ALLOW_REMOTE_LOGO=1.
+    if let Some(path) = resolve_logo_path(profile, req.logo_url.as_deref()) {
+        let logo = load_logo_from_disk_cached(&path)?;
         img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
+    } else if let Some(url) = req.logo_url.as_deref() {
+        if url.starts_with("http://") || url.starts_with("https://") {
+            let allow = std::env::var("ALLOW_REMOTE_LOGO").unwrap_or_default();
+            if allow == "1" || allow.eq_ignore_ascii_case("true") {
+                let logo = fetch_logo_http_cached(http, url).await?;
+                img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
+            } else {
+                return Err(QrError::LogoFetch(
+                    "remote logoUrl is disabled; set LOGO_DIR/LOGO_PATH_* or ALLOW_REMOTE_LOGO=1".to_string(),
+                ));
+            }
+        }
     }
 
     if corner_radius > 0 {
@@ -194,12 +212,109 @@ fn render_qr(
 
     let os_img = crate::qr_render::render_stylized(code, opts);
 
-    // Always downscale to requested size for anti-aliasing and predictable output.
+    // Fast path: when os=1 and the renderer already hit the requested size.
+    if os == 1 && os_img.width() == size && os_img.height() == size {
+        return os_img;
+    }
+
+    // Only resample when needed (os>1 anti-aliasing, or renderer rounded to a nearby size).
     let dyn_img = DynamicImage::ImageRgba8(os_img);
     dyn_img.resize_exact(size, size, FilterType::Lanczos3).to_rgba8()
 }
 
-async fn fetch_logo(http: &reqwest::Client, url: &str) -> Result<DynamicImage, QrError> {
+static LOGO_CACHE: Lazy<Mutex<HashMap<String, Arc<DynamicImage>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+fn profile_logo_default_filename(profile: &str) -> Option<&'static str> {
+    match profile.to_ascii_lowercase().as_str() {
+        "depop" => Some("depop.png"),
+        "markt" => Some("markt.png"),
+        "wallapop" => Some("wallapop.png"),
+        "kleinanzeigen" => Some("kleinanzeigen.png"),
+        "subito" => Some("subito.png"),
+        "2dehands" => Some("2dehands.png"),
+        "2ememain" => Some("2ememain.png"),
+        "twodehands" => Some("2dehands.png"),
+        _ => None,
+    }
+}
+
+fn env_key_for_profile(prefix: &str, profile: &str) -> String {
+    // profile is expected to be ascii-ish; keep digits.
+    let up = profile
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_uppercase() } else { '_' })
+        .collect::<String>();
+    format!("{prefix}{up}")
+}
+
+fn resolve_logo_path(profile: &str, logo_url: Option<&str>) -> Option<PathBuf> {
+    // 1) Explicit per-profile absolute path: LOGO_PATH_<PROFILE>
+    let key = env_key_for_profile("LOGO_PATH_", profile);
+    if let Ok(p) = std::env::var(&key) {
+        if !p.trim().is_empty() {
+            return Some(PathBuf::from(p));
+        }
+    }
+
+    // 2) If request provided a logoUrl, treat it as a file name/path when it is not http(s).
+    if let Some(u) = logo_url {
+        let u = u.trim();
+        if !u.is_empty() && !(u.starts_with("http://") || u.starts_with("https://")) {
+            // Relative path is resolved against LOGO_DIR when set.
+            if let Ok(dir) = std::env::var("LOGO_DIR") {
+                let dir = dir.trim();
+                if !dir.is_empty() {
+                    return Some(PathBuf::from(dir).join(u));
+                }
+            }
+            return Some(PathBuf::from(u));
+        }
+    }
+
+    // 3) Per-profile filename in LOGO_DIR: LOGO_FILE_<PROFILE>
+    let key = env_key_for_profile("LOGO_FILE_", profile);
+    if let Ok(f) = std::env::var(&key) {
+        let f = f.trim();
+        if !f.is_empty() {
+            if let Ok(dir) = std::env::var("LOGO_DIR") {
+                let dir = dir.trim();
+                if !dir.is_empty() {
+                    return Some(PathBuf::from(dir).join(f));
+                }
+            }
+            return Some(PathBuf::from(f));
+        }
+    }
+
+    // 4) Default file name in LOGO_DIR.
+    let dir = std::env::var("LOGO_DIR").ok()?;
+    let dir = dir.trim();
+    if dir.is_empty() {
+        return None;
+    }
+    let fname = profile_logo_default_filename(profile)?;
+    Some(PathBuf::from(dir).join(fname))
+}
+
+fn load_logo_from_disk_cached(path: &PathBuf) -> Result<DynamicImage, QrError> {
+    let key = path.to_string_lossy().to_string();
+    if let Some(img) = LOGO_CACHE.lock().get(&key) {
+        return Ok((**img).clone());
+    }
+
+    let bytes = std::fs::read(path).map_err(|e| QrError::LogoFetch(format!("read {}: {e}", key)))?;
+    let img = image::load_from_memory(&bytes).map_err(|_| QrError::LogoDecode)?;
+
+    LOGO_CACHE.lock().insert(key, Arc::new(img.clone()));
+    Ok(img)
+}
+
+async fn fetch_logo_http_cached(http: &reqwest::Client, url: &str) -> Result<DynamicImage, QrError> {
+    if let Some(img) = LOGO_CACHE.lock().get(url) {
+        return Ok((**img).clone());
+    }
+
     let resp = http
         .get(url)
         .send()
@@ -213,7 +328,11 @@ async fn fetch_logo(http: &reqwest::Client, url: &str) -> Result<DynamicImage, Q
         .await
         .map_err(|e| QrError::LogoFetch(e.to_string()))?;
 
-    image::load_from_memory(&bytes).map_err(|_| QrError::LogoDecode)
+    let img = image::load_from_memory(&bytes).map_err(|_| QrError::LogoDecode)?;
+    LOGO_CACHE
+        .lock()
+        .insert(url.to_string(), Arc::new(img.clone()));
+    Ok(img)
 }
 
 fn overlay_logo(

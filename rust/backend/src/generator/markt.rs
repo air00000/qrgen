@@ -14,7 +14,7 @@ use super::GenError;
 const PAGE: &str = "Page 2";
 
 // qr logo from python implementation
-const QR_LOGO_URL: &str = "https://i.ibb.co/DfXf3X7x/Frame-40.png";
+// logo is resolved locally by qr::build_qr_png via LOGO_DIR/LOGO_PATH_*
 
 const DELIVERY_FEE: Decimal = dec!(6.25);
 const SERVICE_FEE: Decimal = dec!(0.40);
@@ -274,20 +274,20 @@ fn rounded_rect_contains(x: i32, y: i32, w: i32, h: i32, r: i32) -> bool {
     dx * dx + dy * dy <= r * r
 }
 
-async fn generate_qr_png(http: &reqwest::Client, url: &str) -> Result<DynamicImage, GenError> {
+async fn generate_qr_png(http: &reqwest::Client, url: &str, size: u32, corner_radius: u32) -> Result<DynamicImage, GenError> {
+    // Generate QR at target size directly (avoid extra resizes) and rely on local LOGO_DIR via profile.
     let payload = serde_json::json!({
         "text": url,
         "profile": "markt",
-        "size": 600,
+        "size": size,
         "margin": 2,
-        "colorDark": "#000000",
-        "colorLight": "#FFFFFF",
-        "logoUrl": QR_LOGO_URL,
-        "cornerRadius": 20,
+        "cornerRadius": corner_radius,
+        "os": 1
     });
-    // call local handler code directly to avoid HTTP
     let req: qr::QrRequest = serde_json::from_value(payload).map_err(|e| GenError::Internal(e.to_string()))?;
-    let png = qr::build_qr_png(http, req).await.map_err(|e| GenError::BadRequest(e.to_string()))?;
+    let png = qr::build_qr_png(http, req)
+        .await
+        .map_err(|e| GenError::BadRequest(e.to_string()))?;
     let img = image::load_from_memory(&png).map_err(|e| GenError::Internal(e.to_string()))?;
     Ok(img)
 }
@@ -455,11 +455,10 @@ pub async fn generate_markt(
         if let Some(qr_node) = node_opt(&format!("qr{frame_name}")) {
             let url = url.unwrap();
             let (qx, qy, qw, qh) = rel_box(&qr_node, &frame_node)?;
-            let mut qr_img = generate_qr_png(http, url).await?;
             let target = (570.0 * sf).round() as u32;
-            qr_img = qr_img.resize_exact(target, target, image::imageops::FilterType::Lanczos3);
-            // rounded corners with alpha mask
             let radius = (16.0 * sf).round() as u32;
+            let qr_img = generate_qr_png(http, url, target, radius).await?;
+            // rounded corners with alpha mask
             let qr_rgba = apply_round_corners_alpha(qr_img.to_rgba8(), radius);
             let px = qx + (qw.saturating_sub(target)) / 2;
             let py = qy + (qh.saturating_sub(target)) / 2;

@@ -246,19 +246,17 @@ fn square_photo_from_b64(photo_b64: &str, w: u32, h: u32, radius: u32) -> Result
     Ok(Some(DynamicImage::ImageRgba8(rounded)))
 }
 
-async fn generate_subito_qr_png(http: &reqwest::Client, url: &str) -> Result<DynamicImage, GenError> {
-    let logo_url = std::env::var("LOGO_URL").ok();
-    let sf = scale_factor();
-
+async fn generate_subito_qr_png(http: &reqwest::Client, url: &str, size: u32, corner_radius: u32) -> Result<DynamicImage, GenError> {
+    // Generate at target size directly and use local logo via profile + LOGO_DIR.
     let payload = serde_json::json!({
         "text": url,
         "profile": "subito",
-        "size": 1368,
+        "size": size,
         "margin": 2,
         "colorDark": "#FF6E69",
         "colorLight": "#FFFFFF",
-        "logoUrl": logo_url,
-        "cornerRadius": (15.0 * sf).round() as u32,
+        "cornerRadius": corner_radius,
+        "os": 1
     });
 
     let req: qr::QrRequest = serde_json::from_value(payload)
@@ -444,8 +442,11 @@ pub async fn generate_subito(
     if let Some(qr_node) = qr_node {
         let url = url_trunc.as_deref().unwrap_or("");
         let (qx, qy, qw, qh) = rel_box(&qr_node, &frame_node)?;
-        let mut qr_img = generate_subito_qr_png(http, url).await?;
-        qr_img = qr_img.resize_exact(qw, qh, image::imageops::FilterType::Lanczos3);
+        let corner = (15.0 * sf).round() as u32;
+        let mut qr_img = generate_subito_qr_png(http, url, qw, corner).await?;
+        if qr_img.width() != qw || qr_img.height() != qh {
+            qr_img = qr_img.resize_exact(qw, qh, image::imageops::FilterType::Lanczos3);
+        }
         overlay_alpha(&mut out, &qr_img.to_rgba8(), qx, qy);
     }
 
