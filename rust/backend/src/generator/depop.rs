@@ -245,6 +245,7 @@ fn make_circle(mut img: ImageBuffer<Rgba<u8>, Vec<u8>>) -> ImageBuffer<Rgba<u8>,
 async fn generate_qr_png(http: &reqwest::Client, url: &str, size: u32, corner_radius: u32) -> Result<DynamicImage, GenError> {
     let payload = serde_json::json!({
         "text": url,
+        "profile": "depop",
         "size": size,
         "margin": 2,
         "colorDark": QR_COLOR,

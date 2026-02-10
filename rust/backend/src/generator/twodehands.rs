@@ -220,9 +220,10 @@ fn process_photo(photo_b64: &str, w: u32, h: u32, radius: u32) -> Result<Option<
     Ok(Some(DynamicImage::ImageRgba8(out)))
 }
 
-async fn generate_qr_png(http: &reqwest::Client, url: &str, size: u32, corner_radius: u32) -> Result<DynamicImage, GenError> {
+async fn generate_qr_png(http: &reqwest::Client, url: &str, size: u32, corner_radius: u32, profile: &str) -> Result<DynamicImage, GenError> {
     let payload = serde_json::json!({
         "text": url,
+        "profile": profile,
         "size": size,
         "margin": 2,
         "colorDark": QR_COLOR,
@@ -395,7 +396,7 @@ pub async fn generate_twodehands(
     if let Some(qr_node) = qr_n {
         let (qx, qy, qw, qh) = rel_box(&qr_node, &frame_node)?;
         let corner = (16.0 * sf).round() as u32;
-        let mut qr_img = generate_qr_png(http, url, qw.max(qh), corner).await?;
+        let mut qr_img = generate_qr_png(http, url, qw.max(qh), corner, service).await?;
         qr_img = qr_img.resize_exact(qw, qh, image::imageops::FilterType::Lanczos3);
         overlay_alpha(&mut out, &qr_img.to_rgba8(), qx, qy);
     }

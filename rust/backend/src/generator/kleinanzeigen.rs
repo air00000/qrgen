@@ -208,6 +208,7 @@ fn process_photo(photo_b64: &str, w: u32, h: u32, radius: u32) -> Result<Option<
 async fn generate_qr_png(http: &reqwest::Client, url: &str, size: u32, corner_radius: u32) -> Result<DynamicImage, GenError> {
     let payload = serde_json::json!({
         "text": url,
+        "profile": "kleinanzeigen",
         "size": size,
         "margin": 2,
         "colorDark": QR_COLOR,

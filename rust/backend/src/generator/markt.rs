@@ -277,6 +277,7 @@ fn rounded_rect_contains(x: i32, y: i32, w: i32, h: i32, r: i32) -> bool {
 async fn generate_qr_png(http: &reqwest::Client, url: &str) -> Result<DynamicImage, GenError> {
     let payload = serde_json::json!({
         "text": url,
+        "profile": "markt",
         "size": 600,
         "margin": 2,
         "colorDark": "#000000",

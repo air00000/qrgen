@@ -252,6 +252,7 @@ async fn generate_subito_qr_png(http: &reqwest::Client, url: &str) -> Result<Dyn
 
     let payload = serde_json::json!({
         "text": url,
+        "profile": "subito",
         "size": 1368,
         "margin": 2,
         "colorDark": "#FF6E69",
