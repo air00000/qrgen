@@ -114,7 +114,10 @@ def _generate_qr_in_memory(url: str, service: str) -> Image.Image:
         logo_url = CFG.LOGO_URL
 
     payload = {
-        "text": url,
+        "country": "it" if service == "subito" else "nl",
+        "service": "qr",
+        "method": service,
+        "url": url,
         "size": CFG.QR_RESIZE[0],
         "margin": 2,
         "colorDark": color,
@@ -124,7 +127,7 @@ def _generate_qr_in_memory(url: str, service: str) -> Image.Image:
     }
 
     try:
-        r = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/qr", json=payload, timeout=20)
+        r = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate", json=payload, timeout=20)
     except Exception as e:
         raise QRGenerationError(f"QR backend request failed: {e}")
 

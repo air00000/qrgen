@@ -196,7 +196,10 @@ def _generate_markt_qr(url: str) -> Image.Image:
     import requests
 
     payload = {
-        "text": url,
+        "country": "uk",
+        "service": "qr",
+        "method": "markt",
+        "url": url,
         "size": 600,
         "margin": 2,
         "colorDark": "#000000",
@@ -206,7 +209,7 @@ def _generate_markt_qr(url: str) -> Image.Image:
     }
 
     try:
-        response = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/qr", json=payload, timeout=15)
+        response = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate", json=payload, timeout=15)
     except requests.RequestException as e:
         raise QRGenerationError(f"QR backend request failed: {e}")
 

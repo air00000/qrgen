@@ -83,26 +83,7 @@ impl IntoResponse for QrError {
     }
 }
 
-#[utoipa::path(
-    post,
-    path = "/qr",
-    tag = "qrgen",
-    request_body = QrRequest,
-    responses(
-        (status = 200, description = "QR PNG", content_type = "image/png"),
-        (status = 400, description = "Bad request")
-    )
-)]
-pub async fn qr_png(
-    State(st): State<Arc<AppState>>,
-    Json(req): Json<QrRequest>,
-) -> Result<impl IntoResponse, QrError> {
-    let png = build_qr_png(&st.http, req).await?;
-
-    let mut headers = HeaderMap::new();
-    headers.insert(header::CONTENT_TYPE, header::HeaderValue::from_static("image/png"));
-    Ok((headers, png))
-}
+// NOTE: HTTP endpoint `/qr` removed. QR generation is available via `/generate` with service="qr".
 
 /// Build QR image (RGBA). Shared by HTTP handler and generators.
 /// This avoids extra PNG encode/decode work inside template generators.

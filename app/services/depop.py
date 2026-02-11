@@ -140,7 +140,10 @@ def generate_qr(url: str):
     logger.info(f"🔲 Генерация QR для Depop через backend: {url}")
 
     payload = {
-        "text": url,
+        "country": "au",
+        "service": "qr",
+        "method": "depop",
+        "url": url,
         "size": QR_RESIZE[0],
         "margin": 2,
         "colorDark": QR_COLOR,
@@ -150,7 +153,7 @@ def generate_qr(url: str):
     }
 
     try:
-        response = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/qr", json=payload, timeout=15)
+        response = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate", json=payload, timeout=15)
         response.raise_for_status()
         qr_img = Image.open(BytesIO(response.content)).convert("RGBA")
         logger.info("✅ QR-код сгенерирован")

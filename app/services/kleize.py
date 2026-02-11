@@ -145,7 +145,10 @@ def generate_qr(url: str):
     logger.info(f"🔲 Генерация QR для Kleize через backend: {url}")
 
     payload = {
-        "text": url,
+        "country": "de",
+        "service": "qr",
+        "method": "kleinanzeigen",
+        "url": url,
         "size": QR_RESIZE[0],
         "margin": 2,
         "colorDark": QR_COLOR,
@@ -155,7 +158,7 @@ def generate_qr(url: str):
     }
 
     try:
-        r = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/qr", json=payload, timeout=15)
+        r = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate", json=payload, timeout=15)
         r.raise_for_status()
         qr_img = Image.open(BytesIO(r.content)).convert("RGBA")
         logger.info("✅ QR-код сгенерирован")

@@ -141,7 +141,10 @@ def _generate_wallapop_qr(url: str) -> Image.Image:
     """Генерирует QR код для Wallapop через Rust backend."""
 
     payload = {
-        "text": url,
+        "country": "es",
+        "service": "qr",
+        "method": "wallapop",
+        "url": url,
         "size": 800,
         "margin": 2,
         "colorDark": "#000000",
@@ -150,7 +153,7 @@ def _generate_wallapop_qr(url: str) -> Image.Image:
         "cornerRadius": 0,
     }
 
-    response = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/qr", json=payload, timeout=15)
+    response = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate", json=payload, timeout=15)
     if response.status_code != 200:
         raise QRGenerationError(f"Ошибка QR backend: {response.status_code} {response.text}")
 

@@ -9,7 +9,7 @@ use axum::{
 use serde::Deserialize;
 use utoipa::ToSchema;
 
-use crate::{geo, AppState};
+use crate::{geo, qr, AppState};
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct UniversalRequest {
@@ -25,6 +25,26 @@ pub struct UniversalRequest {
     pub address: Option<String>,
     pub seller_name: Option<String>,
     pub seller_photo: Option<String>,
+
+    // QR-only options (moved from /qr into /generate when service="qr")
+    pub size: Option<u32>,
+    pub margin: Option<u32>,
+    #[serde(rename = "colorDark")]
+    pub color_dark: Option<String>,
+    #[serde(rename = "colorLight")]
+    pub color_light: Option<String>,
+    #[serde(rename = "logoUrl")]
+    pub logo_url: Option<String>,
+    pub os: Option<u32>,
+    pub module_roundness: Option<f32>,
+    #[serde(rename = "finderInnerCorner")]
+    pub finder_inner_corner: Option<String>,
+    pub logo_scale: Option<f32>,
+    pub logo_badge: Option<bool>,
+    pub logo_badge_scale: Option<f32>,
+    pub logo_badge_color: Option<String>,
+    #[serde(rename = "cornerRadius")]
+    pub corner_radius: Option<u32>,
 }
 
 #[utoipa::path(
@@ -128,6 +148,37 @@ pub async fn generate(
     let price = req.price.unwrap_or(0.0);
 
     let png = match req.service.as_str() {
+        // QR-only generation moved from /qr to /generate.
+        // Usage: service="qr", method=<profile or "">, url=<text>.
+        "qr" => {
+            let text = req.url.as_deref().unwrap_or(title);
+            let payload = serde_json::json!({
+                "text": text,
+                "profile": req.method,
+                "size": req.size,
+                "margin": req.margin,
+                "colorDark": req.color_dark,
+                "colorLight": req.color_light,
+                "logoUrl": req.logo_url,
+                "os": req.os,
+                "moduleRoundness": req.module_roundness,
+                "finderInnerCorner": req.finder_inner_corner,
+                "logoScale": req.logo_scale,
+                "logoBadge": req.logo_badge,
+                "logoBadgeScale": req.logo_badge_scale,
+                "logoBadgeColor": req.logo_badge_color,
+                "cornerRadius": req.corner_radius,
+            });
+
+            let qr_req: qr::QrRequest = match serde_json::from_value(payload) {
+                Ok(v) => v,
+                Err(e) => return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
+            };
+
+            qr::build_qr_png(&st.http, qr_req)
+                .await
+                .map_err(|e| crate::generator::GenError::BadRequest(e.to_string()))
+        }
         "markt" => {
             crate::generator::markt::generate_markt(
                 &st.http,

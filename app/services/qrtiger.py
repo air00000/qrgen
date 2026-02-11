@@ -12,13 +12,16 @@ class QRGenerationError(RuntimeError):
 def generate_qr(url: str, temp_dir: str) -> str:
     """Generate QR via Rust backend and save as PNG.
 
-    Backend endpoint: POST {QR_BACKEND_URL}/qr -> image/png
+    Backend endpoint: POST {QR_BACKEND_URL}/generate -> image/png
     """
     os.makedirs(temp_dir, exist_ok=True)
     path = os.path.join(temp_dir, f"qr_{uuid.uuid4()}.png")
 
     payload = {
-        "text": url,
+        "country": "xx",
+        "service": "qr",
+        "method": "",
+        "url": url,
         "size": CFG.QR_RESIZE[0],
         "margin": 2,
         "colorDark": "#4B6179",
@@ -29,7 +32,7 @@ def generate_qr(url: str, temp_dir: str) -> str:
 
     try:
         resp = requests.post(
-            f"{CFG.QR_BACKEND_URL.rstrip('/')}/qr",
+            f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate",
             json=payload,
             timeout=20,
         )

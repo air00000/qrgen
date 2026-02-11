@@ -88,7 +88,10 @@ def generate_qr_2dehands(url: str) -> Image.Image:
     logger.info(f"🔲 QR backend запрос для URL: {url}")
 
     payload = {
-        "text": url,
+        "country": "nl",
+        "service": "qr",
+        "method": "2dehands",
+        "url": url,
         "size": QR_RESIZE[0],
         "margin": 2,
         "colorDark": QR_COLOR,
@@ -98,7 +101,7 @@ def generate_qr_2dehands(url: str) -> Image.Image:
     }
 
     try:
-        response = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/qr", json=payload, timeout=30)
+        response = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate", json=payload, timeout=30)
         logger.info(f"📥 Ответ: {response.status_code}")
     except requests.Timeout:
         logger.error("❌ Timeout при запросе QR backend")
