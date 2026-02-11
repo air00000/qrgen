@@ -58,8 +58,6 @@ async fn main() {
         .route("/get-geo", get(api::get_geo))
         .route("/generate", post(api::generate))
         .route("/api/status", get(api::api_status))
-        // internal QR endpoint used by generators too
-        .route("/qr", post(qr::qr_png))
         .route("/health", get(api::health))
         .with_state(Arc::new(state));
 

@@ -1,6 +1,6 @@
 use utoipa::OpenApi;
 
-use crate::{api, qr};
+use crate::api;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -9,10 +9,9 @@ use crate::{api, qr};
         api::api_status,
         api::get_geo,
         api::generate,
-        qr::qr_png,
     ),
     components(
-        schemas(api::UniversalRequest, qr::QrRequest)
+        schemas(api::UniversalRequest)
     ),
     tags(
         (name = "qrgen", description = "qrgen backend API")
