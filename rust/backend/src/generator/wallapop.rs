@@ -656,9 +656,6 @@ pub async fn generate_wallapop(
         overlay_alpha(&mut out, &qr_rgba, px, py);
     }
 
-    let mut buf = Vec::new();
-    let enc = image::codecs::png::PngEncoder::new(&mut buf);
-    enc.write_image(&out, out.width(), out.height(), image::ExtendedColorType::Rgba8)
-        .map_err(|e| GenError::Image(e.to_string()))?;
+    let buf = util::png_encode_rgba8(&out).map_err(GenError::Image)?;
     Ok(buf)
 }

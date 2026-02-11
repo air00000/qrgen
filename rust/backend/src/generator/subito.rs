@@ -506,23 +506,16 @@ pub async fn generate_subito(
     let final_img = {
         let _span = perf_scope!("gen.subito.final.resize");
         DynamicImage::ImageRgba8(out)
-            .resize_exact(1304, 2838, image::imageops::FilterType::Lanczos3)
+            .resize_exact(1304, 2838, util::final_resize_filter())
             .to_rgb8()
     };
 
-    let mut buf = Vec::new();
-    {
+    let buf = {
         let _span = perf_scope!("gen.subito.png.encode");
-        let enc = image::codecs::png::PngEncoder::new(&mut buf);
-        enc.write_image(
-            &final_img,
-            final_img.width(),
-            final_img.height(),
-            image::ExtendedColorType::Rgb8,
-        )
-        .map_err(|e| GenError::Image(e.to_string()))?;
-        drop(_span);
-    }
+        // Encode as RGBA for simplicity; alpha is fully opaque at this point.
+        let rgba = DynamicImage::ImageRgb8(final_img).to_rgba8();
+        util::png_encode_rgba8(&rgba).map_err(GenError::Image)?
+    };
 
     Ok(buf)
 }

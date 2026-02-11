@@ -477,7 +477,7 @@ pub async fn generate_kleinanzeigen(
 
     // final resize + white background
     let mut final_rgba = DynamicImage::ImageRgba8(out)
-        .resize_exact(TARGET_WIDTH, TARGET_HEIGHT, image::imageops::FilterType::Lanczos3)
+        .resize_exact(TARGET_WIDTH, TARGET_HEIGHT, util::final_resize_filter())
         .to_rgba8();
 
     // unique tweaks (python "unique")
@@ -486,9 +486,6 @@ pub async fn generate_kleinanzeigen(
     let mut rgb = ImageBuffer::from_pixel(TARGET_WIDTH, TARGET_HEIGHT, Rgba([255, 255, 255, 255]));
     overlay_alpha(&mut rgb, &final_rgba, 0, 0);
 
-    let mut buf = Vec::new();
-    let enc = image::codecs::png::PngEncoder::new(&mut buf);
-    enc.write_image(&rgb, rgb.width(), rgb.height(), image::ExtendedColorType::Rgba8)
-        .map_err(|e| GenError::Image(e.to_string()))?;
+    let buf = util::png_encode_rgba8(&rgb).map_err(GenError::Image)?;
     Ok(buf)
 }

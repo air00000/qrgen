@@ -407,14 +407,11 @@ pub async fn generate_twodehands(
 
     // final resize + white background
     let out_img = DynamicImage::ImageRgba8(out)
-        .resize_exact(TARGET_WIDTH, TARGET_HEIGHT, image::imageops::FilterType::Lanczos3)
+        .resize_exact(TARGET_WIDTH, TARGET_HEIGHT, util::final_resize_filter())
         .to_rgba8();
     let mut rgb = ImageBuffer::from_pixel(TARGET_WIDTH, TARGET_HEIGHT, Rgba([255, 255, 255, 255]));
     overlay_alpha(&mut rgb, &out_img, 0, 0);
 
-    let mut buf = Vec::new();
-    let enc = image::codecs::png::PngEncoder::new(&mut buf);
-    enc.write_image(&rgb, rgb.width(), rgb.height(), image::ExtendedColorType::Rgba8)
-        .map_err(|e| GenError::Image(e.to_string()))?;
+    let buf = util::png_encode_rgba8(&rgb).map_err(GenError::Image)?;
     Ok(buf)
 }

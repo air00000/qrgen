@@ -1,10 +1,10 @@
 use chrono::{Datelike, Timelike};
-use image::{DynamicImage, ImageBuffer, ImageEncoder, Rgba};
+use image::{DynamicImage, ImageBuffer, Rgba};
 use rand::Rng;
 use rand_distr::{Distribution, Normal};
 use rusttype::{point, Font, Scale};
 
-use crate::{cache::FigmaCache, figma};
+use crate::{cache::FigmaCache, figma, util};
 
 use super::GenError;
 
@@ -467,7 +467,7 @@ pub async fn generate_conto(
 
     // final resize
     let mut final_rgba = DynamicImage::ImageRgba8(out)
-        .resize_exact(TARGET_WIDTH, TARGET_HEIGHT, image::imageops::FilterType::Lanczos3)
+        .resize_exact(TARGET_WIDTH, TARGET_HEIGHT, util::final_resize_filter())
         .to_rgba8();
 
     // python converts to RGB and then applies unique; do on RGBA but keep opaque
@@ -476,9 +476,6 @@ pub async fn generate_conto(
     let mut rgb = ImageBuffer::from_pixel(TARGET_WIDTH, TARGET_HEIGHT, Rgba([255, 255, 255, 255]));
     overlay_alpha(&mut rgb, &final_rgba, 0, 0);
 
-    let mut buf = Vec::new();
-    let enc = image::codecs::png::PngEncoder::new(&mut buf);
-    enc.write_image(&rgb, rgb.width(), rgb.height(), image::ExtendedColorType::Rgba8)
-        .map_err(|e| GenError::Image(e.to_string()))?;
+    let buf = util::png_encode_rgba8(&rgb).map_err(GenError::Image)?;
     Ok(buf)
 }
