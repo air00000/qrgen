@@ -3,6 +3,7 @@ use image::{DynamicImage, GenericImageView, ImageBuffer, ImageEncoder, Rgba};
 use rusttype::{point, Font, Scale};
 
 use crate::{cache::FigmaCache, figma, qr, util};
+use crate::perf_scope;
 
 use super::GenError;
 
@@ -62,23 +63,8 @@ fn scale_factor() -> f32 {
         .unwrap_or(2.0)
 }
 
-fn fonts_dir() -> std::path::PathBuf {
-    let project_root = std::env::var("PROJECT_ROOT").ok().unwrap_or_else(|| {
-        let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-        manifest_dir.join("../..").to_string_lossy().to_string()
-    });
-    std::path::PathBuf::from(project_root)
-        .join("app")
-        .join("assets")
-        .join("fonts")
-}
-
-fn load_font(name: &str) -> Result<Font<'static>, GenError> {
-    let bytes = std::fs::read(fonts_dir().join(name))
-        .map_err(|e| GenError::Internal(format!("failed to read font {name}: {e}")))?;
-    let f = Font::try_from_vec(bytes)
-        .ok_or_else(|| GenError::Internal(format!("failed to parse font {name}")))?;
-    Ok(f)
+fn load_font(name: &str) -> Result<std::sync::Arc<Font<'static>>, GenError> {
+    super::font_cache::load_font_cached(name)
 }
 
 fn bbox(v: &serde_json::Value) -> Option<(f32, f32, f32, f32)> {
@@ -278,6 +264,8 @@ pub async fn generate_subito(
     name: Option<&str>,
     address: Option<&str>,
 ) -> Result<Vec<u8>, GenError> {
+    let _span_total = perf_scope!("gen.subito.total");
+
     let variant = Variant::parse(method)
         .ok_or_else(|| GenError::BadRequest(format!("unknown subito method: {method}")))?;
 
@@ -295,22 +283,25 @@ pub async fn generate_subito(
     let service_name = variant.service_name();
 
     let cache = FigmaCache::new(service_name);
-    let (template_json, frame_png, frame_node, used_cache) = if cache.exists() {
-        let (structure, png) = cache.load()?;
-        let frame_node = figma::find_node(&structure, PAGE, frame_name);
-        if let Some(node) = frame_node {
-            (structure, png, node, true)
+    let (template_json, frame_png, frame_node, used_cache) = {
+        let _span = perf_scope!("gen.subito.figma.load");
+        if cache.exists() {
+            let (structure, png) = cache.load()?;
+            let frame_node = figma::find_node(&structure, PAGE, frame_name);
+            if let Some(node) = frame_node {
+                (structure, png, node, true)
+            } else {
+                let structure = figma::get_template_json(http).await?;
+                let frame_node = figma::find_node(&structure, PAGE, frame_name)
+                    .ok_or_else(|| GenError::BadRequest(format!("frame not found: {frame_name}")))?;
+                (structure, Vec::new(), frame_node, false)
+            }
         } else {
             let structure = figma::get_template_json(http).await?;
             let frame_node = figma::find_node(&structure, PAGE, frame_name)
                 .ok_or_else(|| GenError::BadRequest(format!("frame not found: {frame_name}")))?;
             (structure, Vec::new(), frame_node, false)
         }
-    } else {
-        let structure = figma::get_template_json(http).await?;
-        let frame_node = figma::find_node(&structure, PAGE, frame_name)
-            .ok_or_else(|| GenError::BadRequest(format!("frame not found: {frame_name}")))?;
-        (structure, Vec::new(), frame_node, false)
     };
 
     let frame_png = if used_cache {
@@ -325,9 +316,12 @@ pub async fn generate_subito(
         png
     };
 
-    let mut frame_img = image::load_from_memory(&frame_png)
-        .map_err(|e| GenError::Image(e.to_string()))?
-        .to_rgba8();
+    let mut frame_img = {
+        let _span = perf_scope!("gen.subito.frame.decode");
+        image::load_from_memory(&frame_png)
+            .map_err(|e| GenError::Image(e.to_string()))?
+            .to_rgba8()
+    };
 
     let (fw, fh) = {
         let (_, _, w, h) = bbox(&frame_node).ok_or_else(|| GenError::Internal("frame missing bbox".into()))?;
@@ -429,15 +423,18 @@ pub async fn generate_subito(
 
     // photo
     if let Some(photo_b64) = photo_b64 {
+        let _span = perf_scope!("gen.subito.photo");
         let (ix, iy, iw, ih) = rel_box(&photo_node, &frame_node)?;
         let radius = (15.0 * sf).round() as u32;
         if let Some(photo) = square_photo_from_b64(photo_b64, iw, ih, radius)? {
             overlay_alpha(&mut out, &photo.to_rgba8(), ix, iy);
         }
+        drop(_span);
     }
 
     // qr
     if let Some(qr_node) = qr_node {
+        let _span = perf_scope!("gen.subito.qr");
         let url = url_trunc.as_deref().unwrap_or("");
         let (qx, qy, qw, qh) = rel_box(&qr_node, &frame_node)?;
         let corner = (15.0 * sf).round() as u32;
@@ -446,21 +443,22 @@ pub async fn generate_subito(
             qr_img = qr_img.resize_exact(qw, qh, image::imageops::FilterType::Lanczos3);
         }
         overlay_alpha(&mut out, &qr_img.to_rgba8(), qx, qy);
+        drop(_span);
     }
 
     // title
     let (tx, ty, _tw, _th) = rel_box(&title_node, &frame_node)?;
-    draw_text_with_letter_spacing(&mut out, &aktiv, nazv_px, tx as i32, ty as i32, hex_color("#1F262D")?, &title, 0.0);
+    draw_text_with_letter_spacing(&mut out, &*aktiv, nazv_px, tx as i32, ty as i32, hex_color("#1F262D")?, &title, 0.0);
 
     // price
     let (px, py, _pw, _ph) = rel_box(&price_node, &frame_node)?;
-    draw_text_with_letter_spacing(&mut out, &aktiv, nazv_px, px as i32, py as i32, hex_color("#838386")?, &formatted_price, 0.0);
+    draw_text_with_letter_spacing(&mut out, &*aktiv, nazv_px, px as i32, py as i32, hex_color("#838386")?, &formatted_price, 0.0);
 
     // name
     if let (Some(n), Some(name)) = (name_node, name.as_deref()) {
         if !name.is_empty() {
             let (ix, iy, _iw, _ih) = rel_box(&n, &frame_node)?;
-            draw_text_with_letter_spacing(&mut out, &aktiv, small_px, ix as i32, iy as i32, hex_color("#838386")?, name, 0.0);
+            draw_text_with_letter_spacing(&mut out, &*aktiv, small_px, ix as i32, iy as i32, hex_color("#838386")?, name, 0.0);
         }
     }
 
@@ -468,7 +466,7 @@ pub async fn generate_subito(
     if let (Some(n), Some(addr)) = (address_node, address.as_deref()) {
         if !addr.is_empty() {
             let (ix, iy, _iw, _ih) = rel_box(&n, &frame_node)?;
-            draw_text_with_letter_spacing(&mut out, &aktiv, small_px, ix as i32, iy as i32, hex_color("#838386")?, addr, 0.0);
+            draw_text_with_letter_spacing(&mut out, &*aktiv, small_px, ix as i32, iy as i32, hex_color("#838386")?, addr, 0.0);
         }
     }
 
@@ -476,9 +474,9 @@ pub async fn generate_subito(
     {
         let (bx, by, bw, _bh) = rel_box(&total_node, &frame_node)?;
         let right_x = (bx + bw) as f32;
-        let width = text_width(&aktiv, nazv_px, &formatted_price, 0.0);
+        let width = text_width(&*aktiv, nazv_px, &formatted_price, 0.0);
         let start_x = (right_x - width).round() as i32;
-        draw_text_with_letter_spacing(&mut out, &aktiv, nazv_px, start_x, by as i32, hex_color("#838386")?, &formatted_price, 0.0);
+        draw_text_with_letter_spacing(&mut out, &*aktiv, nazv_px, start_x, by as i32, hex_color("#838386")?, &formatted_price, 0.0);
     }
 
     // time (right aligned with letter spacing)
@@ -490,11 +488,11 @@ pub async fn generate_subito(
         let (bx, by, bw, _bh) = rel_box(&time_node, &frame_node)?;
         let right_x = (bx + bw) as f32;
         let letter_spacing = (time_px * 0.02).round();
-        let width = text_width(&sfpro, time_px, &time_text, letter_spacing);
+        let width = text_width(&*sfpro, time_px, &time_text, letter_spacing);
         let start_x = (right_x - width).round() as i32;
         draw_text_with_letter_spacing(
             &mut out,
-            &sfpro,
+            &*sfpro,
             time_px,
             start_x,
             by as i32,
@@ -505,19 +503,26 @@ pub async fn generate_subito(
     }
 
     // final resize 2x -> 1x (as in python)
-    let final_img = DynamicImage::ImageRgba8(out)
-        .resize_exact(1304, 2838, image::imageops::FilterType::Lanczos3)
-        .to_rgb8();
+    let final_img = {
+        let _span = perf_scope!("gen.subito.final.resize");
+        DynamicImage::ImageRgba8(out)
+            .resize_exact(1304, 2838, image::imageops::FilterType::Lanczos3)
+            .to_rgb8()
+    };
 
     let mut buf = Vec::new();
-    let enc = image::codecs::png::PngEncoder::new(&mut buf);
-    enc.write_image(
-        &final_img,
-        final_img.width(),
-        final_img.height(),
-        image::ExtendedColorType::Rgb8,
-    )
-    .map_err(|e| GenError::Image(e.to_string()))?;
+    {
+        let _span = perf_scope!("gen.subito.png.encode");
+        let enc = image::codecs::png::PngEncoder::new(&mut buf);
+        enc.write_image(
+            &final_img,
+            final_img.width(),
+            final_img.height(),
+            image::ExtendedColorType::Rgb8,
+        )
+        .map_err(|e| GenError::Image(e.to_string()))?;
+        drop(_span);
+    }
 
     Ok(buf)
 }

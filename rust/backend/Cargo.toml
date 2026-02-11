@@ -39,5 +39,9 @@ once_cell = "1.19"
 utoipa = { version = "5", features = ["axum_extras"] }
 utoipa-swagger-ui = { version = "8", features = ["axum"] }
 
+[features]
+# Lightweight timing logs (tracing target="perf").
+perf = []
+
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

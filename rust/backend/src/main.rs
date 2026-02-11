@@ -8,6 +8,8 @@ mod figma;
 mod cache;
 mod openapi;
 mod generator;
+#[macro_use]
+mod perf;
 
 use std::{net::SocketAddr, sync::Arc};
 

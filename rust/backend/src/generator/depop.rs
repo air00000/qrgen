@@ -22,21 +22,8 @@ fn scale_factor() -> f32 {
         .unwrap_or(2.0)
 }
 
-fn fonts_dir() -> std::path::PathBuf {
-    let project_root = std::env::var("PROJECT_ROOT").ok().unwrap_or_else(|| {
-        let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-        manifest_dir.join("../..").to_string_lossy().to_string()
-    });
-    std::path::PathBuf::from(project_root)
-        .join("app")
-        .join("assets")
-        .join("fonts")
-}
-
-fn load_font(name: &str) -> Result<Font<'static>, GenError> {
-    let bytes = std::fs::read(fonts_dir().join(name))
-        .map_err(|e| GenError::Internal(format!("failed to read font {name}: {e}")))?;
-    Font::try_from_vec(bytes).ok_or_else(|| GenError::Internal(format!("failed to parse font {name}")))
+fn load_font(name: &str) -> Result<std::sync::Arc<Font<'static>>, GenError> {
+    super::font_cache::load_font_cached(name)
 }
 
 fn bbox(v: &serde_json::Value) -> Option<(f32, f32, f32, f32)> {
@@ -409,12 +396,12 @@ pub async fn generate_depop(
         let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
         let px_font = 42.0 * sf;
         let max_w = 564.0 * sf;
-        let lines = truncate_2_lines(&outer_light, px_font, title, max_w);
+        let lines = truncate_2_lines(&*outer_light, px_font, title, max_w);
         let line_h = (42.0 * sf * 1.45).round() as i32;
         for (i, line) in lines.iter().enumerate() {
             draw_text_with_letter_spacing(
                 &mut out,
-                &outer_light,
+                &*outer_light,
                 px_font,
                 x as i32,
                 y as i32 + offset_base + (i as i32) * line_h,
@@ -442,16 +429,16 @@ pub async fn generate_depop(
         Ok(())
     };
 
-    draw_right(&mut out, price_n, &price_str, &outer_light_48, false)?;
-    draw_right(&mut out, subtotal_n, &total_str, &outer_light_48, false)?;
-    draw_right(&mut out, total_n, &total_str, &outer_medium, true)?;
+    draw_right(&mut out, price_n, &price_str, &*outer_light_48, false)?;
+    draw_right(&mut out, subtotal_n, &total_str, &*outer_light_48, false)?;
+    draw_right(&mut out, total_n, &total_str, &*outer_medium, true)?;
 
     // seller name
     if let Some(n) = seller_n {
         let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
         draw_text_with_letter_spacing(
             &mut out,
-            &outer_medium_40,
+            &*outer_medium_40,
             40.0 * sf,
             x as i32,
             y as i32 + offset_base + (8.0 * sf / 2.0).round() as i32,
@@ -468,7 +455,7 @@ pub async fn generate_depop(
         let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
         let cx = x as f32 + w as f32 / 2.0 - 3.0;
         let cy = (y as f32 + offset_base as f32 + 64.0 * sf / 2.0) + (h as f32 / 2.0);
-        draw_text_center(&mut out, &sfpro, 50.0 * sf, cx, cy, hex_color("#000000")?, &time_text);
+        draw_text_center(&mut out, &*sfpro, 50.0 * sf, cx, cy, hex_color("#000000")?, &time_text);
     }
 
     // product photo (python rel_y includes BASE_TEXT_OFFSET)
@@ -628,12 +615,12 @@ pub async fn generate_depop_variant(
         let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
         let px_font = 42.0 * sf;
         let max_w = 452.0 * sf;
-        let lines = truncate_2_lines(&outer_light, px_font, title, max_w);
+        let lines = truncate_2_lines(&*outer_light, px_font, title, max_w);
         let line_h = (42.0 * sf * 1.472).round() as i32;
         for (i, line) in lines.iter().enumerate() {
             draw_text_with_letter_spacing(
                 &mut out,
-                &outer_light,
+                &*outer_light,
                 px_font,
                 x as i32,
                 y as i32 + offset_base + (i as i32) * line_h,
@@ -660,9 +647,9 @@ pub async fn generate_depop_variant(
         Ok(())
     };
 
-    draw_right(&mut out, price_n, &price_str, &outer_light_48)?;
-    draw_right(&mut out, subtotal_n, &total_str, &outer_light_48)?;
-    draw_right(&mut out, total_n, &total_str, &outer_medium)?;
+    draw_right(&mut out, price_n, &price_str, &*outer_light_48)?;
+    draw_right(&mut out, subtotal_n, &total_str, &*outer_light_48)?;
+    draw_right(&mut out, total_n, &total_str, &*outer_medium)?;
 
     // time center (python uses Rome)
     if let Some(n) = time_n {
@@ -671,7 +658,7 @@ pub async fn generate_depop_variant(
         let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
         let cx = x as f32 + w as f32 / 2.0 - 3.0;
         let cy = (y as f32 + offset_base as f32 + 64.0 * sf / 2.0) + (h as f32 / 2.0);
-        draw_text_center(&mut out, &sfpro, 50.0 * sf, cx, cy, hex_color("#000000")?, &time_text);
+        draw_text_center(&mut out, &*sfpro, 50.0 * sf, cx, cy, hex_color("#000000")?, &time_text);
     }
 
     // photo y -5 (python rel_y includes BASE_TEXT_OFFSET)

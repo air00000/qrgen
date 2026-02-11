@@ -6,6 +6,8 @@ pub mod kleinanzeigen;
 pub mod conto;
 pub mod depop;
 
+mod font_cache;
+
 use thiserror::Error;
 
 #[derive(Debug, Error)]

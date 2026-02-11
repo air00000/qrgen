@@ -14,6 +14,7 @@ use image::{
 };
 
 use crate::qr_render::{FinderInnerCorner, RenderOpts};
+use crate::perf_scope;
 use qrcode::{EcLevel, QrCode};
 use serde::Deserialize;
 use utoipa::ToSchema;
@@ -106,6 +107,7 @@ pub async fn qr_png(
 /// Build QR image (RGBA). Shared by HTTP handler and generators.
 /// This avoids extra PNG encode/decode work inside template generators.
 pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<DynamicImage, QrError> {
+    let _span_total = perf_scope!("qr.build_image.total");
     let profile = req.profile.as_deref().unwrap_or("");
 
     // Keep historical sizes: wallapop base 800, others 1368.
@@ -150,15 +152,20 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
     let code = QrCode::with_error_correction_level(req.text.as_bytes(), EcLevel::H)
         .map_err(|_| QrError::QrBuild)?;
 
-    let img = render_qr(&code, size, margin, os, module_roundness, finder_inner_corner, dark, light);
+    let img = {
+        let _span = perf_scope!("qr.render");
+        render_qr(&code, size, margin, os, module_roundness, finder_inner_corner, dark, light)
+    };
     let mut img = DynamicImage::ImageRgba8(img);
 
     // Logo overlay:
     // - Prefer local disk logos (LOGO_DIR/LOGO_PATH_*/LOGO_FILE_*), optionally selected by profile.
     // - Remote http(s) logos are disabled by default for performance/reliability; enable with ALLOW_REMOTE_LOGO=1.
     if let Some(path) = resolve_logo_path(profile, req.logo_url.as_deref()) {
+        let _span = perf_scope!("qr.logo.disk");
         let logo = load_logo_from_disk_cached(&path)?;
         img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
+        drop(_span);
     } else if let Some(url) = req.logo_url.as_deref() {
         if url.starts_with("http://") || url.starts_with("https://") {
             // Remote logos are allowed by default to preserve the original Python behavior.
@@ -170,13 +177,17 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
                 ));
             }
 
+            let _span = perf_scope!("qr.logo.http");
             let logo = fetch_logo_http_cached(http, url).await?;
             img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
+            drop(_span);
         }
     }
 
     if corner_radius > 0 {
+        let _span = perf_scope!("qr.round_corners");
         img = round_corners(img, corner_radius);
+        drop(_span);
     }
 
     Ok(img)
@@ -187,15 +198,19 @@ pub async fn build_qr_png(http: &reqwest::Client, req: QrRequest) -> Result<Vec<
     let img = build_qr_image(http, req).await?;
 
     let mut png = Vec::new();
-    let encoder = image::codecs::png::PngEncoder::new(&mut png);
-    encoder
-        .write_image(
-            img.as_bytes(),
-            img.width(),
-            img.height(),
-            img.color().into(),
-        )
-        .map_err(|_| QrError::PngEncode)?;
+    {
+        let _span = perf_scope!("qr.png.encode");
+        let encoder = image::codecs::png::PngEncoder::new(&mut png);
+        encoder
+            .write_image(
+                img.as_bytes(),
+                img.width(),
+                img.height(),
+                img.color().into(),
+            )
+            .map_err(|_| QrError::PngEncode)?;
+        drop(_span);
+    }
 
     Ok(png)
 }
