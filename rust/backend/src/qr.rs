@@ -159,9 +159,18 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
     let mut img = DynamicImage::ImageRgba8(img);
 
     // Logo overlay:
-    // Only remote http(s) logoUrl is supported (per user requirement).
-    // Local disk logos (LOGO_DIR / app/data/logos fallback) are intentionally not used.
-    if let Some(url) = req.logo_url.as_deref() {
+    // Only remote http(s) logoUrl is supported.
+    // If logoUrl is not provided, we use service/profile defaults to match the original Python behavior.
+    // Local disk logos are intentionally not used.
+    let logo_url: Option<String> = if let Some(u) = req.logo_url.as_deref() {
+        Some(u.to_string())
+    } else if profile.eq_ignore_ascii_case("subito") {
+        std::env::var("LOGO_URL").ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+    } else {
+        profile_default_logo_url(profile).map(|s| s.to_string())
+    };
+
+    if let Some(url) = logo_url.as_deref() {
         if url.starts_with("http://") || url.starts_with("https://") {
             // Remote logos are allowed by default to preserve the original Python behavior.
             // If you need to hard-disable network fetches, set DISABLE_REMOTE_LOGO=1.
@@ -246,6 +255,22 @@ fn render_qr(
 
 static LOGO_CACHE: Lazy<Mutex<HashMap<String, Arc<DynamicImage>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
+
+fn profile_default_logo_url(profile: &str) -> Option<&'static str> {
+    match profile.to_ascii_lowercase().as_str() {
+        // Restored from original Python services (fixed URLs)
+        "markt" => Some("https://i.ibb.co/DfXf3X7x/Frame-40.png"),
+        "wallapop" => Some("https://i.ibb.co/pvwMgd8k/Rectangle-355.png"),
+        "2dehands" | "2ememain" | "twodehands" => Some("https://i.ibb.co/6crPXzDJ/2dehlogo.png"),
+        "depop" => Some("https://i.ibb.co/v7N8Sbs/Frame-38.png"),
+        // "kleize" in python maps to kleinanzeigen generator here
+        "kleinanzeigen" | "kleize" => Some("https://i.ibb.co/mV9pQDLS/Frame-36.png"),
+        // Subito logo is configurable in the original project via LOGO_URL.
+        // Use LOGO_URL env to enforce a logo for subito.
+        "subito" => None,
+        _ => None,
+    }
+}
 
 fn profile_logo_default_filename(profile: &str) -> Option<&'static str> {
     match profile.to_ascii_lowercase().as_str() {
