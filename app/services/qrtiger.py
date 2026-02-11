@@ -34,6 +34,7 @@ def generate_qr(url: str, temp_dir: str) -> str:
         resp = requests.post(
             f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate",
             json=payload,
+            headers={"X-API-Key": CFG.BACKEND_API_KEY or ""},
             timeout=20,
         )
     except Exception as e:

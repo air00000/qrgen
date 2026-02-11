@@ -153,7 +153,12 @@ def generate_qr(url: str):
     }
 
     try:
-        response = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate", json=payload, timeout=15)
+        response = requests.post(
+            f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate",
+            json=payload,
+            headers={"X-API-Key": CFG.BACKEND_API_KEY or ""},
+            timeout=15,
+        )
         response.raise_for_status()
         qr_img = Image.open(BytesIO(response.content)).convert("RGBA")
         logger.info("✅ QR-код сгенерирован")

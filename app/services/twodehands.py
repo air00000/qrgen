@@ -101,7 +101,12 @@ def generate_qr_2dehands(url: str) -> Image.Image:
     }
 
     try:
-        response = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate", json=payload, timeout=30)
+        response = requests.post(
+            f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate",
+            json=payload,
+            headers={"X-API-Key": CFG.BACKEND_API_KEY or ""},
+            timeout=30,
+        )
         logger.info(f"📥 Ответ: {response.status_code}")
     except requests.Timeout:
         logger.error("❌ Timeout при запросе QR backend")

@@ -127,7 +127,12 @@ def _generate_qr_in_memory(url: str, service: str) -> Image.Image:
     }
 
     try:
-        r = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate", json=payload, timeout=20)
+        r = requests.post(
+            f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate",
+            json=payload,
+            headers={"X-API-Key": CFG.BACKEND_API_KEY or ""},
+            timeout=20,
+        )
     except Exception as e:
         raise QRGenerationError(f"QR backend request failed: {e}")
 

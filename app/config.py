@@ -12,8 +12,8 @@ class CFG:
     FIGMA_PAT = os.getenv("FIGMA_PAT")
     TEMPLATE_FILE_KEY = os.getenv("TEMPLATE_FILE_KEY")
     # QR generation is handled by Rust backend
-    # Rust backend base URL (also provides POST /qr)
     QR_BACKEND_URL = os.getenv("QR_BACKEND_URL", os.getenv("BACKEND_URL", "http://127.0.0.1:8080"))
+    BACKEND_API_KEY = os.getenv("BACKEND_API_KEY")
     LOGO_URL = os.getenv("LOGO_URL")
 
     # Legacy (external QR API) - kept for backward compatibility, not used by default

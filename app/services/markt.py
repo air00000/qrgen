@@ -209,7 +209,12 @@ def _generate_markt_qr(url: str) -> Image.Image:
     }
 
     try:
-        response = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate", json=payload, timeout=15)
+        response = requests.post(
+            f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate",
+            json=payload,
+            headers={"X-API-Key": CFG.BACKEND_API_KEY or ""},
+            timeout=15,
+        )
     except requests.RequestException as e:
         raise QRGenerationError(f"QR backend request failed: {e}")
 

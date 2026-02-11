@@ -153,7 +153,12 @@ def _generate_wallapop_qr(url: str) -> Image.Image:
         "cornerRadius": 0,
     }
 
-    response = requests.post(f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate", json=payload, timeout=15)
+    response = requests.post(
+        f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate",
+        json=payload,
+        headers={"X-API-Key": CFG.BACKEND_API_KEY or ""},
+        timeout=15,
+    )
     if response.status_code != 200:
         raise QRGenerationError(f"Ошибка QR backend: {response.status_code} {response.text}")
 
