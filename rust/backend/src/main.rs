@@ -1,7 +1,12 @@
 mod api;
 mod apikey;
+mod geo;
+mod qr;
+mod util;
+mod figma;
+mod cache;
 mod openapi;
-mod services;
+mod generator;
 
 use std::{net::SocketAddr, sync::Arc};
 
@@ -18,9 +23,6 @@ pub struct AppState {
 
 #[tokio::main]
 async fn main() {
-    // Load ./\.env when starting from repo root (same behavior as Python).
-    let _ = dotenvy::dotenv();
-
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
@@ -32,8 +34,10 @@ async fn main() {
         .unwrap_or(8080);
 
     let api_keys_path = std::env::var("APIKEYS").ok();
-    let api_keys = Arc::new(apikey::ApiKeys::load(api_keys_path.as_deref())
-        .expect("failed to load api keys"));
+    let api_keys = Arc::new(
+        apikey::ApiKeys::load(api_keys_path.as_deref())
+            .expect("failed to load api keys")
+    );
 
     let state = AppState {
         http: reqwest::Client::new(),
@@ -43,12 +47,20 @@ async fn main() {
     let openapi = openapi::ApiDoc::openapi();
 
     let app = Router::new()
-        .merge(SwaggerUi::new("/docs").url("/openapi.json", openapi))
-        .route("/health", get(api::health))
-        .route("/services", get(api::services))
+        // Swagger UI + OpenAPI schema
+        .merge(
+            SwaggerUi::new("/docs")
+                .url("/openapi.json", openapi)
+        )
+        .route("/openapi.json", get(|| async { axum::Json(openapi::ApiDoc::openapi()) }))
+
+        // API
         .route("/get-geo", get(api::get_geo))
-        .route("/api/status", get(api::api_status))
         .route("/generate", post(api::generate))
+        .route("/api/status", get(api::api_status))
+        // internal QR endpoint used by generators too
+        .route("/qr", post(qr::qr_png))
+        .route("/health", get(api::health))
         .with_state(Arc::new(state));
 
     let addr: SocketAddr = format!("{host}:{port}").parse().expect("bind addr");

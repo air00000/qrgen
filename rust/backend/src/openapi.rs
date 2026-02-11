@@ -1,21 +1,21 @@
 use utoipa::OpenApi;
 
-use crate::api;
+use crate::{api, qr};
 
 #[derive(OpenApi)]
 #[openapi(
     paths(
         api::health,
-        api::services,
-        api::get_geo,
         api::api_status,
+        api::get_geo,
         api::generate,
+        qr::qr_png,
     ),
     components(
-        schemas(api::UniversalRequest, api::HealthResponse)
+        schemas(api::UniversalRequest, qr::QrRequest)
     ),
     tags(
-        (name = "qrgen", description = "qrgen Rust backend API")
+        (name = "qrgen", description = "qrgen backend API")
     )
 )]
 pub struct ApiDoc;

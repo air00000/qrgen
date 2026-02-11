@@ -2,7 +2,11 @@ use parking_lot::RwLock;
 use std::{collections::HashMap, fs, path::PathBuf, time::SystemTime};
 
 /// Matches Python logic in `app/services/apikey.py`.
-/// Keys stored in JSON `app/data/api_keys.json`.
+///
+/// Python stores API keys in JSON file `app/data/api_keys.json` as:
+/// `{ "api_xxx": "Name" }`.
+///
+/// We keep a small in-memory cache and auto-reload when the file mtime changes.
 #[derive(Default)]
 pub struct ApiKeys {
     path: PathBuf,
@@ -21,6 +25,7 @@ impl ApiKeys {
             mtime: RwLock::new(None),
             inner: RwLock::new(HashMap::new()),
         };
+        // best-effort preload
         this.refresh();
         Ok(this)
     }
@@ -49,6 +54,7 @@ impl ApiKeys {
             }
         }
 
+        // If JSON is broken, treat as empty (same spirit as Python best-effort)
         *self.inner.write() = HashMap::new();
         *self.mtime.write() = mtime;
     }
