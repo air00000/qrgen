@@ -144,12 +144,6 @@ def generate_qr(url: str):
         "service": "qr",
         "method": "depop",
         "url": url,
-        "size": QR_RESIZE[0],
-        "margin": 2,
-        "colorDark": QR_COLOR,
-        "colorLight": "#FFFFFF",
-        "logoUrl": QR_LOGO_URL,
-        "cornerRadius": int(QR_CORNER_RADIUS * SCALE_FACTOR),
     }
 
     try:

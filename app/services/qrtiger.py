@@ -22,12 +22,6 @@ def generate_qr(url: str, temp_dir: str) -> str:
         "service": "qr",
         "method": "",
         "url": url,
-        "size": CFG.QR_RESIZE[0],
-        "margin": 2,
-        "colorDark": "#4B6179",
-        "colorLight": "#FFFFFF",
-        "logoUrl": CFG.LOGO_URL,
-        "cornerRadius": int(CFG.CORNER_RADIUS * CFG.SCALE_FACTOR),
     }
 
     try:

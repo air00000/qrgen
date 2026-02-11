@@ -149,12 +149,6 @@ def generate_qr(url: str):
         "service": "qr",
         "method": "kleinanzeigen",
         "url": url,
-        "size": QR_RESIZE[0],
-        "margin": 2,
-        "colorDark": QR_COLOR,
-        "colorLight": "#FFFFFF",
-        "logoUrl": QR_LOGO_URL,
-        "cornerRadius": int(CORNER_RADIUS_QR * SCALE_FACTOR),
     }
 
     try:

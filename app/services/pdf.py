@@ -118,12 +118,6 @@ def _generate_qr_in_memory(url: str, service: str) -> Image.Image:
         "service": "qr",
         "method": service,
         "url": url,
-        "size": CFG.QR_RESIZE[0],
-        "margin": 2,
-        "colorDark": color,
-        "colorLight": "#FFFFFF",
-        "logoUrl": logo_url,
-        "cornerRadius": int(CFG.CORNER_RADIUS * CFG.SCALE_FACTOR),
     }
 
     try:

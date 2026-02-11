@@ -92,12 +92,6 @@ def generate_qr_2dehands(url: str) -> Image.Image:
         "service": "qr",
         "method": "2dehands",
         "url": url,
-        "size": QR_RESIZE[0],
-        "margin": 2,
-        "colorDark": QR_COLOR,
-        "colorLight": "#FFFFFF",
-        "logoUrl": QR_LOGO_URL,
-        "cornerRadius": int(CORNER_RADIUS_QR * TWODEHANDS_SCALE_FACTOR),
     }
 
     try:

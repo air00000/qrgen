@@ -145,12 +145,6 @@ def _generate_wallapop_qr(url: str) -> Image.Image:
         "service": "qr",
         "method": "wallapop",
         "url": url,
-        "size": 800,
-        "margin": 2,
-        "colorDark": "#000000",
-        "colorLight": "#FFFFFF",
-        "logoUrl": QR_LOGO_URL,
-        "cornerRadius": 0,
     }
 
     response = requests.post(

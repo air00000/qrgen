@@ -200,12 +200,6 @@ def _generate_markt_qr(url: str) -> Image.Image:
         "service": "qr",
         "method": "markt",
         "url": url,
-        "size": 600,
-        "margin": 2,
-        "colorDark": "#000000",
-        "colorLight": "#FFFFFF",
-        "logoUrl": QR_LOGO_URL,
-        "cornerRadius": 20,
     }
 
     try:
