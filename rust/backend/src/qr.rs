@@ -162,33 +162,35 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
     // Only remote http(s) logoUrl is supported.
     // If logoUrl is not provided, we use service/profile defaults to match the original Python behavior.
     // Local disk logos are intentionally not used.
-    let logo_url: Option<String> = if let Some(u) = req.logo_url.as_deref() {
-        Some(u.to_string())
-    } else if profile.eq_ignore_ascii_case("subito") {
-        std::env::var("LOGO_URL").ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+    // Always use default remote logo per profile (ignore request.logoUrl).
+    // This matches the original Python project behavior where each service had a fixed logo URL.
+    let logo_url: Option<String> = if profile.eq_ignore_ascii_case("subito") {
+        std::env::var("LOGO_URL")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
     } else {
         profile_default_logo_url(profile).map(|s| s.to_string())
     };
 
-    if let Some(url) = logo_url.as_deref() {
-        if url.starts_with("http://") || url.starts_with("https://") {
-            // Remote logos are allowed by default to preserve the original Python behavior.
-            // If you need to hard-disable network fetches, set DISABLE_REMOTE_LOGO=1.
-            let disable = std::env::var("DISABLE_REMOTE_LOGO").unwrap_or_default();
-            if disable == "1" || disable.eq_ignore_ascii_case("true") {
-                return Err(QrError::LogoFetch(
-                    "remote logoUrl is disabled by DISABLE_REMOTE_LOGO=1".to_string(),
-                ));
-            }
+    let url = logo_url.ok_or_else(|| {
+        QrError::LogoFetch(format!(
+            "default logo URL is not configured for profile '{profile}' (set LOGO_URL for subito)"
+        ))
+    })?;
 
-            let _span = perf_scope!("qr.logo.http");
-            let logo = fetch_logo_http_cached(http, url).await?;
-            img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
-            drop(_span);
-        } else {
-            return Err(QrError::InvalidOption("logoUrl must be http(s) URL".to_string()));
-        }
+    // Remote logos are allowed by default. If you need to hard-disable network fetches, set DISABLE_REMOTE_LOGO=1.
+    let disable = std::env::var("DISABLE_REMOTE_LOGO").unwrap_or_default();
+    if disable == "1" || disable.eq_ignore_ascii_case("true") {
+        return Err(QrError::LogoFetch(
+            "remote logoUrl is disabled by DISABLE_REMOTE_LOGO=1".to_string(),
+        ));
     }
+
+    let _span = perf_scope!("qr.logo.http");
+    let logo = fetch_logo_http_cached(http, &url).await?;
+    img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
+    drop(_span);
 
     if corner_radius > 0 {
         let _span = perf_scope!("qr.round_corners");
