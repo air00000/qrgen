@@ -271,7 +271,7 @@ fn profile_default_logo_url(profile: &str) -> Option<&'static str> {
 }
 
 fn embedded_subito_logo() -> Result<DynamicImage, QrError> {
-    static BYTES: &[u8] = include_bytes!("../../../app/assets/logos/subito.jpg");
+    static BYTES: &[u8] = include_bytes!("../../../app/assets/logos/subito.png");
     image::load_from_memory(BYTES).map_err(|_| QrError::LogoDecode)
 }
 
