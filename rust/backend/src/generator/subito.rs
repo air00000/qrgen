@@ -311,7 +311,8 @@ pub async fn generate_subito(
             .get("id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| GenError::Internal("frame node missing id".into()))?;
-        let png = figma::export_frame_as_png(http, node_id, None).await?;
+        // Export at scale=2 to match Figma source of truth (1:1), avoid post-resize.
+        let png = figma::export_frame_as_png(http, node_id, Some(2)).await?;
         cache.save(&template_json, &png)?;
         png
     };
@@ -329,8 +330,12 @@ pub async fn generate_subito(
         ((w * sf).round() as u32, (h * sf).round() as u32)
     };
 
+    // No frame resize: we render 1:1 as Figma export (scale=2).
     if frame_img.width() != fw || frame_img.height() != fh {
-        frame_img = image::imageops::resize(&frame_img, fw, fh, image::imageops::FilterType::Lanczos3);
+        return Err(GenError::Internal(format!(
+            "frame export size mismatch: got {}x{}, expected {}x{}",
+            frame_img.width(), frame_img.height(), fw, fh
+        )));
     }
 
     let mut out = frame_img;
@@ -502,19 +507,10 @@ pub async fn generate_subito(
         );
     }
 
-    // final resize 2x -> 1x (as in python)
-    let final_img = {
-        let _span = perf_scope!("gen.subito.final.resize");
-        DynamicImage::ImageRgba8(out)
-            .resize_exact(1304, 2838, util::final_resize_filter())
-            .to_rgb8()
-    };
-
+    // No final resize: return exactly as rendered on the exported Figma frame (scale=2).
     let buf = {
         let _span = perf_scope!("gen.subito.png.encode");
-        // Encode as RGBA for simplicity; alpha is fully opaque at this point.
-        let rgba = DynamicImage::ImageRgb8(final_img).to_rgba8();
-        util::png_encode_rgba8(&rgba).map_err(GenError::Image)?
+        util::png_encode_rgba8(&out).map_err(GenError::Image)?
     };
 
     Ok(buf)
