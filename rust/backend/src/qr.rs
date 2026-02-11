@@ -159,14 +159,9 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
     let mut img = DynamicImage::ImageRgba8(img);
 
     // Logo overlay:
-    // - Prefer local disk logos (LOGO_DIR/LOGO_PATH_*/LOGO_FILE_*), optionally selected by profile.
-    // - Remote http(s) logos are disabled by default for performance/reliability; enable with ALLOW_REMOTE_LOGO=1.
-    if let Some(path) = resolve_logo_path(profile, req.logo_url.as_deref()) {
-        let _span = perf_scope!("qr.logo.disk");
-        let logo = load_logo_from_disk_cached(&path)?;
-        img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
-        drop(_span);
-    } else if let Some(url) = req.logo_url.as_deref() {
+    // Only remote http(s) logoUrl is supported (per user requirement).
+    // Local disk logos (LOGO_DIR / app/data/logos fallback) are intentionally not used.
+    if let Some(url) = req.logo_url.as_deref() {
         if url.starts_with("http://") || url.starts_with("https://") {
             // Remote logos are allowed by default to preserve the original Python behavior.
             // If you need to hard-disable network fetches, set DISABLE_REMOTE_LOGO=1.
@@ -181,6 +176,8 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
             let logo = fetch_logo_http_cached(http, url).await?;
             img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
             drop(_span);
+        } else {
+            return Err(QrError::InvalidOption("logoUrl must be http(s) URL".to_string()));
         }
     }
 
