@@ -164,9 +164,18 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
     // Local disk logos are intentionally not used.
     // Always use default remote logo per profile (ignore request.logoUrl).
     // This matches the original Python project behavior where each service had a fixed logo URL.
-    let url = profile_default_logo_url(profile).ok_or_else(|| {
+    let logo_url: Option<String> = if profile.eq_ignore_ascii_case("subito") {
+        std::env::var("LOGO_URL")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+    } else {
+        profile_default_logo_url(profile).map(|s| s.to_string())
+    };
+
+    let url = logo_url.ok_or_else(|| {
         QrError::LogoFetch(format!(
-            "default logo URL is not configured for profile '{profile}'"
+            "default logo URL is not configured for profile '{profile}' (set LOGO_URL for subito)"
         ))
     })?;
 
@@ -258,7 +267,9 @@ fn profile_default_logo_url(profile: &str) -> Option<&'static str> {
         "depop" => Some("https://i.ibb.co/v7N8Sbs/Frame-38.png"),
         // "kleize" in python maps to kleinanzeigen generator here
         "kleinanzeigen" | "kleize" => Some("https://i.ibb.co/mV9pQDLS/Frame-36.png"),
-        "subito" => Some("https://i.ibb.co/ZRF7byfk/coin.png"),
+        // Subito logo is configurable in the original project via LOGO_URL.
+        // Use LOGO_URL env to enforce a logo for subito.
+        "subito" => None,
         _ => None,
     }
 }
