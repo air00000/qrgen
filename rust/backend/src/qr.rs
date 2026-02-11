@@ -159,38 +159,35 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
     let mut img = DynamicImage::ImageRgba8(img);
 
     // Logo overlay:
-    // Only remote http(s) logoUrl is supported.
-    // If logoUrl is not provided, we use service/profile defaults to match the original Python behavior.
-    // Local disk logos are intentionally not used.
-    // Always use default remote logo per profile (ignore request.logoUrl).
-    // This matches the original Python project behavior where each service had a fixed logo URL.
-    let logo_url: Option<String> = if profile.eq_ignore_ascii_case("subito") {
-        std::env::var("LOGO_URL")
-            .ok()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
+    // - Subito uses an embedded logo from repo (qrgen/app/assets/logos/subito.jpg)
+    // - Other services use fixed remote URLs (matching the original Python project)
+    // - Request.logoUrl is ignored (logo is always applied)
+
+    if profile.eq_ignore_ascii_case("subito") {
+        let _span = perf_scope!("qr.logo.embedded");
+        let logo = embedded_subito_logo()?;
+        img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
+        drop(_span);
     } else {
-        profile_default_logo_url(profile).map(|s| s.to_string())
-    };
+        let url = profile_default_logo_url(profile).ok_or_else(|| {
+            QrError::LogoFetch(format!(
+                "default logo URL is not configured for profile '{profile}'"
+            ))
+        })?;
 
-    let url = logo_url.ok_or_else(|| {
-        QrError::LogoFetch(format!(
-            "default logo URL is not configured for profile '{profile}' (set LOGO_URL for subito)"
-        ))
-    })?;
+        // Remote logos are allowed by default. If you need to hard-disable network fetches, set DISABLE_REMOTE_LOGO=1.
+        let disable = std::env::var("DISABLE_REMOTE_LOGO").unwrap_or_default();
+        if disable == "1" || disable.eq_ignore_ascii_case("true") {
+            return Err(QrError::LogoFetch(
+                "remote logoUrl is disabled by DISABLE_REMOTE_LOGO=1".to_string(),
+            ));
+        }
 
-    // Remote logos are allowed by default. If you need to hard-disable network fetches, set DISABLE_REMOTE_LOGO=1.
-    let disable = std::env::var("DISABLE_REMOTE_LOGO").unwrap_or_default();
-    if disable == "1" || disable.eq_ignore_ascii_case("true") {
-        return Err(QrError::LogoFetch(
-            "remote logoUrl is disabled by DISABLE_REMOTE_LOGO=1".to_string(),
-        ));
+        let _span = perf_scope!("qr.logo.http");
+        let logo = fetch_logo_http_cached(http, url).await?;
+        img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
+        drop(_span);
     }
-
-    let _span = perf_scope!("qr.logo.http");
-    let logo = fetch_logo_http_cached(http, &url).await?;
-    img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
-    drop(_span);
 
     if corner_radius > 0 {
         let _span = perf_scope!("qr.round_corners");
@@ -267,11 +264,15 @@ fn profile_default_logo_url(profile: &str) -> Option<&'static str> {
         "depop" => Some("https://i.ibb.co/v7N8Sbs/Frame-38.png"),
         // "kleize" in python maps to kleinanzeigen generator here
         "kleinanzeigen" | "kleize" => Some("https://i.ibb.co/mV9pQDLS/Frame-36.png"),
-        // Subito logo is configurable in the original project via LOGO_URL.
-        // Use LOGO_URL env to enforce a logo for subito.
-        "subito" => None,
+        // Subito: use embedded logo from repo (qrgen/app/assets/logos/subito.jpg)
+        "subito" => Some("embedded:subito"),
         _ => None,
     }
+}
+
+fn embedded_subito_logo() -> Result<DynamicImage, QrError> {
+    static BYTES: &[u8] = include_bytes!("../../../app/assets/logos/subito.jpg");
+    image::load_from_memory(BYTES).map_err(|_| QrError::LogoDecode)
 }
 
 fn profile_logo_default_filename(profile: &str) -> Option<&'static str> {
