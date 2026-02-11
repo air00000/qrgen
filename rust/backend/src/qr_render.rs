@@ -37,29 +37,34 @@ fn carve_round_corner(
     corner: (i32, i32),
     light: Rgba<u8>,
 ) {
-    // corner: (sx, sy) where each is either +1 (right/down) or -1 (left/up)
-    // We carve a quarter circle of radius r in an r x r block.
+    // Carve a quarter circle of radius r in an r×r block.
+    // Important: use a half-pixel centered circle to avoid jaggy/"spike" artifacts
+    // on outer rounded corners when connectivity-aware merging is enabled.
     if r == 0 {
         return;
     }
-    let r_i = r as i32;
+
     let (sx, sy) = corner;
-    let cx = if sx < 0 { (r_i - 1) } else { 0 };
-    let cy = if sy < 0 { (r_i - 1) } else { 0 };
+    let r_f = r as f32;
+    // Center at half-pixel for symmetry.
+    let cx = r_f - 0.5;
+    let cy = r_f - 0.5;
+    // Slightly shrink threshold to reduce corner "nibbles" at small radii.
+    let thr2 = (r_f - 0.25) * (r_f - 0.25);
 
-    for dy in 0..r_i {
-        for dx in 0..r_i {
-            let px = if sx < 0 { x0 as i32 + dx } else { x0 as i32 + (r_i - 1 - dx) };
-            let py = if sy < 0 { y0 as i32 + dy } else { y0 as i32 + (r_i - 1 - dy) };
+    for dy in 0..r {
+        for dx in 0..r {
+            // Map local corner coords into the correct quadrant.
+            let lx = if sx < 0 { dx as f32 } else { (r - 1 - dx) as f32 };
+            let ly = if sy < 0 { dy as f32 } else { (r - 1 - dy) as f32 };
 
-            let ddx = dx - cx;
-            let ddy = dy - cy;
-            if ddx * ddx + ddy * ddy >= r_i * r_i {
-                if px >= 0 && py >= 0 {
-                    let (pxu, pyu) = (px as u32, py as u32);
-                    if pxu < img.width() && pyu < img.height() {
-                        img.put_pixel(pxu, pyu, light);
-                    }
+            let ddx = lx - cx;
+            let ddy = ly - cy;
+            if ddx * ddx + ddy * ddy >= thr2 {
+                let px = x0 + dx;
+                let py = y0 + dy;
+                if px < img.width() && py < img.height() {
+                    img.put_pixel(px, py, light);
                 }
             }
         }
