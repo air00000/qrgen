@@ -23,6 +23,9 @@ pub struct AppState {
 
 #[tokio::main]
 async fn main() {
+    // Load qrgen/.env when running from repo root (matches Python behavior).
+    let _ = dotenvy::dotenv();
+
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
