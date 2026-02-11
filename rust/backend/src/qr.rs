@@ -158,23 +158,18 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
     };
     let mut img = DynamicImage::ImageRgba8(img);
 
-    // Logo overlay:
-    // - Subito uses an embedded logo from repo (qrgen/app/assets/logos/subito.jpg)
-    // - Other services use fixed remote URLs (matching the original Python project)
-    // - Request.logoUrl is ignored (logo is always applied)
+    // Logo overlay priority:
+    // 1) Subito -> local repo logo (app/data/logos/subito.png) with embedded fallback
+    // 2) Known profile -> fixed default URL
+    // 3) Back-compat: if request provides logoUrl -> use it (http fetch or local file)
+    // 4) Otherwise: no logo (do not fail)
 
     if profile.eq_ignore_ascii_case("subito") {
-        let _span = perf_scope!("qr.logo.embedded");
+        let _span = perf_scope!("qr.logo.subito.local");
         let logo = embedded_subito_logo()?;
         img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
         drop(_span);
-    } else {
-        let url = profile_default_logo_url(profile).ok_or_else(|| {
-            QrError::LogoFetch(format!(
-                "default logo URL is not configured for profile '{profile}'"
-            ))
-        })?;
-
+    } else if let Some(url) = profile_default_logo_url(profile) {
         // Remote logos are allowed by default. If you need to hard-disable network fetches, set DISABLE_REMOTE_LOGO=1.
         let disable = std::env::var("DISABLE_REMOTE_LOGO").unwrap_or_default();
         if disable == "1" || disable.eq_ignore_ascii_case("true") {
@@ -187,6 +182,25 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
         let logo = fetch_logo_http_cached(http, url).await?;
         img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
         drop(_span);
+    } else if let Some(logo_url) = req.logo_url.as_deref() {
+        let disable = std::env::var("DISABLE_REMOTE_LOGO").unwrap_or_default();
+        if disable == "1" || disable.eq_ignore_ascii_case("true") {
+            return Err(QrError::LogoFetch(
+                "remote logoUrl is disabled by DISABLE_REMOTE_LOGO=1".to_string(),
+            ));
+        }
+
+        if logo_url.starts_with("http://") || logo_url.starts_with("https://") {
+            let _span = perf_scope!("qr.logo.http");
+            let logo = fetch_logo_http_cached(http, logo_url).await?;
+            img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
+            drop(_span);
+        } else if let Some(path) = resolve_logo_path(profile, Some(logo_url)) {
+            let _span = perf_scope!("qr.logo.disk");
+            let logo = load_logo_from_disk_cached(&path)?;
+            img = overlay_logo(img, logo, logo_scale, logo_badge, logo_badge_scale, logo_badge_color);
+            drop(_span);
+        }
     }
 
     if corner_radius > 0 {
