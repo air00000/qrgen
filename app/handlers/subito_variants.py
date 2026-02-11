@@ -267,8 +267,8 @@ async def generate_subito_image(update: Update, context: ContextTypes.DEFAULT_TY
         from io import BytesIO
         from telegram import InputFile
         
-        await update.message.reply_photo(
-            photo=InputFile(BytesIO(image_data), filename="subito.png"),
+        await update.message.reply_document(
+            document=InputFile(BytesIO(image_data), filename="subito.png"),
             caption=f"✅ <b>Subito сгенерирован!</b>\n\n"
                     f"📝 {title}\n"
                     f"💵 €{price:.2f}",
@@ -312,8 +312,8 @@ async def generate_subito_image_query(update: Update, context: ContextTypes.DEFA
         from io import BytesIO
         from telegram import InputFile
         
-        await update.callback_query.message.reply_photo(
-            photo=InputFile(BytesIO(image_data), filename="subito.png"),
+        await update.callback_query.message.reply_document(
+            document=InputFile(BytesIO(image_data), filename="subito.png"),
             caption=f"✅ <b>Subito сгенерирован!</b>\n\n"
                     f"📝 {title}\n"
                     f"💵 €{price:.2f}",
