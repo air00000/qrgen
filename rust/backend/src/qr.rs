@@ -271,6 +271,13 @@ fn profile_default_logo_url(profile: &str) -> Option<&'static str> {
 }
 
 fn embedded_subito_logo() -> Result<DynamicImage, QrError> {
+    // Prefer runtime logo from repo-local app/data/logos (requested behavior),
+    // fallback to embedded asset if the file is missing.
+    let p = PathBuf::from("app/data/logos/subito.png");
+    if p.exists() {
+        return load_logo_from_disk_cached(&p);
+    }
+
     static BYTES: &[u8] = include_bytes!("../../../app/assets/logos/subito.png");
     image::load_from_memory(BYTES).map_err(|_| QrError::LogoDecode)
 }
