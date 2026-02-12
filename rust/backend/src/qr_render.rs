@@ -194,13 +194,12 @@ fn draw_finder(
     };
     fill_rounded_rect(img, ix0, iy0, inner, inner, inner_r, light);
 
-    // Center: 3x3 dark (rounded too, to match mobile-app style eyes)
+    // Center: 3x3 dark
     let center = 3 * module_px;
     let cx0 = x0 + 2 * module_px;
     let cy0 = y0 + 2 * module_px;
-    // Keep slightly smaller radius than outer to avoid over-rounding at small sizes.
-    let center_r = outer_r.saturating_sub((module_px as f32 * 0.10).round() as u32);
-    fill_rounded_rect(img, cx0, cy0, center, center, center_r, dark);
+    // Keep the center square for wallapop-style eyes (no rounding).
+    fill_rounded_rect(img, cx0, cy0, center, center, 0, dark);
 }
 
 pub fn render_stylized(code: &QrCode, opts: RenderOpts) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
