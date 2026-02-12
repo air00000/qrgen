@@ -54,7 +54,33 @@ impl FigmaCache {
         }
         let structure_pretty = serde_json::to_string_pretty(structure)?;
         std::fs::write(&self.structure_path, structure_pretty)?;
-        std::fs::write(&self.template_path, template_png)?;
+
+        // Optimize Figma template PNG once at cache time (speed-first at request time).
+        // Can be disabled with FIGMA_CACHE_OPTIMIZE=0.
+        let optimize = std::env::var("FIGMA_CACHE_OPTIMIZE").unwrap_or_else(|_| "1".to_string());
+        let optimize = !(optimize == "0" || optimize.eq_ignore_ascii_case("false"));
+
+        let png_out: Vec<u8> = if optimize {
+            // oxipng is lossless but CPU-heavy; cache is written rarely so it's OK here.
+            // Moderate preset by default; override with FIGMA_CACHE_OXIPNG_LEVEL.
+            let level = std::env::var("FIGMA_CACHE_OXIPNG_LEVEL")
+                .ok()
+                .and_then(|v| v.parse::<u8>().ok())
+                .unwrap_or(4)
+                .min(6);
+
+            let mut opts = oxipng::Options::from_preset(level);
+            opts.fix_errors = true;
+
+            match oxipng::optimize_from_memory(template_png, &opts) {
+                Ok(out) => out,
+                Err(_) => template_png.to_vec(),
+            }
+        } else {
+            template_png.to_vec()
+        };
+
+        std::fs::write(&self.template_path, png_out)?;
         Ok(())
     }
 
