@@ -284,17 +284,8 @@ fn draw_finder(
                 if il { 0 } else { outer_r },
             )
         }
-        // Subito: make the INNER-facing corner slightly more rounded than the outer ones.
-        FinderCornerStyle::InnerBoost => {
-            let (c_tl, c_tr, c_bl, c_br) = inner_corner;
-            let inner_r = outer_r.saturating_add(boost_px);
-            (
-                if c_tl { inner_r } else { outer_r },
-                if c_tr { inner_r } else { outer_r },
-                if c_bl { inner_r } else { outer_r },
-                if c_br { inner_r } else { outer_r },
-            )
-        }
+        // Subito: keep OUTER contour uniform; boost applies to INNER contour (hole) only.
+        FinderCornerStyle::InnerBoost => (outer_r, outer_r, outer_r, outer_r)
     };
     fill_rounded_rect_radii(img, x0, y0, outer, outer, r_tl, r_tr, r_bl, r_br, true, true, true, true, dark);
 
@@ -321,7 +312,7 @@ fn draw_finder(
                 if il { 0 } else { inner_r },
             )
         }
-        // Subito: round ALL inner corners a bit more.
+        // Subito: inner hole corners should be MORE rounded than the outer contour corners.
         FinderCornerStyle::InnerBoost => {
             let inner2 = inner_r.saturating_add(boost_px);
             (inner2, inner2, inner2, inner2)
@@ -359,19 +350,8 @@ fn draw_finder(
                 if il { 0 } else { center_r },
             )
         }
-        FinderCornerStyle::InnerBoost => {
-            // Subito: inner-facing corner slightly more rounded.
-            let (c_tl, c_tr, c_bl, c_br) = inner_corner;
-            // Use a smaller boost for 3x3 to avoid over-rounding.
-            let boost2 = (boost_px / 2).max(1);
-            let inner2 = center_r.saturating_add(boost2);
-            (
-                if c_tl { inner2 } else { center_r },
-                if c_tr { inner2 } else { center_r },
-                if c_bl { inner2 } else { center_r },
-                if c_br { inner2 } else { center_r },
-            )
-        },
+        // Subito: round ALL corners of the center square (uniform).
+        FinderCornerStyle::InnerBoost => (center_r, center_r, center_r, center_r),
     };
 
     fill_rounded_rect_radii(img, cx0, cy0, center, center, cr_tl, cr_tr, cr_bl, cr_br, true, true, true, true, dark);
