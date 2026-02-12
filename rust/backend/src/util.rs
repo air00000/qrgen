@@ -60,8 +60,8 @@ pub fn png_encode_rgba8(img: &ImageBuffer<Rgba<u8>, Vec<u8>>) -> Result<Vec<u8>,
 
     // Post-optimize losslessly, but only when it matters.
     // oxipng can be CPU-heavy on large, photo-rich images (depop/wallapop).
-    // Disable with PNG_OXIPNG=0.
-    let oxi = std::env::var("PNG_OXIPNG").unwrap_or_else(|_| "1".to_string());
+    // Enable with PNG_OXIPNG=1 (default is OFF for speed).
+    let oxi = std::env::var("PNG_OXIPNG").unwrap_or_else(|_| "0".to_string());
     let oxi = !(oxi == "0" || oxi.eq_ignore_ascii_case("false"));
 
     // Only run oxipng if the PNG is above a threshold (default ~1.8MB).
