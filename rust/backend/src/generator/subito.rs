@@ -57,10 +57,9 @@ impl Variant {
 }
 
 fn scale_factor() -> f32 {
-    std::env::var("SCALE_FACTOR")
-        .ok()
-        .and_then(|s| s.parse::<f32>().ok())
-        .unwrap_or(2.0)
+    // EXPERIMENT (subito-origin-frame branch): use original Figma export scale=1
+    // to reduce CPU (png decode/encode, overlays) and payload size.
+    1.0
 }
 
 fn load_font(name: &str) -> Result<std::sync::Arc<Font<'static>>, GenError> {
@@ -310,8 +309,8 @@ pub async fn generate_subito(
             .get("id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| GenError::Internal("frame node missing id".into()))?;
-        // Export at scale=2 to match Figma source of truth (1:1), avoid post-resize.
-        let png = figma::export_frame_as_png(http, node_id, Some(2)).await?;
+        // Export at original scale=1 (experiment branch).
+        let png = figma::export_frame_as_png(http, node_id, Some(1)).await?;
         cache.save(&template_json, &png)?;
         png
     };
