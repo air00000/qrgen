@@ -151,7 +151,22 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
 
     let img = {
         let _span = perf_scope!("qr.render");
-        render_qr(&code, size, margin, os, module_roundness, finder_inner_corner, dark, light)
+        render_qr(
+            &code,
+            size,
+            margin,
+            os,
+            module_roundness,
+            finder_inner_corner,
+            dark,
+            light,
+            // Stronger rounding for 2dehands/2ememain (match app look)
+            if profile.eq_ignore_ascii_case("2dehands") || profile.eq_ignore_ascii_case("2ememain") {
+                0.48
+            } else {
+                0.35
+            },
+        )
     };
     let mut img = DynamicImage::ImageRgba8(img);
 
@@ -240,7 +255,8 @@ fn render_qr(
     finder_inner_corner: FinderInnerCorner,
     dark: [u8; 3],
     light: [u8; 3],
-) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
+    finder_outer_roundness: f32,
+) -> ImageBuffer<Rgba<u8>, Vec<u8>> { 
     let opts = RenderOpts {
         size,
         margin,
@@ -249,6 +265,7 @@ fn render_qr(
         light,
         module_roundness,
         finder_inner_corner,
+        finder_outer_roundness,
     };
 
     let os_img = crate::qr_render::render_stylized(code, opts);

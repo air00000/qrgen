@@ -20,6 +20,8 @@ pub struct RenderOpts {
     /// 0..0.5-ish. 0 = square modules; 0.5 = circles.
     pub module_roundness: f32,
     pub finder_inner_corner: FinderInnerCorner,
+    /// 0..0.5-ish. Controls rounding of the *finder outer ring* (eyes).
+    pub finder_outer_roundness: f32,
 }
 
 fn is_finder_module(x: u32, y: u32, w: u32) -> bool {
@@ -187,7 +189,8 @@ fn draw_finder(
     let iy0 = y0 + module_px;
     let inner_r = match opts.finder_inner_corner {
         FinderInnerCorner::OuterOnly => 0,
-        FinderInnerCorner::Both => outer_r.saturating_sub(module_px / 2),
+        // Round the inner contour corners as well (makes the dark ring corners rounded).
+        FinderInnerCorner::Both => outer_r,
     };
     fill_rounded_rect(img, ix0, iy0, inner, inner, inner_r, light);
 
@@ -242,8 +245,9 @@ pub fn render_stylized(code: &QrCode, opts: RenderOpts) -> ImageBuffer<Rgba<u8>,
         }
     }
 
-    // Finder patterns
-    let outer_r = ((module_px as f32) * 0.35).round() as u32;
+    // Finder patterns (eyes)
+    let finder_roundness = opts.finder_outer_roundness.clamp(0.0, 0.5);
+    let outer_r = ((module_px as f32) * finder_roundness).round() as u32;
     // top-left
     draw_finder(&mut img, opts.margin, opts.margin, module_px, outer_r, opts);
     // top-right
