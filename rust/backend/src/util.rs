@@ -49,7 +49,9 @@ pub fn png_encode_rgba8(img: &ImageBuffer<Rgba<u8>, Vec<u8>>) -> Result<Vec<u8>,
     let fast = !(fast == "0" || fast.eq_ignore_ascii_case("false"));
 
     let (comp, filter) = if fast {
-        (CompressionType::Fast, PngFilter::NoFilter)
+        // Still speed-first, but Adaptive filter often reduces PNG size massively
+        // with small CPU overhead compared to NoFilter.
+        (CompressionType::Fast, PngFilter::Adaptive)
     } else {
         (CompressionType::Best, PngFilter::Adaptive)
     };
