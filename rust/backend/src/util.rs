@@ -58,15 +58,24 @@ pub fn png_encode_rgba8(img: &ImageBuffer<Rgba<u8>, Vec<u8>>) -> Result<Vec<u8>,
     enc.write_image(img, img.width(), img.height(), image::ExtendedColorType::Rgba8)
         .map_err(|e| e.to_string())?;
 
-    // Post-optimize losslessly (can reduce size a lot on UI-ish images).
+    // Post-optimize losslessly, but only when it matters.
+    // oxipng can be CPU-heavy on large, photo-rich images (depop/wallapop).
     // Disable with PNG_OXIPNG=0.
     let oxi = std::env::var("PNG_OXIPNG").unwrap_or_else(|_| "1".to_string());
     let oxi = !(oxi == "0" || oxi.eq_ignore_ascii_case("false"));
-    if oxi {
+
+    // Only run oxipng if the PNG is above a threshold (default ~1.8MB).
+    let min_bytes = std::env::var("PNG_OXIPNG_MIN_BYTES")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(1_800_000);
+
+    if oxi && buf.len() >= min_bytes {
+        // Default to a moderate preset to keep latency reasonable.
         let level = std::env::var("PNG_OXIPNG_LEVEL")
             .ok()
             .and_then(|v| v.parse::<u8>().ok())
-            .unwrap_or(4)
+            .unwrap_or(2)
             .min(6);
 
         let mut opts = oxipng::Options::from_preset(level);
