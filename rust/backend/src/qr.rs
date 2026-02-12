@@ -365,6 +365,7 @@ fn load_logo_from_disk_cached(path: &PathBuf) -> Result<DynamicImage, QrError> {
 
     let bytes = std::fs::read(path).map_err(|e| QrError::LogoFetch(format!("read {}: {e}", key)))?;
     let img = image::load_from_memory(&bytes).map_err(|_| QrError::LogoDecode)?;
+    let img = remove_solid_background_if_opaque(img);
 
     LOGO_CACHE.lock().insert(key, Arc::new(img.clone()));
     Ok(img)
@@ -389,6 +390,8 @@ async fn fetch_logo_http_cached(http: &reqwest::Client, url: &str) -> Result<Dyn
         .map_err(|e| QrError::LogoFetch(e.to_string()))?;
 
     let img = image::load_from_memory(&bytes).map_err(|_| QrError::LogoDecode)?;
+    let img = remove_solid_background_if_opaque(img);
+
     LOGO_CACHE
         .lock()
         .insert(url.to_string(), Arc::new(img.clone()));
@@ -403,6 +406,8 @@ fn overlay_logo(
     badge_scale: f32,
     badge_color: [u8; 3],
 ) -> DynamicImage {
+    let logo = remove_solid_background_if_opaque(logo);
+
     let (w, h) = qr.dimensions();
     let target = ((w.min(h) as f32) * logo_scale) as u32;
 
@@ -504,4 +509,65 @@ fn parse_hex_color(s: &str) -> Result<[u8; 3], QrError> {
     }
     let bytes = hex::decode(s).map_err(|_| QrError::InvalidColor(s.to_string()))?;
     Ok([bytes[0], bytes[1], bytes[2]])
+}
+
+fn remove_solid_background_if_opaque(img: DynamicImage) -> DynamicImage {
+    let mut rgba = img.to_rgba8();
+    let (w, h) = rgba.dimensions();
+    if w == 0 || h == 0 {
+        return DynamicImage::ImageRgba8(rgba);
+    }
+
+    // If image already has transparency, keep it.
+    let has_alpha = rgba.pixels().any(|p| p[3] < 255);
+    if has_alpha {
+        return DynamicImage::ImageRgba8(rgba);
+    }
+
+    // Estimate background color as the average of 4 corners (small 8x8 patches).
+    let patch = 8u32;
+    let mut sum = [0u64; 3];
+    let mut cnt = 0u64;
+
+    let corners = [
+        (0u32, 0u32),
+        (w.saturating_sub(patch), 0u32),
+        (0u32, h.saturating_sub(patch)),
+        (w.saturating_sub(patch), h.saturating_sub(patch)),
+    ];
+
+    for (cx, cy) in corners {
+        for y in cy..(cy + patch).min(h) {
+            for x in cx..(cx + patch).min(w) {
+                let p = rgba.get_pixel(x, y);
+                sum[0] += p[0] as u64;
+                sum[1] += p[1] as u64;
+                sum[2] += p[2] as u64;
+                cnt += 1;
+            }
+        }
+    }
+
+    if cnt == 0 {
+        return DynamicImage::ImageRgba8(rgba);
+    }
+
+    let bg = [
+        (sum[0] / cnt) as i32,
+        (sum[1] / cnt) as i32,
+        (sum[2] / cnt) as i32,
+    ];
+
+    // Make pixels close to bg transparent. Threshold is conservative to avoid eating the logo.
+    let thr: i32 = 28;
+    for p in rgba.pixels_mut() {
+        let dr = (p[0] as i32 - bg[0]).abs();
+        let dg = (p[1] as i32 - bg[1]).abs();
+        let db = (p[2] as i32 - bg[2]).abs();
+        if dr <= thr && dg <= thr && db <= thr {
+            p[3] = 0;
+        }
+    }
+
+    DynamicImage::ImageRgba8(rgba)
 }
