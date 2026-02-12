@@ -1,54 +1,66 @@
 use chrono::Timelike;
-use image::{DynamicImage, GenericImageView, ImageBuffer, ImageEncoder, Rgba};
+use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
 use rusttype::{point, Font, Scale};
 
-use crate::{cache::FigmaCache, figma, qr, util};
+use crate::{cache, cache::FigmaCache, figma, qr, util};
 use crate::perf_scope;
 
 use super::GenError;
 
 const PAGE: &str = "Page 2";
 
+/// New Subito variants (frames subito6..subito10).
+///
+/// Methods are part of the public API contract:
+/// - qr
+/// - email_request
+/// - phone_request
+/// - email_payment
+/// - sms_payment
 #[derive(Clone, Copy, Debug)]
 enum Variant {
-    Qr,
     EmailRequest,
-    EmailConfirm,
-    SmsRequest,
-    SmsConfirm,
+    PhoneRequest,
+    EmailPayment,
+    SmsPayment,
+    Qr,
 }
 
 impl Variant {
     fn parse(s: &str) -> Option<Self> {
         Some(match s {
-            "qr" => Variant::Qr,
             "email_request" => Variant::EmailRequest,
-            "email_confirm" => Variant::EmailConfirm,
-            "sms_request" => Variant::SmsRequest,
-            "sms_confirm" => Variant::SmsConfirm,
+            "phone_request" => Variant::PhoneRequest,
+            "email_payment" => Variant::EmailPayment,
+            "sms_payment" => Variant::SmsPayment,
+            "qr" => Variant::Qr,
             _ => return None,
         })
     }
 
-    fn frame_name(self) -> &'static str {
+    fn frame_base(self) -> &'static str {
         match self {
-            Variant::Qr => "subito1",
-            Variant::EmailRequest => "subito2",
-            Variant::EmailConfirm => "subito3",
-            Variant::SmsRequest => "subito4",
-            Variant::SmsConfirm => "subito5",
+            Variant::EmailRequest => "subito6",
+            Variant::PhoneRequest => "subito7",
+            Variant::EmailPayment => "subito8",
+            Variant::SmsPayment => "subito9",
+            Variant::Qr => "subito10",
         }
     }
 
-    fn service_name(self) -> &'static str {
-        // MUST match Python cache_wrapper service_name to keep app/figma_cache 1:1
+    fn cache_service_name(self, lang: &str) -> String {
+        // MUST stay compatible with Python cache layout: app/figma_cache/{service}_*.{json,png}
         match self {
-            Variant::Qr => "subito",
-            Variant::EmailRequest => "subito_email_request",
-            Variant::EmailConfirm => "subito_email_confirm",
-            Variant::SmsRequest => "subito_sms_request",
-            Variant::SmsConfirm => "subito_sms_confirm",
+            Variant::EmailRequest => format!("subito_email_request_{lang}"),
+            Variant::PhoneRequest => format!("subito_phone_request_{lang}"),
+            Variant::EmailPayment => format!("subito_email_payment_{lang}"),
+            Variant::SmsPayment => format!("subito_sms_payment_{lang}"),
+            Variant::Qr => format!("subito_qr_{lang}"),
         }
+    }
+
+    fn needs_url(self) -> bool {
+        matches!(self, Variant::Qr)
     }
 
     fn has_qr(self) -> bool {
@@ -79,7 +91,8 @@ fn bbox(v: &serde_json::Value) -> Option<(f32, f32, f32, f32)> {
 
 fn rel_box(node: &serde_json::Value, frame_node: &serde_json::Value) -> Result<(u32, u32, u32, u32), GenError> {
     let (x, y, w, h) = bbox(node).ok_or_else(|| GenError::Internal("missing absoluteBoundingBox".into()))?;
-    let (fx, fy, _fw, _fh) = bbox(frame_node).ok_or_else(|| GenError::Internal("missing frame absoluteBoundingBox".into()))?;
+    let (fx, fy, _fw, _fh) =
+        bbox(frame_node).ok_or_else(|| GenError::Internal("missing frame absoluteBoundingBox".into()))?;
     let sf = scale_factor();
     Ok((
         ((x - fx) * sf).round() as u32,
@@ -116,6 +129,22 @@ fn text_width(font: &Font<'static>, px: f32, text: &str, letter_spacing: f32) ->
         }
     }
     width
+}
+
+fn truncate_to_width(font: &Font<'static>, px: f32, text: &str, max_width: f32, letter_spacing: f32) -> String {
+    if text_width(font, px, text, letter_spacing) <= max_width {
+        return text.to_string();
+    }
+    let ellipsis = "...";
+    let mut trimmed = text.to_string();
+    while !trimmed.is_empty() && text_width(font, px, &(trimmed.clone() + ellipsis), letter_spacing) > max_width {
+        trimmed.pop();
+    }
+    if trimmed.is_empty() {
+        ellipsis.to_string()
+    } else {
+        format!("{trimmed}{ellipsis}")
+    }
 }
 
 fn draw_text_with_letter_spacing(
@@ -199,9 +228,15 @@ fn apply_round_corners_alpha(mut img: ImageBuffer<Rgba<u8>, Vec<u8>>, radius: u3
                 continue;
             }
             let (cx, cy) = if x < r {
-                if y < r { (r - 1, r - 1) } else { (r - 1, h - r) }
+                if y < r {
+                    (r - 1, r - 1)
+                } else {
+                    (r - 1, h - r)
+                }
+            } else if y < r {
+                (w - r, r - 1)
             } else {
-                if y < r { (w - r, r - 1) } else { (w - r, h - r) }
+                (w - r, h - r)
             };
             let dx = x - cx;
             let dy = y - cy;
@@ -214,92 +249,168 @@ fn apply_round_corners_alpha(mut img: ImageBuffer<Rgba<u8>, Vec<u8>>, radius: u3
     img
 }
 
-fn square_photo_from_b64(photo_b64: &str, w: u32, h: u32, radius: u32) -> Result<Option<DynamicImage>, GenError> {
+fn rect_photo_from_b64(photo_b64: &str, w: u32, h: u32, radius: u32) -> Result<Option<DynamicImage>, GenError> {
     let Some(bytes) = util::b64_decode(photo_b64) else {
         return Ok(None);
     };
-    let img = image::load_from_memory(&bytes)
-        .map_err(|e| GenError::BadRequest(format!("invalid photo: {e}")))?;
+    let img = image::load_from_memory(&bytes).map_err(|e| GenError::BadRequest(format!("invalid photo: {e}")))?;
     let mut img = img.to_rgba8();
-    // crop to square
-    let min_dim = img.width().min(img.height());
-    let left = (img.width() - min_dim) / 2;
-    let top = (img.height() - min_dim) / 2;
-    let cropped = image::imageops::crop(&mut img, left, top, min_dim, min_dim).to_image();
+
+    // Crop to target aspect ratio (center crop).
+    let target_ratio = w as f32 / h as f32;
+    let src_ratio = img.width() as f32 / img.height() as f32;
+
+    let (crop_w, crop_h) = if src_ratio > target_ratio {
+        // too wide
+        ((img.height() as f32 * target_ratio).round() as u32, img.height())
+    } else {
+        // too tall
+        (img.width(), (img.width() as f32 / target_ratio).round() as u32)
+    };
+
+    let left = (img.width().saturating_sub(crop_w)) / 2;
+    let top = (img.height().saturating_sub(crop_h)) / 2;
+    let cropped = image::imageops::crop(&mut img, left, top, crop_w, crop_h).to_image();
     let resized = image::imageops::resize(&cropped, w, h, image::imageops::FilterType::Lanczos3);
 
     let rounded = apply_round_corners_alpha(resized, radius);
     Ok(Some(DynamicImage::ImageRgba8(rounded)))
 }
 
-async fn generate_subito_qr_png(http: &reqwest::Client, url: &str, size: u32, corner_radius: u32) -> Result<DynamicImage, GenError> {
-    // Generate at target size directly and use local logo via profile + LOGO_DIR.
+async fn generate_subito_qr_png(
+    http: &reqwest::Client,
+    url: &str,
+    size: u32,
+    corner_radius: u32,
+) -> Result<DynamicImage, GenError> {
+    // EXACT legacy settings (qrgen-4.1-qr baseline):
+    // - profile: subito (logo + finder style)
+    // - margin: 2
+    // - explicit colors to avoid drift
+    // - cornerRadius: supplied by template spec
     let payload = serde_json::json!({
         "text": url,
         "profile": "subito",
         "size": size,
         "margin": 2,
-        // colors + finder style are profile defaults (do not override here)
+        "colorDark": "#FF6E69",
+        "colorLight": "#FFFFFF",
         "cornerRadius": corner_radius,
         "os": 1
     });
 
     let req: qr::QrRequest = serde_json::from_value(payload)
         .map_err(|e| GenError::Internal(e.to_string()))?;
-
     let img = qr::build_qr_image(http, req)
         .await
         .map_err(|e| GenError::BadRequest(e.to_string()))?;
     Ok(img)
 }
 
+fn format_price_main(price: f64) -> String {
+    // Format: XX,XX € but drop decimals if cents are zero.
+    let cents_total = (price * 100.0).round() as i64;
+    let euros = cents_total / 100;
+    let cents = (cents_total.abs() % 100) as i64;
+    if cents == 0 {
+        format!("{} €", euros)
+    } else {
+        format!("{},{} €", euros, format!("{:02}", cents))
+    }
+    .replace('.', ",")
+}
+
+fn format_price_2dec(price: f64) -> String {
+    let cents_total = (price * 100.0).round() as i64;
+    let euros = cents_total / 100;
+    let cents = (cents_total.abs() % 100) as i64;
+    format!("{},{} €", euros, format!("{:02}", cents)).replace('.', ",")
+}
+
+fn purge_legacy_subito_cache() {
+    use std::sync::OnceLock;
+    static ONCE: OnceLock<()> = OnceLock::new();
+    ONCE.get_or_init(|| {
+        let dir = cache::cache_dir();
+        let legacy = [
+            "subito",
+            "subito_email_request",
+            "subito_email_confirm",
+            "subito_sms_request",
+            "subito_sms_confirm",
+        ];
+        for s in legacy {
+            let sp = dir.join(format!("{s}_structure.json"));
+            let tp = dir.join(format!("{s}_template.png"));
+            let _ = std::fs::remove_file(sp);
+            let _ = std::fs::remove_file(tp);
+        }
+    });
+}
+
 pub async fn generate_subito(
     http: &reqwest::Client,
+    country_or_lang: &str,
     method: &str,
     title: &str,
     price: f64,
     photo_b64: Option<&str>,
     url: Option<&str>,
-    name: Option<&str>,
-    address: Option<&str>,
+    _name: Option<&str>,
+    _address: Option<&str>,
 ) -> Result<Vec<u8>, GenError> {
     let _span_total = perf_scope!("gen.subito.total");
 
-    let variant = Variant::parse(method)
-        .ok_or_else(|| GenError::BadRequest(format!("unknown subito method: {method}")))?;
+    purge_legacy_subito_cache();
 
-    if variant.has_qr() && url.map(|s| s.trim().is_empty()).unwrap_or(true) {
+    let variant = Variant::parse(method).ok_or_else(|| GenError::BadRequest(format!("unknown subito method: {method}")))?;
+
+    let lang = match country_or_lang.to_lowercase().as_str() {
+        "uk" | "nl" => country_or_lang.to_lowercase(),
+        other if other.starts_with("uk") => "uk".to_string(),
+        other if other.starts_with("nl") => "nl".to_string(),
+        _ => "uk".to_string(),
+    };
+
+    if variant.needs_url() && url.map(|s| s.trim().is_empty()).unwrap_or(true) {
         return Err(GenError::BadRequest("url is required for qr".into()));
     }
 
-    // Python truncation rules are char-count based
-    let title = util::truncate_with_ellipsis(title.to_string(), 25);
-    let name = name.map(|s| util::truncate_with_ellipsis(s.to_string(), 50));
-    let address = address.map(|s| util::truncate_with_ellipsis(s.to_string(), 100));
-    let url_trunc = url.map(|s| util::truncate_with_ellipsis(s.to_string(), 500));
+    let frame_base = variant.frame_base();
+    let cache_service = variant.cache_service_name(&lang);
 
-    let frame_name = variant.frame_name();
-    let service_name = variant.service_name();
+    let cache = FigmaCache::new(cache_service);
 
-    let cache = FigmaCache::new(service_name);
-    let (template_json, frame_png, frame_node, used_cache) = {
+    let (template_json, frame_png, frame_node, used_cache, frame_name) = {
         let _span = perf_scope!("gen.subito.figma.load");
+
+        let try_find_frame = |structure: &serde_json::Value| -> Option<(serde_json::Value, String)> {
+            let candidate1 = format!("{frame_base}_{lang}");
+            if let Some(n) = figma::find_node(structure, PAGE, &candidate1) {
+                return Some((n, candidate1));
+            }
+            if let Some(n) = figma::find_node(structure, PAGE, frame_base) {
+                return Some((n, frame_base.to_string()));
+            }
+            None
+        };
+
         if cache.exists() {
             let (structure, png) = cache.load()?;
-            let frame_node = figma::find_node(&structure, PAGE, frame_name);
-            if let Some(node) = frame_node {
-                (structure, png, node, true)
+            if let Some((node, name)) = try_find_frame(&structure) {
+                (structure, png, node, true, name)
             } else {
+                // cache structure is stale
                 let structure = figma::get_template_json(http).await?;
-                let frame_node = figma::find_node(&structure, PAGE, frame_name)
-                    .ok_or_else(|| GenError::BadRequest(format!("frame not found: {frame_name}")))?;
-                (structure, Vec::new(), frame_node, false)
+                let (node, name) = try_find_frame(&structure)
+                    .ok_or_else(|| GenError::BadRequest(format!("frame not found: {frame_base} (lang={lang})")))?;
+                (structure, Vec::new(), node, false, name)
             }
         } else {
             let structure = figma::get_template_json(http).await?;
-            let frame_node = figma::find_node(&structure, PAGE, frame_name)
-                .ok_or_else(|| GenError::BadRequest(format!("frame not found: {frame_name}")))?;
-            (structure, Vec::new(), frame_node, false)
+            let (node, name) = try_find_frame(&structure)
+                .ok_or_else(|| GenError::BadRequest(format!("frame not found: {frame_base} (lang={lang})")))?;
+            (structure, Vec::new(), node, false, name)
         }
     };
 
@@ -310,34 +421,34 @@ pub async fn generate_subito(
             .get("id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| GenError::Internal("frame node missing id".into()))?;
-        // Export at scale=2 to match Figma source of truth (1:1), avoid post-resize.
+        // Export at scale=2 (source of truth).
         let png = figma::export_frame_as_png(http, node_id, Some(2)).await?;
         cache.save(&template_json, &png)?;
         png
     };
 
-    let mut frame_img = {
+    let mut out = {
         let _span = perf_scope!("gen.subito.frame.decode");
         image::load_from_memory(&frame_png)
             .map_err(|e| GenError::Image(e.to_string()))?
             .to_rgba8()
     };
 
+    // Validate export size matches bbox*scale
     let (fw, fh) = {
         let (_, _, w, h) = bbox(&frame_node).ok_or_else(|| GenError::Internal("frame missing bbox".into()))?;
         let sf = scale_factor();
         ((w * sf).round() as u32, (h * sf).round() as u32)
     };
-
-    // No frame resize: we render 1:1 as Figma export (scale=2).
-    if frame_img.width() != fw || frame_img.height() != fh {
+    if out.width() != fw || out.height() != fh {
         return Err(GenError::Internal(format!(
-            "frame export size mismatch: got {}x{}, expected {}x{}",
-            frame_img.width(), frame_img.height(), fw, fh
+            "frame export size mismatch for {frame_name}: got {}x{}, expected {}x{}",
+            out.width(),
+            out.height(),
+            fw,
+            fh
         )));
     }
-
-    let mut out = frame_img;
 
     let node = |name: &str| -> Result<serde_json::Value, GenError> {
         figma::find_node(&template_json, PAGE, name)
@@ -345,159 +456,153 @@ pub async fn generate_subito(
     };
     let node_opt = |name: &str| -> Option<serde_json::Value> { figma::find_node(&template_json, PAGE, name) };
 
-    // nodes
-    let title_layer = match variant {
-        Variant::Qr => "NAZVANIE_SUB1",
-        Variant::EmailRequest => "NAZVANIE_SUB2",
-        Variant::EmailConfirm => "NAZVANIE_SUB3",
-        Variant::SmsRequest => "NAZVANIE_SUB4",
-        Variant::SmsConfirm => "NAZVANIE_SUB5",
-    };
-    let price_layer = match variant {
-        Variant::Qr => "PRICE_SUB1",
-        Variant::EmailRequest => "PRICE_SUB2",
-        Variant::EmailConfirm => "PRICE_SUB3",
-        Variant::SmsRequest => "PRICE_SUB4",
-        Variant::SmsConfirm => "PRICE_SUB5",
-    };
-    let total_layer = match variant {
-        Variant::Qr => "TOTAL_SUB1",
-        Variant::EmailRequest => "TOTAL_SUB2",
-        Variant::EmailConfirm => "TOTAL_SUB3",
-        Variant::SmsRequest => "TOTAL_SUB4",
-        Variant::SmsConfirm => "TOTAL_SUB5",
-    };
-    let address_layer = match variant {
-        Variant::Qr => "ADRESS_SUB1",
-        Variant::EmailRequest => "ADRESS_SUB2",
-        Variant::EmailConfirm => "ADRESS_SUB3",
-        Variant::SmsRequest => "ADRESS_SUB4",
-        Variant::SmsConfirm => "ADRESS_SUB5",
-    };
-    let name_layer = match variant {
-        Variant::Qr => "IMYA_SUB1",
-        Variant::EmailRequest => "IMYA_SUB2",
-        Variant::EmailConfirm => "IMYA_SUB3",
-        Variant::SmsRequest => "IMYA_SUB4",
-        Variant::SmsConfirm => "IMYA_SUB5",
-    };
-    let time_layer = match variant {
-        Variant::Qr => "TIME_SUB1",
-        Variant::EmailRequest => "TIME_SUB2",
-        Variant::EmailConfirm => "TIME_SUB3",
-        Variant::SmsRequest => "TIME_SUB4",
-        Variant::SmsConfirm => "TIME_SUB5",
-    };
-    let photo_layer = match variant {
-        Variant::Qr => "PHOTO_SUB1",
-        Variant::EmailRequest => "PHOTO_SUB2",
-        Variant::EmailConfirm => "PHOTO_SUB3",
-        Variant::SmsRequest => "PHOTO_SUB4",
-        Variant::SmsConfirm => "PHOTO_SUB5",
-    };
-
-    let title_node = node(title_layer)?;
-    let price_node = node(price_layer)?;
-    let total_node = node(total_layer)?;
-    let time_node = node(time_layer)?;
-    let photo_node = node(photo_layer)?;
-
-    let address_node = node_opt(address_layer);
-    let name_node = node_opt(name_layer);
-
+    // Nodes are named like nazv_subito6, price_subito7, ...
+    let title_node = node(&format!("nazv_{frame_base}"))?;
+    let price_node = node_opt(&format!("price_{frame_base}"));
+    let oggetto_node = node_opt(&format!("oggetto_{frame_base}"));
+    let totalprice_node = node_opt(&format!("totalprice_{frame_base}"));
+    let time_node = node_opt(&format!("time_{frame_base}")).ok_or_else(|| {
+        GenError::BadRequest(format!("node not found: time_{frame_base}"))
+    })?;
+    let pic_node = node_opt(&format!("pic_{frame_base}"));
     let qr_node = if variant.has_qr() {
-        Some(node(match variant {
-            Variant::Qr => "QR_SUB1",
-            _ => unreachable!(),
-        })?)
+        Some(node(&format!("qr_{frame_base}"))?)
     } else {
         None
     };
 
-    // fonts (same as python)
-    let aktiv = load_font("aktivgroteskcorp_medium.ttf")?;
+    // Fonts & styles from TЗ
+    let ft_sb = load_font("LFTEticaSb.ttf")?;
+    let ft_bk = load_font("LFTEticaBk.ttf")?;
     let sfpro = load_font("SFProText-Semibold.ttf")?;
 
     let sf = scale_factor();
-    let nazv_px = 96.0 * sf;
-    let small_px = 64.0 * sf;
-    let time_px = 112.0 * sf;
 
-    let formatted_price = format!("€{:.2}", price);
-
-    // photo
-    if let Some(photo_b64) = photo_b64 {
-        let _span = perf_scope!("gen.subito.photo");
-        let (ix, iy, iw, ih) = rel_box(&photo_node, &frame_node)?;
-        let radius = (15.0 * sf).round() as u32;
-        if let Some(photo) = square_photo_from_b64(photo_b64, iw, ih, radius)? {
-            overlay_alpha(&mut out, &photo.to_rgba8(), ix, iy);
-        }
-        drop(_span);
-    }
-
-    // qr
-    if let Some(qr_node) = qr_node {
-        let _span = perf_scope!("gen.subito.qr");
-        let url = url_trunc.as_deref().unwrap_or("");
-        let (qx, qy, qw, qh) = rel_box(&qr_node, &frame_node)?;
-        let corner = (15.0 * sf).round() as u32;
-        let mut qr_img = generate_subito_qr_png(http, url, qw, corner).await?;
-        if qr_img.width() != qw || qr_img.height() != qh {
-            qr_img = qr_img.resize_exact(qw, qh, image::imageops::FilterType::Lanczos3);
-        }
-        overlay_alpha(&mut out, &qr_img.to_rgba8(), qx, qy);
-        drop(_span);
-    }
-
-    // title
-    let (tx, ty, _tw, _th) = rel_box(&title_node, &frame_node)?;
-    draw_text_with_letter_spacing(&mut out, &*aktiv, nazv_px, tx as i32, ty as i32, hex_color("#1F262D")?, &title, 0.0);
-
-    // price
-    let (px, py, _pw, _ph) = rel_box(&price_node, &frame_node)?;
-    draw_text_with_letter_spacing(&mut out, &*aktiv, nazv_px, px as i32, py as i32, hex_color("#838386")?, &formatted_price, 0.0);
-
-    // name
-    if let (Some(n), Some(name)) = (name_node, name.as_deref()) {
-        if !name.is_empty() {
-            let (ix, iy, _iw, _ih) = rel_box(&n, &frame_node)?;
-            draw_text_with_letter_spacing(&mut out, &*aktiv, small_px, ix as i32, iy as i32, hex_color("#838386")?, name, 0.0);
-        }
-    }
-
-    // address
-    if let (Some(n), Some(addr)) = (address_node, address.as_deref()) {
-        if !addr.is_empty() {
-            let (ix, iy, _iw, _ih) = rel_box(&n, &frame_node)?;
-            draw_text_with_letter_spacing(&mut out, &*aktiv, small_px, ix as i32, iy as i32, hex_color("#838386")?, addr, 0.0);
-        }
-    }
-
-    // total (right aligned)
+    // Title
     {
-        let (bx, by, bw, _bh) = rel_box(&total_node, &frame_node)?;
-        let right_x = (bx + bw) as f32;
-        let width = text_width(&*aktiv, nazv_px, &formatted_price, 0.0);
-        let start_x = (right_x - width).round() as i32;
-        draw_text_with_letter_spacing(&mut out, &*aktiv, nazv_px, start_x, by as i32, hex_color("#838386")?, &formatted_price, 0.0);
+        let title_px = 48.0 * sf;
+        let max_width = 880.0 * sf;
+        let title_color = hex_color("#3C4858")?;
+
+        let title = truncate_to_width(&*ft_sb, title_px, title, max_width, 0.0);
+        let (x, y, _w, _h) = rel_box(&title_node, &frame_node)?;
+        draw_text_with_letter_spacing(&mut out, &*ft_sb, title_px, x as i32, y as i32, title_color, &title, 0.0);
     }
 
-    // time (right aligned with letter spacing)
-    {
-        let rome_tz = chrono_tz::Europe::Rome;
-        let now = chrono::Utc::now().with_timezone(&rome_tz);
-        let time_text = format!("{}:{:02}", now.hour(), now.minute());
+    // Price (left aligned, red)
+    if let Some(n) = price_node {
+        let price_px = 48.0 * sf;
+        let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
+        let text = format_price_main(price);
+        draw_text_with_letter_spacing(
+            &mut out,
+            &*ft_sb,
+            price_px,
+            x as i32,
+            y as i32,
+            hex_color("#F9423A")?,
+            &text,
+            0.0,
+        );
+    }
 
-        let (bx, by, bw, _bh) = rel_box(&time_node, &frame_node)?;
+    // oggetto (right aligned, -1%)
+    if let Some(n) = oggetto_node {
+        let px = 50.0 * sf;
+        let letter_spacing = px * (-0.01);
+        let text = format_price_2dec(price);
+
+        let (bx, by, bw, _bh) = rel_box(&n, &frame_node)?;
         let right_x = (bx + bw) as f32;
-        let letter_spacing = (time_px * 0.02).round();
-        let width = text_width(&*sfpro, time_px, &time_text, letter_spacing);
+        let width = text_width(&*ft_bk, px, &text, letter_spacing);
         let start_x = (right_x - width).round() as i32;
         draw_text_with_letter_spacing(
             &mut out,
+            &*ft_bk,
+            px,
+            start_x,
+            by as i32,
+            hex_color("#3C4858")?,
+            &text,
+            letter_spacing,
+        );
+    }
+
+    // totalprice = price + 6.85 (right aligned, -1%)
+    if let Some(n) = totalprice_node {
+        let px = 50.0 * sf;
+        let letter_spacing = px * (-0.01);
+        let total = price + 6.85;
+        let text = format_price_2dec(total);
+
+        let (bx, by, bw, _bh) = rel_box(&n, &frame_node)?;
+        let right_x = (bx + bw) as f32;
+        let width = text_width(&*ft_sb, px, &text, letter_spacing);
+        let start_x = (right_x - width).round() as i32;
+        draw_text_with_letter_spacing(
+            &mut out,
+            &*ft_sb,
+            px,
+            start_x,
+            by as i32,
+            hex_color("#3C4858")?,
+            &text,
+            letter_spacing,
+        );
+    }
+
+    // Photo: 186x138, radius 8
+    if let (Some(n), Some(photo_b64)) = (pic_node, photo_b64) {
+        let (x, y, w, h) = rel_box(&n, &frame_node)?;
+        // Spec says 186x138, but we respect the node box size (should match).
+        let radius = (8.0 * sf).round() as u32;
+        if let Some(img) = rect_photo_from_b64(photo_b64, w, h, radius)? {
+            overlay_alpha(&mut out, &img.to_rgba8(), x, y);
+        }
+    }
+
+    // QR: переносим legacy-настройки QR (цвета/профиль/лого/стиль) и применяем новые размеры макета.
+    // ТЗ: generate 500x500 -> resize 431x431 -> corner radius 16.
+    // В рендере мы работаем в scale=2, поэтому все пиксельные размеры умножаем на sf.
+    if let Some(qr_node) = qr_node {
+        let _span = perf_scope!("gen.subito.qr");
+        let url = url.unwrap_or("");
+
+        let (x, y, w, h) = rel_box(&qr_node, &frame_node)?;
+
+        let gen_size = (500.0 * sf).round() as u32;
+        let target_size = (431.0 * sf).round() as u32;
+        let corner = (16.0 * sf).round() as u32;
+
+        let mut qr_img = generate_subito_qr_png(http, url, gen_size, corner).await?;
+        qr_img = qr_img.resize_exact(target_size, target_size, image::imageops::FilterType::Lanczos3);
+
+        // Fit into Figma node box (should already match, but keep safe).
+        if qr_img.width() != w || qr_img.height() != h {
+            qr_img = qr_img.resize_exact(w, h, image::imageops::FilterType::Lanczos3);
+        }
+        overlay_alpha(&mut out, &qr_img.to_rgba8(), x, y);
+        drop(_span);
+    }
+
+    // Time: centered, Rome TZ, -2%
+    {
+        let rome_tz = chrono_tz::Europe::Rome;
+        let now = chrono::Utc::now().with_timezone(&rome_tz);
+        let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
+
+        let px = 53.0 * sf;
+        let letter_spacing = px * (-0.02);
+
+        let (bx, by, bw, _bh) = rel_box(&time_node, &frame_node)?;
+        let center_x = (bx as f32 + bw as f32 / 2.0);
+        let width = text_width(&*sfpro, px, &time_text, letter_spacing);
+        let start_x = (center_x - width / 2.0).round() as i32;
+
+        draw_text_with_letter_spacing(
+            &mut out,
             &*sfpro,
-            time_px,
+            px,
             start_x,
             by as i32,
             hex_color("#FFFFFF")?,
@@ -506,11 +611,9 @@ pub async fn generate_subito(
         );
     }
 
-    // No final resize: return exactly as rendered on the exported Figma frame (scale=2).
     let buf = {
         let _span = perf_scope!("gen.subito.png.encode");
         util::png_encode_rgba8(&out).map_err(GenError::Image)?
     };
-
     Ok(buf)
 }

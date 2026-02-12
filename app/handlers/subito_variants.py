@@ -1,271 +1,333 @@
 # app/handlers/subito_variants.py
-"""
-Telegram handler для Subito (subito6–10, uk / nl).
+"""Subito variants (NEW subito6..subito10).
 
-subito6  — mail запрос
-subito7  — телефон запрос
-subito8  — mail оплата
-subito9  — sms оплата
-subito10 — qr
+Variants:
+- Email request  -> subito6
+- Phone request  -> subito7
+- Email payment  -> subito8
+- SMS payment    -> subito9
+- QR             -> subito10
+
+Supports language tags: uk / nl.
+Thin client MUST call Rust backend (/generate); no local PIL generation.
+
+Backend contract:
+  service = "subito"
+  method  = one of: qr | email_request | phone_request | email_payment | sms_payment
+  country = lang (uk|nl)
 """
+
+from __future__ import annotations
+
+import io
 import base64
 import logging
-from io import BytesIO
+from typing import Optional
 
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputFile
+import requests
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
-    ConversationHandler, CallbackQueryHandler,
-    MessageHandler, filters, ContextTypes
+    ConversationHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    filters,
+    ContextTypes,
 )
 
-from app.services.subito_variants import (
-    create_subito_new_email_request,
-    create_subito_new_phone_request,
-    create_subito_new_email_payment,
-    create_subito_new_sms_payment,
-    create_subito_new_qr,
-)
+from app.config import CFG
+from app.keyboards.qr import menu_back_kb, photo_step_kb, main_menu_kb
+from app.utils.state_stack import push_state, clear_stack
+from app.utils.async_helpers import generate_with_queue
 
 logger = logging.getLogger(__name__)
 
-# ── States ────────────────────────────────────────────────────────────────────
-(
-    SUBITO_TYPE,
-    SUBITO_LANG,
-    SUBITO_TITLE,
-    SUBITO_PRICE,
-    SUBITO_PHOTO,
-    SUBITO_URL,
-) = range(6)
-
-# ── Метаданные вариантов ──────────────────────────────────────────────────────
-_TYPES = {
-    "email_request": "📧 Mail запрос",
-    "phone_request": "📞 Тел. запрос",
-    "email_payment": "💳 Mail оплата",
-    "sms_payment":   "💬 SMS оплата",
-    "qr":            "🔵 QR",
-}
-_NEEDS_URL = {"qr"}
+# States (use high numbers to avoid collisions)
+SUBITO_TYPE, SUBITO_LANG, SUBITO_TITLE, SUBITO_PRICE, SUBITO_PHOTO, SUBITO_URL = range(200, 206)
 
 
-# ── Клавиатуры ────────────────────────────────────────────────────────────────
+# ========== BACKEND CALL ==========
 
-def _type_kb():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(_TYPES["email_request"], callback_data="SN_TYPE:email_request")],
-        [InlineKeyboardButton(_TYPES["phone_request"], callback_data="SN_TYPE:phone_request")],
-        [InlineKeyboardButton(_TYPES["email_payment"], callback_data="SN_TYPE:email_payment")],
-        [InlineKeyboardButton(_TYPES["sms_payment"],   callback_data="SN_TYPE:sms_payment")],
-        [InlineKeyboardButton(_TYPES["qr"],            callback_data="SN_TYPE:qr")],
-        [InlineKeyboardButton("🏠 Главное меню",       callback_data="MENU")],
-    ])
+def _backend_generate_subito(
+    lang: str,
+    method: str,
+    title: str,
+    price: float,
+    photo_b64: Optional[str],
+    url: Optional[str],
+) -> bytes:
+    backend_url = f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate"
+    headers = {"X-API-Key": CFG.BACKEND_API_KEY or ""}
+
+    payload = {
+        "country": lang,
+        "service": "subito",
+        "method": method,
+        "title": title,
+        "price": price,
+        "photo": photo_b64,
+        "url": url,
+    }
+
+    r = requests.post(backend_url, json=payload, headers=headers, timeout=120)
+    if not r.ok:
+        raise ValueError(r.text)
+    return r.content
 
 
-def _lang_kb():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🇬🇧 UK", callback_data="SN_LANG:uk"),
-         InlineKeyboardButton("🇳🇱 NL", callback_data="SN_LANG:nl")],
-    ])
+# ========== KEYBOARDS ==========
+
+def subito_type_kb():
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("📧 Mail запрос", callback_data="SUBITO_TYPE:email_request")],
+            [InlineKeyboardButton("📞 Телефон запрос", callback_data="SUBITO_TYPE:phone_request")],
+            [InlineKeyboardButton("💳 Mail оплата", callback_data="SUBITO_TYPE:email_payment")],
+            [InlineKeyboardButton("📱 SMS оплата", callback_data="SUBITO_TYPE:sms_payment")],
+            [InlineKeyboardButton("🔳 QR", callback_data="SUBITO_TYPE:qr")],
+            [InlineKeyboardButton("⬅️ Назад", callback_data="QR:MENU")],
+        ]
+    )
 
 
-def _skip_kb(action: str):
-    return InlineKeyboardMarkup([[InlineKeyboardButton("⏭️ Пропустить", callback_data=f"SN_SKIP:{action}")]])
+def subito_lang_kb():
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("🇬🇧 UK", callback_data="SUBITO_LANG:uk"),
+                InlineKeyboardButton("🇳🇱 NL", callback_data="SUBITO_LANG:nl"),
+            ],
+            [
+                InlineKeyboardButton("⬅️ Назад", callback_data="SUBITO_BACK:TYPE"),
+                InlineKeyboardButton("🏠 Главное меню", callback_data="MENU"),
+            ],
+        ]
+    )
 
 
-# ── Вход ─────────────────────────────────────────────────────────────────────
+# ========== ENTRY ==========
 
 async def subito_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Entry point from QR:SUBITO."""
+    clear_stack(context.user_data)
+    context.user_data["service"] = "subito"
+
     await update.callback_query.answer()
     await update.callback_query.edit_message_text(
-        "🇮🇹 <b>Subito — выбери тип:</b>",
-        reply_markup=_type_kb(),
+        "🇮🇹 <b>Subito</b> — выбери тип:",
+        reply_markup=subito_type_kb(),
+        parse_mode="HTML",
+    )
+    push_state(context.user_data, SUBITO_TYPE)
+    return SUBITO_TYPE
+
+
+# ========== TYPE ==========
+
+async def subito_type_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    method = q.data.split(":", 1)[1]
+    context.user_data["subito_type"] = method
+
+    await q.answer()
+    await q.edit_message_text(
+        "Выбери язык (теги uk / nl):",
+        reply_markup=subito_lang_kb(),
+    )
+    push_state(context.user_data, SUBITO_LANG)
+    return SUBITO_LANG
+
+
+async def subito_back_to_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    await q.edit_message_text(
+        "🇮🇹 <b>Subito</b> — выбери тип:",
+        reply_markup=subito_type_kb(),
         parse_mode="HTML",
     )
     return SUBITO_TYPE
 
 
-# ── Выбор типа ────────────────────────────────────────────────────────────────
-
-async def subito_type_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    variant = q.data.split(":")[1]
-    context.user_data["sn_variant"] = variant
-    await q.answer()
-    await q.edit_message_text(
-        f"🇮🇹 <b>Subito — {_TYPES[variant]}</b>\n\n🌍 Выбери локаль:",
-        reply_markup=_lang_kb(),
-        parse_mode="HTML",
-    )
-    return SUBITO_LANG
-
-
-# ── Выбор языка ───────────────────────────────────────────────────────────────
+# ========== LANG ==========
 
 async def subito_lang_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    lang = q.data.split(":")[1]
-    context.user_data["sn_lang"] = lang
+    lang = q.data.split(":", 1)[1]
+    context.user_data["subito_lang"] = lang
+
     await q.answer()
     await q.edit_message_text(
-        f"🌍 Локаль: <b>{lang.upper()}</b>\n\n📝 Введи <b>название товара</b>:",
+        "📝 Введи <b>название товара</b>:",
         parse_mode="HTML",
     )
+    push_state(context.user_data, SUBITO_TITLE)
     return SUBITO_TITLE
 
 
-# ── Название ─────────────────────────────────────────────────────────────────
+# ========== TITLE / PRICE ==========
 
 async def subito_title(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["sn_title"] = update.message.text
-    await update.message.reply_text("💵 Введи <b>цену</b> (например: 99.99):", parse_mode="HTML")
+    context.user_data["subito_title"] = (update.message.text or "").strip()
+    await update.message.reply_text(
+        "💵 Введи <b>цену</b> (например: 123.45):",
+        parse_mode="HTML",
+        reply_markup=menu_back_kb(),
+    )
+    push_state(context.user_data, SUBITO_PRICE)
     return SUBITO_PRICE
 
 
-# ── Цена ─────────────────────────────────────────────────────────────────────
-
 async def subito_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        price = float(update.message.text.replace(",", "."))
-        context.user_data["sn_price"] = price
-        await update.message.reply_text(
-            "📸 Отправь <b>фото товара</b> или пропусти:",
-            reply_markup=_skip_kb("photo"),
-            parse_mode="HTML",
-        )
-        return SUBITO_PHOTO
+        price = float((update.message.text or "").replace(",", ".").strip())
     except ValueError:
-        await update.message.reply_text("❌ Неверный формат цены. Введи ещё раз (например: 99.99):")
+        await update.message.reply_text("❌ Неверный формат. Введи цену (например 123.45)")
         return SUBITO_PRICE
 
+    context.user_data["subito_price"] = price
 
-# ── Фото ─────────────────────────────────────────────────────────────────────
+    await update.message.reply_text(
+        "📸 Отправь <b>фото товара</b> или пропусти:",
+        parse_mode="HTML",
+        reply_markup=photo_step_kb(),
+    )
+    push_state(context.user_data, SUBITO_PHOTO)
+    return SUBITO_PHOTO
+
+
+# ========== PHOTO ==========
 
 async def subito_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    photo_file = await update.message.photo[-1].get_file()
-    photo_bytes = await photo_file.download_as_bytearray()
-    context.user_data["sn_photo"] = base64.b64encode(photo_bytes).decode("utf-8")
-    return await _after_photo(update, context, via_query=False)
+    photo_b64 = None
+
+    if update.message and update.message.photo:
+        photo_file = await update.message.photo[-1].get_file()
+        photo_bytes = await photo_file.download_as_bytearray()
+        photo_b64 = base64.b64encode(photo_bytes).decode("utf-8")
+
+    context.user_data["subito_photo"] = photo_b64
+
+    method = context.user_data.get("subito_type", "qr")
+
+    if method == "qr":
+        await update.message.reply_text(
+            "🔗 Введи <b>URL</b> для QR:",
+            parse_mode="HTML",
+            reply_markup=menu_back_kb(),
+        )
+        push_state(context.user_data, SUBITO_URL)
+        return SUBITO_URL
+
+    # otherwise generate immediately
+    return await _subito_generate(update, context)
 
 
 async def subito_skip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["sn_photo"] = None
-    await update.callback_query.answer()
-    return await _after_photo(update, context, via_query=True)
+    q = update.callback_query
+    await q.answer()
+    context.user_data["subito_photo"] = None
 
-
-async def _after_photo(update, context, via_query: bool):
-    variant = context.user_data.get("sn_variant", "email_request")
-    if variant in _NEEDS_URL:
-        text = "🔗 Введи <b>URL</b> (например: https://subito.it/item/123):"
-        if via_query:
-            await update.callback_query.edit_message_text(text, parse_mode="HTML")
-        else:
-            await update.message.reply_text(text, parse_mode="HTML")
+    method = context.user_data.get("subito_type", "qr")
+    if method == "qr":
+        await q.edit_message_text(
+            "🔗 Введи <b>URL</b> для QR:",
+            parse_mode="HTML",
+            reply_markup=menu_back_kb(),
+        )
+        push_state(context.user_data, SUBITO_URL)
         return SUBITO_URL
-    else:
-        if via_query:
-            await update.callback_query.message.reply_text("⏳ Генерирую...")
-            await _generate(update, context, via_query=True)
-        else:
-            await update.message.reply_text("⏳ Генерирую...")
-            await _generate(update, context, via_query=False)
-        return ConversationHandler.END
+
+    # generate
+    # We don't have a message context here, so send a new message.
+    await q.message.reply_text("⏳ Генерирую...")
+    return await _subito_generate(q.message, context)
 
 
-# ── URL (только для qr) ───────────────────────────────────────────────────────
+# ========== URL (QR only) ==========
 
 async def subito_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["sn_url"] = update.message.text
-    await update.message.reply_text("⏳ Генерирую...")
-    await _generate(update, context, via_query=False)
-    return ConversationHandler.END
+    context.user_data["subito_url"] = (update.message.text or "").strip()
+    return await _subito_generate(update, context)
 
 
-# ── Генерация ────────────────────────────────────────────────────────────────
+# ========== GENERATE ==========
 
-async def _generate(update: Update, context: ContextTypes.DEFAULT_TYPE, via_query: bool):
-    variant = context.user_data.get("sn_variant", "email_request")
-    lang    = context.user_data.get("sn_lang", "uk")
-    title   = context.user_data.get("sn_title", "")
-    price   = context.user_data.get("sn_price", 0.0)
-    photo   = context.user_data.get("sn_photo")
-    url     = context.user_data.get("sn_url", "")
+async def _subito_generate(update_or_message, context: ContextTypes.DEFAULT_TYPE):
+    """Generate via backend and send PNG."""
+    lang = context.user_data.get("subito_lang", "uk")
+    method = context.user_data.get("subito_type", "qr")
+    title = context.user_data.get("subito_title", "")
+    price = float(context.user_data.get("subito_price", 0.0))
+    photo_b64 = context.user_data.get("subito_photo")
+    url = context.user_data.get("subito_url")
+
+    executor = context.application.bot_data.get("executor")
 
     try:
-        if variant == "email_request":
-            data = create_subito_new_email_request(lang, title, price, photo)
-        elif variant == "phone_request":
-            data = create_subito_new_phone_request(lang, title, price, photo)
-        elif variant == "email_payment":
-            data = create_subito_new_email_payment(lang, title, price, photo)
-        elif variant == "sms_payment":
-            data = create_subito_new_sms_payment(lang, title, price, photo)
-        elif variant == "qr":
-            data = create_subito_new_qr(lang, title, price, photo, url)
+        if hasattr(update_or_message, "reply_text"):
+            msg = await update_or_message.reply_text("⏳ Генерирую...")
         else:
-            raise ValueError(f"Unknown variant: {variant}")
+            msg = None
 
-        caption = (
-            f"✅ <b>Subito — {_TYPES[variant]} [{lang.upper()}]</b>\n\n"
-            f"📝 {title}\n💵 {price:.2f} €"
+        png_bytes = await generate_with_queue(
+            executor,
+            _backend_generate_subito,
+            lang,
+            method,
+            title,
+            price,
+            photo_b64,
+            url,
         )
-        doc = InputFile(BytesIO(data), filename="subito.png")
 
-        if via_query:
-            await update.callback_query.message.reply_document(
-                document=doc, caption=caption, parse_mode="HTML"
-            )
+        bio = io.BytesIO(png_bytes)
+        bio.name = f"subito_{method}_{lang}.png"
+        bio.seek(0)
+
+        if msg:
+            await msg.delete()
+
+        # Send image
+        if hasattr(update_or_message, "reply_photo"):
+            await update_or_message.reply_photo(photo=bio, reply_markup=main_menu_kb())
         else:
-            await update.message.reply_document(
-                document=doc, caption=caption, parse_mode="HTML"
-            )
+            await update_or_message.reply_photo(photo=bio, reply_markup=main_menu_kb())
 
     except Exception as e:
-        logger.error(f"Subito generation error: {e}")
-        err = f"❌ Ошибка генерации:\n<code>{e}</code>"
-        if via_query:
-            await update.callback_query.message.reply_text(err, parse_mode="HTML")
-        else:
-            await update.message.reply_text(err, parse_mode="HTML")
+        logger.exception("Subito generation failed")
+        if hasattr(update_or_message, "reply_text"):
+            await update_or_message.reply_text(f"❌ Ошибка генерации: {e}")
 
-
-# ── Cancel ────────────────────────────────────────────────────────────────────
-
-async def subito_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    from app.handlers.menu import start
-    await update.callback_query.answer()
-    await start(update, context)
     return ConversationHandler.END
 
 
-# ── ConversationHandler ───────────────────────────────────────────────────────
+# ========== CONVERSATION ==========
 
 subito_variants_conv = ConversationHandler(
     entry_points=[CallbackQueryHandler(subito_start, pattern=r"^QR:SUBITO$")],
     states={
         SUBITO_TYPE: [
-            CallbackQueryHandler(subito_type_selected, pattern=r"^SN_TYPE:")
+            CallbackQueryHandler(subito_type_selected, pattern=r"^SUBITO_TYPE:"),
         ],
         SUBITO_LANG: [
-            CallbackQueryHandler(subito_lang_selected, pattern=r"^SN_LANG:")
+            CallbackQueryHandler(subito_lang_selected, pattern=r"^SUBITO_LANG:"),
+            CallbackQueryHandler(subito_back_to_type, pattern=r"^SUBITO_BACK:TYPE$"),
         ],
         SUBITO_TITLE: [
-            MessageHandler(filters.TEXT & ~filters.COMMAND, subito_title)
+            MessageHandler(filters.TEXT & ~filters.COMMAND, subito_title),
         ],
         SUBITO_PRICE: [
-            MessageHandler(filters.TEXT & ~filters.COMMAND, subito_price)
+            MessageHandler(filters.TEXT & ~filters.COMMAND, subito_price),
         ],
         SUBITO_PHOTO: [
             MessageHandler(filters.PHOTO, subito_photo),
-            CallbackQueryHandler(subito_skip_photo, pattern=r"^SN_SKIP:photo$"),
+            CallbackQueryHandler(subito_skip_photo, pattern=r"^QR:SKIP_PHOTO$"),
         ],
         SUBITO_URL: [
-            MessageHandler(filters.TEXT & ~filters.COMMAND, subito_url)
+            MessageHandler(filters.TEXT & ~filters.COMMAND, subito_url),
         ],
     },
-    fallbacks=[CallbackQueryHandler(subito_cancel, pattern=r"^MENU$")],
-    name="subito_variants",
-    per_message=False,
-    allow_reentry=True,
+    fallbacks=[],
+    name="subito_variants_conv",
+    persistent=False,
 )

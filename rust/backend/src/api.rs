@@ -164,6 +164,7 @@ pub async fn generate(
         "subito" => {
             crate::generator::subito::generate_subito(
                 &st.http,
+                &req.country,
                 &req.method,
                 title,
                 price,

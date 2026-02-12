@@ -150,16 +150,16 @@ def main():
     # Прогрев in-memory кэша субито (если disk-кэш заполнен)
     warmup_subito_cache()
 
-    # Запускаем API в отдельном потоке
-    api_thread = threading.Thread(target=start_api, daemon=True, name="API-Server")
-    api_thread.start()
-    
-    # Даем API время запуститься
-    time.sleep(1)
-    
-    logger.info("✅ API запущен на http://0.0.0.0:8080")
-    logger.info("✅ Swagger UI: http://127.0.0.1:8080/docs")
-    
+    # # Запускаем API в отдельном потоке
+    # api_thread = threading.Thread(target=start_api, daemon=True, name="API-Server")
+    # api_thread.start()
+    #
+    # # Даем API время запуститься
+    # time.sleep(1)
+    #
+    # logger.info("✅ API запущен на http://0.0.0.0:8080")
+    # logger.info("✅ Swagger UI: http://127.0.0.1:8080/docs")
+    #
     # Запускаем бота в основном потоке
     try:
         start_bot()
