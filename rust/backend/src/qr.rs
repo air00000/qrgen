@@ -99,7 +99,9 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
 
     let default_dark = match profile.to_ascii_lowercase().as_str() {
         // Most templates use black; fall back to old default for generic usage.
-        "wallapop" | "markt" | "subito" | "depop" | "kleinanzeigen" | "2dehands" | "2ememain" => "#000000",
+        "wallapop" | "markt" | "subito" | "depop" | "kleinanzeigen" => "#000000",
+        // 2dehands / 2ememain use a dark navy (matches legacy/Python screenshots).
+        "2dehands" | "2ememain" => "#11223E",
         _ => "#4B6179",
     };
 
@@ -117,7 +119,19 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
     }
     let module_roundness = req.module_roundness.unwrap_or(0.45).clamp(0.0, 0.5);
 
-    let finder_inner_corner = match req.finder_inner_corner.as_deref().unwrap_or("outerOnly") {
+    let default_finder_inner = if profile.eq_ignore_ascii_case("2dehands")
+        || profile.eq_ignore_ascii_case("2ememain")
+    {
+        "both"
+    } else {
+        "outerOnly"
+    };
+
+    let finder_inner_corner = match req
+        .finder_inner_corner
+        .as_deref()
+        .unwrap_or(default_finder_inner)
+    { 
         "outerOnly" | "outer_only" | "outer" => FinderInnerCorner::OuterOnly,
         "both" => FinderInnerCorner::Both,
         other => return Err(QrError::InvalidOption(format!("finderInnerCorner={other}"))),
