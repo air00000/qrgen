@@ -199,8 +199,16 @@ fn draw_finder(
     let center = 3 * module_px;
     let cx0 = x0 + 2 * module_px;
     let cy0 = y0 + 2 * module_px;
-    // Keep the center square for wallapop-style eyes (no rounding).
-    fill_rounded_rect(img, cx0, cy0, center, center, 0, dark);
+
+    // Wallapop-like eyes: rounded center square too.
+    let center_r = if opts.finder_outer_roundness > 1.0 {
+        let max_r = ((3 * module_px) / 2);
+        max_r.saturating_sub((module_px / 4).max(2))
+    } else {
+        0
+    };
+
+    fill_rounded_rect(img, cx0, cy0, center, center, center_r, dark);
 }
 
 pub fn render_stylized(code: &QrCode, opts: RenderOpts) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
@@ -253,7 +261,10 @@ pub fn render_stylized(code: &QrCode, opts: RenderOpts) -> ImageBuffer<Rgba<u8>,
     // Wallapop-like eyes are closer to a "pill/squircle" look: rounding near half of the eye size.
     // When finder_roundness > 1.0 we switch to that mode.
     let outer_r = if finder_roundness > 1.0 {
-        ((7 * module_px) / 2).saturating_sub(1)
+        // Slightly less than half-size for a softer "pill" look (tunable).
+        // (7*module_px)/2 is the theoretical max; we subtract a bit to match the reference.
+        let max_r = ((7 * module_px) / 2);
+        max_r.saturating_sub((module_px / 4).max(2))
     } else {
         ((module_px as f32) * finder_roundness).round() as u32
     };
