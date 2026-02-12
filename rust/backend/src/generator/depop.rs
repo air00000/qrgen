@@ -485,7 +485,8 @@ pub async fn generate_depop(
         if qr_img.width() != w || qr_img.height() != h {
             qr_img = qr_img.resize_exact(w, h, image::imageops::FilterType::Lanczos3);
         }
-        overlay_alpha(&mut out, &qr_img.to_rgba8(), x, y + offset_base as u32);
+        // QR node position in Figma already includes the base layout; do not apply BASE_TEXT_OFFSET here.
+        overlay_alpha(&mut out, &qr_img.to_rgba8(), x, y);
     }
 
     // final resize + white background

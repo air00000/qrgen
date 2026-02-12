@@ -99,8 +99,9 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
 
     let default_dark = match profile.to_ascii_lowercase().as_str() {
         // Most templates use black; fall back to old default for generic usage.
-        "wallapop" | "markt" | "depop" | "kleinanzeigen" => "#000000",
+        "wallapop" | "markt" | "kleinanzeigen" => "#000000",
         "subito" => "#FF6E69",
+        "depop" => "#CF2C2D",
         // 2dehands / 2ememain use a dark navy (matches legacy/Python screenshots).
         "2dehands" | "2ememain" => "#11223E",
         _ => "#4B6179",
@@ -123,7 +124,11 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
     if !matches!(os, 1 | 2 | 3 | 5) {
         return Err(QrError::InvalidOption(format!("os={os} (allowed: 1,2,3,5)")));
     }
-    let default_module_roundness = if profile.eq_ignore_ascii_case("wallapop") { 0.50 } else { 0.45 };
+    let default_module_roundness = if profile.eq_ignore_ascii_case("wallapop") || profile.eq_ignore_ascii_case("depop") {
+        0.50
+    } else {
+        0.45
+    };
     let module_roundness = req
         .module_roundness
         .unwrap_or(default_module_roundness)
@@ -184,11 +189,11 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
             FinderCornerStyle::InnerSharp
         } else if profile.eq_ignore_ascii_case("subito")
             || profile.eq_ignore_ascii_case("markt")
+            || profile.eq_ignore_ascii_case("depop")
             || profile.eq_ignore_ascii_case("2dehands")
             || profile.eq_ignore_ascii_case("2ememain")
         {
-            // For 2dehands/2ememain we want rounded inner hole + rounded center square;
-            // boost can be 0 for a uniform look.
+            // Rounded inner hole + rounded center square.
             FinderCornerStyle::InnerBoost
         } else {
             FinderCornerStyle::Uniform
@@ -198,6 +203,8 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
             0.60
         } else if profile.eq_ignore_ascii_case("markt") {
             0.30
+        } else if profile.eq_ignore_ascii_case("depop") {
+            0.25
         } else if profile.eq_ignore_ascii_case("2dehands") || profile.eq_ignore_ascii_case("2ememain") {
             0.18
         } else {
