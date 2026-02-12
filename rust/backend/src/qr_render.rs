@@ -203,7 +203,8 @@ fn draw_finder(
     // Wallapop-like eyes: rounded center square too.
     let center_r = if opts.finder_outer_roundness > 1.0 {
         let max_r = ((3 * module_px) / 2);
-        max_r.saturating_sub((module_px / 4).max(2))
+        // reduce rounding a bit more than outer ring
+        max_r.saturating_sub((module_px / 2).max(3))
     } else {
         0
     };
@@ -264,7 +265,8 @@ pub fn render_stylized(code: &QrCode, opts: RenderOpts) -> ImageBuffer<Rgba<u8>,
         // Slightly less than half-size for a softer "pill" look (tunable).
         // (7*module_px)/2 is the theoretical max; we subtract a bit to match the reference.
         let max_r = ((7 * module_px) / 2);
-        max_r.saturating_sub((module_px / 4).max(2))
+        // reduce rounding a bit more
+        max_r.saturating_sub((module_px / 3).max(3))
     } else {
         ((module_px as f32) * finder_roundness).round() as u32
     };
