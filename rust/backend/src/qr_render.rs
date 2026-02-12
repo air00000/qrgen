@@ -125,8 +125,24 @@ fn fill_rounded_rect(
     r: u32,
     color: Rgba<u8>,
 ) {
+    fill_rounded_rect_corners(img, x0, y0, w, h, r, true, true, true, true, color)
+}
+
+fn fill_rounded_rect_corners(
+    img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>,
+    x0: u32,
+    y0: u32,
+    w: u32,
+    h: u32,
+    r: u32,
+    round_tl: bool,
+    round_tr: bool,
+    round_bl: bool,
+    round_br: bool,
+    color: Rgba<u8>,
+) {
     // fast path
-    if r == 0 {
+    if r == 0 || (!round_tl && !round_tr && !round_bl && !round_br) {
         for y in y0..(y0 + h) {
             for x in x0..(x0 + w) {
                 img.put_pixel(x, y, color);
@@ -140,29 +156,44 @@ fn fill_rounded_rect(
     for yy in 0..h_i {
         for xx in 0..w_i {
             let mut inside = true;
-            // Check 4 rounded corners using circle equation.
+            // Check 4 corners using circle equation, but only for corners that are enabled.
             if xx < r_i && yy < r_i {
-                let dx = xx - (r_i - 1);
-                let dy = yy - (r_i - 1);
-                inside = dx * dx + dy * dy <= r_i * r_i;
+                if round_tl {
+                    let dx = xx - (r_i - 1);
+                    let dy = yy - (r_i - 1);
+                    inside = dx * dx + dy * dy <= r_i * r_i;
+                }
             } else if xx >= w_i - r_i && yy < r_i {
-                let dx = xx - (w_i - r_i);
-                let dy = yy - (r_i - 1);
-                inside = dx * dx + dy * dy <= r_i * r_i;
+                if round_tr {
+                    let dx = xx - (w_i - r_i);
+                    let dy = yy - (r_i - 1);
+                    inside = dx * dx + dy * dy <= r_i * r_i;
+                }
             } else if xx < r_i && yy >= h_i - r_i {
-                let dx = xx - (r_i - 1);
-                let dy = yy - (h_i - r_i);
-                inside = dx * dx + dy * dy <= r_i * r_i;
+                if round_bl {
+                    let dx = xx - (r_i - 1);
+                    let dy = yy - (h_i - r_i);
+                    inside = dx * dx + dy * dy <= r_i * r_i;
+                }
             } else if xx >= w_i - r_i && yy >= h_i - r_i {
-                let dx = xx - (w_i - r_i);
-                let dy = yy - (h_i - r_i);
-                inside = dx * dx + dy * dy <= r_i * r_i;
+                if round_br {
+                    let dx = xx - (w_i - r_i);
+                    let dy = yy - (h_i - r_i);
+                    inside = dx * dx + dy * dy <= r_i * r_i;
+                }
             }
             if inside {
                 img.put_pixel(x0 + xx as u32, y0 + yy as u32, color);
             }
         }
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum FinderPos {
+    TopLeft,
+    TopRight,
+    BottomLeft,
 }
 
 fn draw_finder(
@@ -172,6 +203,7 @@ fn draw_finder(
     module_px: u32,
     outer_r: u32,
     opts: RenderOpts,
+    pos: FinderPos,
 ) {
     let dark = Rgba([opts.dark[0], opts.dark[1], opts.dark[2], 255]);
     let light = Rgba([opts.light[0], opts.light[1], opts.light[2], 255]);
@@ -181,7 +213,17 @@ fn draw_finder(
     let y0 = start_y_mod * module_px;
     let outer = 7 * module_px;
 
-    fill_rounded_rect(img, x0, y0, outer, outer, outer_r, dark);
+    // For Wallapop-style eyes: keep the "inner" corner (facing QR center) sharp.
+    // Internal corner by finder position:
+    // - TL: bottom-right
+    // - TR: bottom-left
+    // - BL: top-right
+    let (rt_tl, rt_tr, rt_bl, rt_br) = match pos {
+        FinderPos::TopLeft => (true, true, true, false),
+        FinderPos::TopRight => (true, true, false, true),
+        FinderPos::BottomLeft => (true, false, true, true),
+    };
+    fill_rounded_rect_corners(img, x0, y0, outer, outer, outer_r, rt_tl, rt_tr, rt_bl, rt_br, dark);
 
     // Inner hole: 5x5 light
     let inner = 5 * module_px;
@@ -193,7 +235,7 @@ fn draw_finder(
         // inset by 1 module => radius reduced by module_px.
         FinderInnerCorner::Both => outer_r.saturating_sub(module_px),
     };
-    fill_rounded_rect(img, ix0, iy0, inner, inner, inner_r, light);
+    fill_rounded_rect_corners(img, ix0, iy0, inner, inner, inner_r, rt_tl, rt_tr, rt_bl, rt_br, light);
 
     // Center: 3x3 dark
     let center = 3 * module_px;
@@ -209,7 +251,7 @@ fn draw_finder(
         0
     };
 
-    fill_rounded_rect(img, cx0, cy0, center, center, center_r, dark);
+    fill_rounded_rect_corners(img, cx0, cy0, center, center, center_r, rt_tl, rt_tr, rt_bl, rt_br, dark);
 }
 
 pub fn render_stylized(code: &QrCode, opts: RenderOpts) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
@@ -271,7 +313,15 @@ pub fn render_stylized(code: &QrCode, opts: RenderOpts) -> ImageBuffer<Rgba<u8>,
         ((module_px as f32) * finder_roundness).round() as u32
     };
     // top-left
-    draw_finder(&mut img, opts.margin, opts.margin, module_px, outer_r, opts);
+    draw_finder(
+        &mut img,
+        opts.margin,
+        opts.margin,
+        module_px,
+        outer_r,
+        opts,
+        FinderPos::TopLeft,
+    );
     // top-right
     draw_finder(
         &mut img,
@@ -280,6 +330,7 @@ pub fn render_stylized(code: &QrCode, opts: RenderOpts) -> ImageBuffer<Rgba<u8>,
         module_px,
         outer_r,
         opts,
+        FinderPos::TopRight,
     );
     // bottom-left
     draw_finder(
@@ -289,6 +340,7 @@ pub fn render_stylized(code: &QrCode, opts: RenderOpts) -> ImageBuffer<Rgba<u8>,
         module_px,
         outer_r,
         opts,
+        FinderPos::BottomLeft,
     );
 
     img
