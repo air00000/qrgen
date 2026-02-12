@@ -239,8 +239,7 @@ async fn generate_subito_qr_png(http: &reqwest::Client, url: &str, size: u32, co
         "profile": "subito",
         "size": size,
         "margin": 2,
-        "colorDark": "#FF6E69",
-        "colorLight": "#FFFFFF",
+        // colors + finder style are profile defaults (do not override here)
         "cornerRadius": corner_radius,
         "os": 1
     });

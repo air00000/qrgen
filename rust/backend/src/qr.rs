@@ -182,13 +182,19 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
 
         let finder_corner_style = if profile.eq_ignore_ascii_case("wallapop") {
             FinderCornerStyle::InnerSharp
-        } else if profile.eq_ignore_ascii_case("subito") {
+        } else if profile.eq_ignore_ascii_case("subito") || profile.eq_ignore_ascii_case("markt") {
             FinderCornerStyle::InnerBoost
         } else {
             FinderCornerStyle::Uniform
         };
 
-        let finder_inner_boost = if profile.eq_ignore_ascii_case("subito") { 0.45 } else { 0.0 };
+        let finder_inner_boost = if profile.eq_ignore_ascii_case("subito") {
+            0.60
+        } else if profile.eq_ignore_ascii_case("markt") {
+            0.30
+        } else {
+            0.0
+        };
 
         render_qr(
             &code,

@@ -332,8 +332,10 @@ fn draw_finder(
         // reduce rounding a bit more than outer ring
         max_r.saturating_sub((module_px / 2).max(3))
     } else if matches!(opts.finder_corner_style, FinderCornerStyle::InnerBoost) {
-        // Subito: ensure visible rounding for the center square.
-        let base = ((module_px as f32) * 0.45).round() as u32;
+        // Subito/Markt: ensure visible rounding for the center square.
+        // Tie it loosely to inner_boost so we can tune per profile without adding more fields.
+        let k = (0.38 + opts.finder_inner_boost * 0.15).clamp(0.38, 0.60);
+        let base = ((module_px as f32) * k).round() as u32;
         base.max(1)
     } else {
         0
