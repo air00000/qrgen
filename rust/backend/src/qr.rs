@@ -125,10 +125,10 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
 
     let default_finder_inner = if profile.eq_ignore_ascii_case("2dehands")
         || profile.eq_ignore_ascii_case("2ememain")
+        || profile.eq_ignore_ascii_case("wallapop")
     {
         "both"
     } else {
-        // wallapop reference keeps the inner contour corners square
         "outerOnly"
     };
 

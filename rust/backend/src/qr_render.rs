@@ -189,8 +189,9 @@ fn draw_finder(
     let iy0 = y0 + module_px;
     let inner_r = match opts.finder_inner_corner {
         FinderInnerCorner::OuterOnly => 0,
-        // Round the inner contour corners as well (makes the dark ring corners rounded).
-        FinderInnerCorner::Both => outer_r,
+        // Round the inner contour too, but keep the curvature consistent with the outer ring:
+        // inset by 1 module => radius reduced by module_px.
+        FinderInnerCorner::Both => outer_r.saturating_sub(module_px),
     };
     fill_rounded_rect(img, ix0, iy0, inner, inner, inner_r, light);
 
