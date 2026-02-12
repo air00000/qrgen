@@ -480,9 +480,19 @@ pub async fn generate_depop(
     // qr
     if let Some(n) = qr_n {
         let (x, y, w, h) = rel_box(&n, &frame_node)?;
-        // Match legacy Python behavior: generate QR and resize to a fixed box, then center it.
-        // Python constants: QR_RESIZE=(1086,1068), QR_CORNER_RADIUS=16 (at SCALE_FACTOR=2).
-        let (qw, qh) = (1086u32, 1068u32);
+        // Legacy Python target size (at SCALE_FACTOR=2): QR_RESIZE=(1086,1068).
+        // But the Figma node box may be smaller; always scale-to-fit into the node box and center.
+        let (base_w, base_h) = (1086.0_f32, 1068.0_f32);
+        let bw = w.max(1) as f32;
+        let bh = h.max(1) as f32;
+
+        // Fit inside the node box. Never upscale above legacy size.
+        let mut s = (bw / base_w).min(bh / base_h).min(1.0);
+        // Small safety margin so it fits "inside" the visual frame.
+        s *= 0.98;
+
+        let qw = (base_w * s).round().max(1.0) as u32;
+        let qh = (base_h * s).round().max(1.0) as u32;
         let qx = x + (w.saturating_sub(qw)) / 2;
         let qy = y + (h.saturating_sub(qh)) / 2;
 
