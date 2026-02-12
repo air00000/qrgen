@@ -188,7 +188,7 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
             FinderCornerStyle::Uniform
         };
 
-        let finder_inner_boost = if profile.eq_ignore_ascii_case("subito") { 0.25 } else { 0.0 };
+        let finder_inner_boost = if profile.eq_ignore_ascii_case("subito") { 0.33 } else { 0.0 };
 
         render_qr(
             &code,

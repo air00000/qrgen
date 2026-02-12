@@ -346,7 +346,8 @@ fn draw_finder(
         // reduce rounding a bit more than outer ring
         max_r.saturating_sub((module_px / 2).max(3))
     } else {
-        0
+        // For non-squircle mode (subito etc), base center rounding on outer_r.
+        outer_r.saturating_sub((module_px / 3).max(1))
     };
 
     let (cr_tl, cr_tr, cr_bl, cr_br) = match opts.finder_corner_style {
