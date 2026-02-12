@@ -199,7 +199,7 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
         } else if profile.eq_ignore_ascii_case("markt") {
             0.30
         } else if profile.eq_ignore_ascii_case("2dehands") || profile.eq_ignore_ascii_case("2ememain") {
-            0.00
+            0.18
         } else {
             0.0
         };
