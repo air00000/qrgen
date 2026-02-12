@@ -512,6 +512,8 @@ fn parse_hex_color(s: &str) -> Result<[u8; 3], QrError> {
 }
 
 fn remove_solid_background_if_opaque(img: DynamicImage) -> DynamicImage {
+    use std::collections::VecDeque;
+
     let mut rgba = img.to_rgba8();
     let (w, h) = rgba.dimensions();
     if w == 0 || h == 0 {
@@ -519,8 +521,7 @@ fn remove_solid_background_if_opaque(img: DynamicImage) -> DynamicImage {
     }
 
     // If image already has transparency, keep it.
-    let has_alpha = rgba.pixels().any(|p| p[3] < 255);
-    if has_alpha {
+    if rgba.pixels().any(|p| p[3] < 255) {
         return DynamicImage::ImageRgba8(rgba);
     }
 
@@ -528,14 +529,12 @@ fn remove_solid_background_if_opaque(img: DynamicImage) -> DynamicImage {
     let patch = 8u32;
     let mut sum = [0u64; 3];
     let mut cnt = 0u64;
-
     let corners = [
         (0u32, 0u32),
         (w.saturating_sub(patch), 0u32),
         (0u32, h.saturating_sub(patch)),
         (w.saturating_sub(patch), h.saturating_sub(patch)),
     ];
-
     for (cx, cy) in corners {
         for y in cy..(cy + patch).min(h) {
             for x in cx..(cx + patch).min(w) {
@@ -547,25 +546,99 @@ fn remove_solid_background_if_opaque(img: DynamicImage) -> DynamicImage {
             }
         }
     }
-
     if cnt == 0 {
         return DynamicImage::ImageRgba8(rgba);
     }
-
     let bg = [
         (sum[0] / cnt) as i32,
         (sum[1] / cnt) as i32,
         (sum[2] / cnt) as i32,
     ];
 
-    // Make pixels close to bg transparent. Threshold is conservative to avoid eating the logo.
-    let thr: i32 = 28;
-    for p in rgba.pixels_mut() {
+    // Only remove background that is CONNECTED to the edges.
+    // This avoids deleting interior white elements (e.g. inside the logo).
+    let thr: i32 = 38;
+    let idx = |x: u32, y: u32| -> usize { (y * w + x) as usize };
+    let mut seen = vec![false; (w * h) as usize];
+    let mut q = VecDeque::new();
+
+    let close_to_bg = |p: &Rgba<u8>| -> bool {
         let dr = (p[0] as i32 - bg[0]).abs();
         let dg = (p[1] as i32 - bg[1]).abs();
         let db = (p[2] as i32 - bg[2]).abs();
-        if dr <= thr && dg <= thr && db <= thr {
-            p[3] = 0;
+        dr <= thr && dg <= thr && db <= thr
+    };
+
+    // seed with border pixels close to bg
+    for x in 0..w {
+        for &y in &[0u32, h - 1] {
+            let p = rgba.get_pixel(x, y);
+            if close_to_bg(p) {
+                let i = idx(x, y);
+                if !seen[i] {
+                    seen[i] = true;
+                    q.push_back((x, y));
+                }
+            }
+        }
+    }
+    for y in 0..h {
+        for &x in &[0u32, w - 1] {
+            let p = rgba.get_pixel(x, y);
+            if close_to_bg(p) {
+                let i = idx(x, y);
+                if !seen[i] {
+                    seen[i] = true;
+                    q.push_back((x, y));
+                }
+            }
+        }
+    }
+
+    while let Some((x, y)) = q.pop_front() {
+        let neighbors = [
+            (x.wrapping_sub(1), y),
+            (x + 1, y),
+            (x, y.wrapping_sub(1)),
+            (x, y + 1),
+        ];
+        for (nx, ny) in neighbors {
+            if nx >= w || ny >= h {
+                continue;
+            }
+            let i = idx(nx, ny);
+            if seen[i] {
+                continue;
+            }
+            let p = rgba.get_pixel(nx, ny);
+            if close_to_bg(p) {
+                seen[i] = true;
+                q.push_back((nx, ny));
+            }
+        }
+    }
+
+    // Apply: set edge-connected bg pixels transparent.
+    // To reduce halos, also soften alpha for pixels VERY close to bg but not selected.
+    let soft_thr: i32 = thr + 18;
+    for y in 0..h {
+        for x in 0..w {
+            let i = idx(x, y);
+            let p = rgba.get_pixel_mut(x, y);
+            if seen[i] {
+                p[3] = 0;
+                continue;
+            }
+            // Optional softening: if a pixel is close-ish to bg, reduce alpha a bit.
+            let dr = (p[0] as i32 - bg[0]).abs();
+            let dg = (p[1] as i32 - bg[1]).abs();
+            let db = (p[2] as i32 - bg[2]).abs();
+            let d = dr.max(dg).max(db);
+            if d <= soft_thr {
+                let t = (d - thr) as f32 / (soft_thr - thr) as f32; // 0..1
+                let a = (255.0 * t).round() as u8;
+                p[3] = p[3].min(a);
+            }
         }
     }
 
