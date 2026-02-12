@@ -20,10 +20,41 @@ from telegram.ext import (
 
 from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, wallapop_type_kb, wallapop_lang_kb, depop_type_kb
 from app.utils.state_stack import push_state, pop_state, clear_stack
-from app.services.pdf import create_pdf, create_pdf_subito
 from app.services.wallapop_variants import WALLAPOP_VARIANTS
+from app.config import CFG
+import requests
 
 logger = logging.getLogger(__name__)
+
+
+def _backend_generate(payload: dict) -> bytes:
+    """Call Rust backend /generate and return PNG bytes."""
+    url = f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate"
+    headers = {"X-API-Key": CFG.BACKEND_API_KEY or ""}
+    r = requests.post(url, json=payload, headers=headers, timeout=60)
+    r.raise_for_status()
+    return r.content
+
+
+def _service_country_defaults(service: str, lang: str | None = None) -> tuple[str, str, str]:
+    """Returns (country, backend_service, backend_method_default)."""
+    s = (service or "").lower()
+    if s == "marktplaats":
+        return ("nl", "markt", "qr")
+    if s == "kleize":
+        return ("de", "kleinanzeigen", "qr")
+    if s in ["2dehands", "2ememain"]:
+        # country here is used as language selector in rust twodehands generator.
+        return ("nl" if s == "2dehands" else "fr", s, "qr")
+    if s == "wallapop":
+        return ((lang or "es"), "wallapop", "qr")
+    if s == "subito":
+        return ("it", "subito", "qr")
+    if s == "conto":
+        return ("it", "conto", "qr")
+    if s.startswith("depop"):
+        return ("au", "depop", "qr")
+    return ("nl", s, "qr")
 
 # Состояния
 QR_NAZVANIE, QR_PRICE, QR_NAME, QR_ADDRESS, QR_PHOTO, QR_URL, QR_LANG, QR_SELLER_NAME, QR_SELLER_PHOTO, QR_WALLAPOP_TYPE, QR_DEPOP_TYPE = range(
@@ -425,79 +456,41 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
         logger.info(f"📸 Генерация для {service}: фото={'есть (' + str(len(photo_b64)) + ' символов)' if photo_b64 else 'нет'}, название={nazvanie}, цена={price}")
 
-        if service == "conto":
-            # Импортируем функцию для Conto
-            from app.services.conto import create_conto_image
-            
-            try:
-                price_float = float(price)
-            except ValueError:
-                price_float = 0.0
-            
-            executor = context.application.bot_data.get("executor")
-            image_data = await generate_with_queue(executor, 
-                create_conto_image, nazvanie, price_float
-            )
-        elif service == "kleize":
-            # Импортируем функцию для Kleize
-            from app.services.kleize import create_kleize_image
-            
-            try:
-                price_float = float(price)
-            except ValueError:
-                price_float = 0.0
-            
-            executor = context.application.bot_data.get("executor")
-            image_data = await generate_with_queue(executor, 
-                create_kleize_image, nazvanie, price_float, photo_b64, url
-            )
-        elif service == "depop":
-            # Импортируем функцию для Depop
-            from app.services.depop import create_depop_image
-            
-            # Кэш проверяется автоматически внутри сервиса
-            # Если кэша нет - будет использован Figma API
-            
-            try:
-                price_float = float(price)
-            except ValueError:
-                price_float = 0.0
-            
-            # Получаем seller_name и avatar
-            seller_name = context.user_data.get("seller_name", "Seller")
-            seller_photo_bytes = context.user_data.get("seller_photo_bytes")
-            avatar_b64 = base64.b64encode(seller_photo_bytes).decode('utf-8') if seller_photo_bytes else None
-            
-            logger.info(f"🇦🇺 Depop: seller={seller_name}, avatar={'есть' if avatar_b64 else 'нет'}")
-            
-            executor = context.application.bot_data.get("executor")
-            image_data = await generate_with_queue(executor, 
-                create_depop_image, nazvanie, price_float, seller_name, photo_b64, avatar_b64, url
-            )
-        elif service == "wallapop":
-            return await generate_wallapop_variant(update, context, url=url)
-        elif service in ["2dehands", "2ememain"]:
-            # Импортируем функцию для 2dehands
-            from app.services.twodehands import create_2dehands_image
-            lang = context.user_data.get("lang", "nl")
-            
-            try:
-                price_float = float(price)
-            except ValueError:
-                price_float = 0.0
-            
-            executor = context.application.bot_data.get("executor")
-            image_data = await generate_with_queue(executor, 
-                create_2dehands_image, nazvanie, price_float, photo_b64, url, lang
-            )
-        elif service == "subito":
-            image_data, _, _ = await asyncio.to_thread(
-                create_pdf_subito, nazvanie, price, name, address, photo_b64, url
-            )
-        else:
-            image_data, _, _ = await asyncio.to_thread(
-                create_pdf, nazvanie, price, photo_b64, url
-            )
+        # All generation must happen in Rust backend.
+        try:
+            price_float = float(price)
+        except ValueError:
+            price_float = 0.0
+
+        lang = context.user_data.get("lang")
+        depop_type = context.user_data.get("depop_type")
+        wallapop_type = context.user_data.get("wallapop_type")
+
+        country, backend_service, method_default = _service_country_defaults(service, lang=lang)
+        backend_method = method_default
+
+        if backend_service == "wallapop":
+            backend_method = wallapop_type or "qr"
+        if backend_service == "depop":
+            backend_method = depop_type or "qr"
+
+        payload = {
+            "country": country,
+            "service": backend_service,
+            "method": backend_method,
+            "title": nazvanie,
+            "price": price_float,
+            "url": url,
+            "photo": photo_b64,
+            "name": name,
+            "address": address,
+            "seller_name": context.user_data.get("seller_name"),
+            "seller_photo": base64.b64encode(context.user_data.get("seller_photo_bytes") or b"").decode("utf-8")
+            if context.user_data.get("seller_photo_bytes")
+            else None,
+        }
+
+        image_data = await asyncio.to_thread(_backend_generate, payload)
 
         await context.bot.send_document(
             chat_id=update.message.chat_id,
@@ -517,74 +510,16 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def generate_wallapop_variant(update: Update, context: ContextTypes.DEFAULT_TYPE, url: str = None):
-    """Генерация Wallapop вариантов"""
-    lang = context.user_data.get("lang", "")
-    nazvanie = context.user_data.get("nazvanie", "")
-    price = context.user_data.get("price", "")
-    seller_name = context.user_data.get("seller_name", "")
-    photo_bytes = context.user_data.get("photo_bytes")
-    seller_photo_bytes = context.user_data.get("seller_photo_bytes")
-    wallapop_type = context.user_data.get("wallapop_type", "email_request")
-
+    """Wallapop variants must be generated by Rust backend."""
+    # Reuse the main generation path by forcing service=wallapop and method from context.
     message = update.message if update.message else update.callback_query.message
-    wallapop_label = WALLAPOP_VARIANTS.get(wallapop_type, {}).get("label", wallapop_type)
-    await message.reply_text(f"Обрабатываю данные для Wallapop ({wallapop_label}) {lang.upper()}…", reply_markup=menu_back_kb())
+    await message.reply_text("Обрабатываю данные для Wallapop…", reply_markup=menu_back_kb())
 
     try:
-        from app.services.wallapop_variants import (
-            create_wallapop_email_request,
-            create_wallapop_sms_request,
-            create_wallapop_email_payment,
-            create_wallapop_sms_payment,
-            create_wallapop_qr,
-        )
-
-        # Кэш проверяется автоматически внутри сервиса
-        # Если кэша нет - будет использован Figma API
-
-        try:
-            price_float = float(price)
-        except ValueError:
-            price_float = 0.0
-
-        photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
-        seller_photo_b64 = base64.b64encode(seller_photo_bytes).decode('utf-8') if seller_photo_bytes else None
-
-        executor = context.application.bot_data.get("executor")
-
-        if wallapop_type == "email_request":
-            image_data = await generate_with_queue(
-                executor, create_wallapop_email_request, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
-            )
-        elif wallapop_type == "phone_request":
-            image_data = await generate_with_queue(
-                executor, create_wallapop_sms_request, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
-            )
-        elif wallapop_type == "email_payment":
-            image_data = await generate_with_queue(
-                executor, create_wallapop_email_payment, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
-            )
-        elif wallapop_type == "sms_payment":
-            image_data = await generate_with_queue(
-                executor, create_wallapop_sms_payment, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64
-            )
-        elif wallapop_type == "qr":
-            image_data = await generate_with_queue(
-                executor, create_wallapop_qr, lang, nazvanie, price_float, photo_b64, seller_name, seller_photo_b64, url
-            )
-        else:
-            raise ValueError(f"Неизвестный Wallapop тип: {wallapop_type}")
-
-        await context.bot.send_document(
-            chat_id=message.chat_id,
-            document=io.BytesIO(image_data),
-            filename=f"wallapop_{wallapop_type}_{lang}_{uuid.uuid4()}.png"
-        )
-
-        await message.reply_text("Готово!", reply_markup=main_menu_kb())
-        clear_stack(context.user_data)
-        return ConversationHandler.END
-
+        context.user_data["service"] = "wallapop"
+        context.user_data["url"] = url or context.user_data.get("url")
+        # Delegate to the normal send flow (builds backend payload and sends document)
+        return await on_url(update, context)
     except Exception as e:
         logger.exception("Ошибка генерации Wallapop")
         await message.reply_text(f"Ошибка: {e}", reply_markup=main_menu_kb())
@@ -593,68 +528,16 @@ async def generate_wallapop_variant(update: Update, context: ContextTypes.DEFAUL
 
 
 async def generate_depop_variant(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Генерация Depop вариантов (email request/confirm, sms request/confirm)"""
-    service = context.user_data.get("service", "")
-    nazvanie = context.user_data.get("nazvanie", "")
-    price = context.user_data.get("price", "")
-    photo_bytes = context.user_data.get("photo_bytes")
-
+    """Depop variants must be generated by Rust backend."""
     message = update.message if update.message else update.callback_query.message
-    
-    service_names = {
-        "depop_email_request": "Depop Email Request",
-        "depop_email_confirm": "Depop Email Confirm",
-        "depop_sms_request": "Depop SMS Request",
-        "depop_sms_confirm": "Depop SMS Confirm"
-    }
-    display_name = service_names.get(service, service)
-    
-    await message.reply_text(f"Обрабатываю данные для {display_name}…", reply_markup=menu_back_kb())
+    await message.reply_text("Обрабатываю данные для Depop…", reply_markup=menu_back_kb())
 
     try:
-        # Импортируем функции для Depop вариантов
-        from app.services.depop_variants import (
-            create_depop_email_request, create_depop_email_confirm,
-            create_depop_sms_request, create_depop_sms_confirm
-        )
-        
-        # Кэш проверяется автоматически внутри сервиса
-        # Если кэша нет - будет использован Figma API
-        
-        try:
-            price_float = float(price)
-        except ValueError:
-            price_float = 0.0
-        
-        photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
-        logger.info(f"🛍️ Depop {service}: фото={'есть' if photo_b64 else 'нет'}, название={nazvanie}, цена={price_float}")
-        
-        # Выбор функции генерации
-        executor = context.application.bot_data.get("executor")
-        
-        if service == "depop_email_request":
-            image_data = await generate_with_queue(executor, create_depop_email_request, nazvanie, price_float, photo_b64)
-        elif service == "depop_email_confirm":
-            image_data = await generate_with_queue(executor, create_depop_email_confirm, nazvanie, price_float, photo_b64)
-        elif service == "depop_sms_request":
-            image_data = await generate_with_queue(executor, create_depop_sms_request, nazvanie, price_float, photo_b64)
-        elif service == "depop_sms_confirm":
-            image_data = await generate_with_queue(executor, create_depop_sms_confirm, nazvanie, price_float, photo_b64)
-        else:
-            raise ValueError(f"Неизвестный сервис: {service}")
-
-        await context.bot.send_document(
-            chat_id=message.chat_id,
-            document=io.BytesIO(image_data),
-            filename=f"{service}_{uuid.uuid4()}.png"
-        )
-
-        await message.reply_text("Готово!", reply_markup=main_menu_kb())
-        clear_stack(context.user_data)
-        return ConversationHandler.END
-
+        # Force service=depop; method comes from depop_type in context.
+        context.user_data["service"] = "depop"
+        return await on_url(update, context)
     except Exception as e:
-        logger.exception(f"Ошибка генерации {service}")
+        logger.exception("Ошибка генерации Depop")
         await message.reply_text(f"Ошибка: {e}", reply_markup=main_menu_kb())
         clear_stack(context.user_data)
         return ConversationHandler.END
