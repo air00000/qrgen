@@ -330,9 +330,15 @@ fn draw_finder(
     let center_r = if opts.finder_outer_roundness > 1.0 {
         let max_r = (3 * module_px) / 2;
         // reduce rounding a bit more than outer ring
-        max_r.saturating_sub((module_px / 2).max(3))
+        let sub = if matches!(opts.finder_corner_style, FinderCornerStyle::InnerSharp) {
+            // wallapop: reduce rounding of the center square
+            (module_px * 2 / 3).max(4)
+        } else {
+            (module_px / 2).max(3)
+        };
+        max_r.saturating_sub(sub)
     } else if matches!(opts.finder_corner_style, FinderCornerStyle::InnerBoost) {
-        // Subito/Markt: ensure visible rounding for the center square.
+        // Subito/Markt/2dehands/2ememain: ensure visible rounding for the center square.
         // Tie it loosely to inner_boost so we can tune per profile without adding more fields.
         let k = (0.38 + opts.finder_inner_boost * 0.15).clamp(0.38, 0.60);
         let base = ((module_px as f32) * k).round() as u32;
@@ -412,8 +418,13 @@ pub fn render_stylized(code: &QrCode, opts: RenderOpts) -> ImageBuffer<Rgba<u8>,
         // Slightly less than half-size for a softer "pill" look (tunable).
         // (7*module_px)/2 is the theoretical max; we subtract a bit to match the reference.
         let max_r = ((7 * module_px) / 2);
-        // reduce rounding a bit more
-        max_r.saturating_sub((module_px * 3 / 4).max(6))
+        // wallapop: reduce rounding overall
+        let sub = if matches!(opts.finder_corner_style, FinderCornerStyle::InnerSharp) {
+            (module_px).max(8)
+        } else {
+            (module_px * 3 / 4).max(6)
+        };
+        max_r.saturating_sub(sub)
     } else {
         ((module_px as f32) * finder_roundness).round() as u32
     };

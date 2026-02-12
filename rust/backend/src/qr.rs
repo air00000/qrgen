@@ -182,7 +182,13 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
 
         let finder_corner_style = if profile.eq_ignore_ascii_case("wallapop") {
             FinderCornerStyle::InnerSharp
-        } else if profile.eq_ignore_ascii_case("subito") || profile.eq_ignore_ascii_case("markt") {
+        } else if profile.eq_ignore_ascii_case("subito")
+            || profile.eq_ignore_ascii_case("markt")
+            || profile.eq_ignore_ascii_case("2dehands")
+            || profile.eq_ignore_ascii_case("2ememain")
+        {
+            // For 2dehands/2ememain we want rounded inner hole + rounded center square;
+            // boost can be 0 for a uniform look.
             FinderCornerStyle::InnerBoost
         } else {
             FinderCornerStyle::Uniform
@@ -192,6 +198,8 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
             0.60
         } else if profile.eq_ignore_ascii_case("markt") {
             0.30
+        } else if profile.eq_ignore_ascii_case("2dehands") || profile.eq_ignore_ascii_case("2ememain") {
+            0.00
         } else {
             0.0
         };
