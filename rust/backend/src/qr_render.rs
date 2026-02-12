@@ -308,7 +308,7 @@ pub fn render_stylized(code: &QrCode, opts: RenderOpts) -> ImageBuffer<Rgba<u8>,
         // (7*module_px)/2 is the theoretical max; we subtract a bit to match the reference.
         let max_r = ((7 * module_px) / 2);
         // reduce rounding a bit more
-        max_r.saturating_sub((module_px / 3).max(3))
+        max_r.saturating_sub((module_px / 2).max(4))
     } else {
         ((module_px as f32) * finder_roundness).round() as u32
     };
