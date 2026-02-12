@@ -480,30 +480,18 @@ pub async fn generate_depop(
     // qr
     if let Some(n) = qr_n {
         let (x, y, w, h) = rel_box(&n, &frame_node)?;
-        // Legacy Python target size (at SCALE_FACTOR=2): QR_RESIZE=(1086,1068).
-        // But the Figma node box may be smaller; always scale-to-fit into the node box and center.
-        let (base_w, base_h) = (1086.0_f32, 1068.0_f32);
-        let bw = w.max(1) as f32;
-        let bh = h.max(1) as f32;
+        // Match qrgen-4.0 python behavior (dbd1909):
+        // - generate QR as a square image (size=1086)
+        // - cornerRadius = int(16 * SCALE_FACTOR) = 32
+        // - paste at the node top-left (no centering, no extra scaling)
+        let size_qr = 1086u32;
+        let corner = 32u32;
 
-        // Fit inside the node box. Never upscale above legacy size.
-        let mut s = (bw / base_w).min(bh / base_h).min(1.0);
-        // Small safety margin so it fits "inside" the visual frame.
-        s *= 0.98;
+        let qr_img = generate_qr_png(http, url, size_qr, corner).await?;
 
-        let qw = (base_w * s).round().max(1.0) as u32;
-        let qh = (base_h * s).round().max(1.0) as u32;
-        let qx = x + (w.saturating_sub(qw)) / 2;
-        let qy = y + (h.saturating_sub(qh)) / 2;
-
-        let corner = 16u32;
-        let mut qr_img = generate_qr_png(http, url, qw, corner).await?;
-        if qr_img.width() != qw || qr_img.height() != qh {
-            qr_img = qr_img.resize_exact(qw, qh, image::imageops::FilterType::Lanczos3);
-        }
-
+        // Paste at node position.
         // QR node position in Figma already includes the base layout; do not apply BASE_TEXT_OFFSET here.
-        overlay_alpha(&mut out, &qr_img.to_rgba8(), qx, qy);
+        overlay_alpha(&mut out, &qr_img.to_rgba8(), x, y);
     }
 
     // final resize + white background
