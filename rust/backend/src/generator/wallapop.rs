@@ -372,7 +372,8 @@ async fn generate_wallapop_qr_png(http: &reqwest::Client, url: &str, size: u32) 
         "colorDark": "#000000",
         "colorLight": "#FFFFFF",
         "logoUrl": QR_LOGO_URL,
-        "logoBadge": true,
+        // No badge behind the logo (must stay transparent like Subito)
+        "logoBadge": false,
         "cornerRadius": 0,
         "os": 1
     });
