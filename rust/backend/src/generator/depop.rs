@@ -480,13 +480,20 @@ pub async fn generate_depop(
     // qr
     if let Some(n) = qr_n {
         let (x, y, w, h) = rel_box(&n, &frame_node)?;
-        let corner = (16.0 * sf).round() as u32;
-        let mut qr_img = generate_qr_png(http, url, w, corner).await?;
-        if qr_img.width() != w || qr_img.height() != h {
-            qr_img = qr_img.resize_exact(w, h, image::imageops::FilterType::Lanczos3);
+        // Match legacy Python behavior: generate QR and resize to a fixed box, then center it.
+        // Python constants: QR_RESIZE=(1086,1068), QR_CORNER_RADIUS=16 (at SCALE_FACTOR=2).
+        let (qw, qh) = (1086u32, 1068u32);
+        let qx = x + (w.saturating_sub(qw)) / 2;
+        let qy = y + (h.saturating_sub(qh)) / 2;
+
+        let corner = 16u32;
+        let mut qr_img = generate_qr_png(http, url, qw, corner).await?;
+        if qr_img.width() != qw || qr_img.height() != qh {
+            qr_img = qr_img.resize_exact(qw, qh, image::imageops::FilterType::Lanczos3);
         }
+
         // QR node position in Figma already includes the base layout; do not apply BASE_TEXT_OFFSET here.
-        overlay_alpha(&mut out, &qr_img.to_rgba8(), x, y);
+        overlay_alpha(&mut out, &qr_img.to_rgba8(), qx, qy);
     }
 
     // final resize + white background
