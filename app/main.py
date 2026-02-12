@@ -78,14 +78,15 @@ def start_bot():
         logger.info("📨 Уведомления: ВЫКЛ")
     
     # Регистрация handlers
+    # Порядок важен: ConversationHandler'ы регистрируются раньше глобальных CallbackQueryHandler
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(subito_variants_conv)       # QR:SUBITO → SN_TYPE/SN_LANG/...
+    app.add_handler(markt_conv)                 # QR:MARKT_MENU → MARKT_LANG_/...
+    app.add_handler(qr_conv)                    # QR:WALLAPOP_MENU, QR:2DEHANDS, QR:CONTO, ...
+    app.add_handler(api_keys_conv)              # KEYS:START → API:*/...
     app.add_handler(CallbackQueryHandler(menu_cb, pattern=r"^MENU$"))
-    app.add_handler(subito_variants_conv)
-    app.add_handler(markt_conv)  # Markt handlers
-    app.add_handler(qr_conv)
     app.add_handler(CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"))
     app.add_handler(CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$"))
-    app.add_handler(api_keys_conv)
     
     for handler in get_cache_handlers():
         app.add_handler(handler)
@@ -99,23 +100,66 @@ def start_bot():
     )
 
 
+def warmup_subito_cache():
+    """
+    Фоновый прогрев in-memory кэша для всех субито-фреймов.
+    Запускается однократно при старте — после этого генерация мгновенная.
+    """
+    import time
+    from app.cache.figma_cache import FigmaCache
+    from app.services.figma import find_node
+    from app.services.cache_wrapper import _mem_set
+
+    subito_services = [
+        ("subito_new_email_request_uk", "Page 2", "subito6"),
+        ("subito_new_email_request_nl", "Page 2", "subito6"),
+        ("subito_new_phone_request_uk", "Page 2", "subito7"),
+        ("subito_new_phone_request_nl", "Page 2", "subito7"),
+        ("subito_new_email_payment_uk", "Page 2", "subito8"),
+        ("subito_new_email_payment_nl", "Page 2", "subito8"),
+        ("subito_new_sms_payment_uk",   "Page 2", "subito9"),
+        ("subito_new_sms_payment_nl",   "Page 2", "subito9"),
+        ("subito_new_qr_uk",            "Page 2", "subito10"),
+        ("subito_new_qr_nl",            "Page 2", "subito10"),
+    ]
+
+    loaded = 0
+    for service_name, page, frame_name in subito_services:
+        cache = FigmaCache(service_name)
+        if cache.exists():
+            try:
+                template_json, frame_img = cache.load()
+                _mem_set(service_name, template_json, frame_img)
+                loaded += 1
+            except Exception as e:
+                logger.warning(f"⚠️  warmup {service_name}: {e}")
+
+    if loaded:
+        logger.info(f"⚡ Прогрев кэша субито: {loaded}/{len(subito_services)} сервисов в памяти")
+    else:
+        logger.info("ℹ️  Disk-кэш субито не найден — первый запрос пойдёт через Figma API")
+
+
 def main():
     """Запуск бота и API вместе"""
     
     logger.info("=" * 50)
     logger.info("🚀 QRGen Bot + API")
     logger.info("=" * 50)
-    
-    # Запускаем API в отдельном потоке
-    api_thread = threading.Thread(target=start_api, daemon=True, name="API-Server")
-    api_thread.start()
-    
-    # Даем API время запуститься
-    time.sleep(1)
-    
-    logger.info("✅ API запущен на http://0.0.0.0:8080")
-    logger.info("✅ Swagger UI: http://127.0.0.1:8080/docs")
-    
+
+    # Прогрев in-memory кэша субито (если disk-кэш заполнен)
+    warmup_subito_cache()
+
+    # # Запускаем API в отдельном потоке
+    # api_thread = threading.Thread(target=start_api, daemon=True, name="API-Server")
+    # api_thread.start()
+    #
+    # # Даем API время запуститься
+    # time.sleep(1)
+    #
+    # logger.info("✅ API запущен на http://0.0.0.0:8080")
+    # logger.info("✅ Swagger UI: http://127.0.0.1:8080/docs")
+    #
     # Запускаем бота в основном потоке
     try:
         start_bot()

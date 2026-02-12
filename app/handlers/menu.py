@@ -15,24 +15,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Базовая клавиатура
     keyboard = [
         [
-            InlineKeyboardButton("🛒 Markt", callback_data="QR:MARKT_MENU"),
-            InlineKeyboardButton("🇮🇹 Subito", callback_data="QR:SUBITO"),
+            InlineKeyboardButton("🛒 Markt",          callback_data="QR:MARKT_MENU"),
+            InlineKeyboardButton("🇮🇹 Subito",        callback_data="QR:SUBITO"),
         ],
         [
-            InlineKeyboardButton("🇪🇺 Wallapop", callback_data="QR:WALLAPOP_MENU"),
-            InlineKeyboardButton("🇳🇱 2dehands", callback_data="QR:2DEHANDS"),
+            InlineKeyboardButton("🇪🇺 Wallapop",      callback_data="QR:WALLAPOP_MENU"),
+            InlineKeyboardButton("🇳🇱 2dehands",      callback_data="QR:2DEHANDS"),
         ],
         [
-            InlineKeyboardButton("🇫🇷 2ememain", callback_data="QR:2EMEMAIN"),
+            InlineKeyboardButton("🇫🇷 2ememain",      callback_data="QR:2EMEMAIN"),
             InlineKeyboardButton("💰 Conto (Subito)", callback_data="QR:CONTO"),
         ],
         [
-            InlineKeyboardButton("🔧 Kleize", callback_data="QR:KLEIZE"),
-            InlineKeyboardButton("🛍️ Depop", callback_data="QR:DEPOP_MENU"),
-        ]
+            InlineKeyboardButton("🔧 Kleize",          callback_data="QR:KLEIZE"),
+            InlineKeyboardButton("🛍️ Depop",           callback_data="QR:DEPOP_MENU"),
+        ],
     ]
 
-    # Добавляем кнопку админа если пользователь админ
     if _is_admin(update):
         keyboard.append([InlineKeyboardButton("🔑 Управление API ключами", callback_data="KEYS:START")])
 

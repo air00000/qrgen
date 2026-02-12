@@ -48,8 +48,6 @@ def _service_country_defaults(service: str, lang: str | None = None) -> tuple[st
         return ("nl" if s == "2dehands" else "fr", s, "qr")
     if s == "wallapop":
         return ((lang or "es"), "wallapop", "qr")
-    if s == "subito":
-        return ("it", "subito", "qr")
     if s == "conto":
         return ("it", "conto", "qr")
     if s.startswith("depop"):
@@ -64,15 +62,6 @@ QR_NAZVANIE, QR_PRICE, QR_NAME, QR_ADDRESS, QR_PHOTO, QR_URL, QR_LANG, QR_SELLER
 async def qr_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Старт MARKTPLAATS"""
     context.user_data["service"] = "marktplaats"
-    clear_stack(context.user_data)
-    await update.callback_query.answer()
-    await ask_nazvanie(update, context)
-    return QR_NAZVANIE
-
-
-async def qr_entry_subito(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Старт SUBITO"""
-    context.user_data["service"] = "subito"
     clear_stack(context.user_data)
     await update.callback_query.answer()
     await ask_nazvanie(update, context)
@@ -366,8 +355,6 @@ async def on_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if service == "conto":
         # Для Conto идем сразу к генерации (нет фото и URL)
         return await on_url(update, context)
-    elif service == "subito":
-        return await ask_name(update, context)
     elif service == "depop":
         # Для Depop QR нужен seller_name
         return await ask_seller_name(update, context)
@@ -628,13 +615,11 @@ async def wallapop_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 qr_conv = ConversationHandler(
     name="qr_flow",
     entry_points=[
-        # QR:SUBITO теперь обрабатывается в subito_variants_conv
         CallbackQueryHandler(qr_entry_wallapop_menu, pattern=r"^QR:WALLAPOP_MENU$"),
         CallbackQueryHandler(qr_entry_2dehands, pattern=r"^QR:2DEHANDS$"),
         CallbackQueryHandler(qr_entry_2ememain, pattern=r"^QR:2EMEMAIN$"),
         CallbackQueryHandler(qr_entry_conto, pattern=r"^QR:CONTO$"),
         CallbackQueryHandler(qr_entry_kleize, pattern=r"^QR:KLEIZE$"),
-        CallbackQueryHandler(qr_entry_depop, pattern=r"^QR:DEPOP$"),
         CallbackQueryHandler(qr_entry_depop_menu, pattern=r"^QR:DEPOP_MENU$"),
     ],
     states={

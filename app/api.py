@@ -5,11 +5,12 @@ from pydantic import BaseModel, Extra
 from typing import Optional, Any, List
 
 from app.services.pdf import (
-    create_image_subito, PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError
+    PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError
 )
 from app.services.subito_variants import (
-    create_image_subito_email_request, create_image_subito_email_confirm,
-    create_image_subito_sms_request, create_image_subito_sms_confirm
+    create_subito_new_email_request, create_subito_new_phone_request,
+    create_subito_new_email_payment, create_subito_new_sms_payment,
+    create_subito_new_qr,
 )
 # create_wallapop_phone_request,
 from app.services.wallapop_variants import (
@@ -94,27 +95,27 @@ GEO_CONFIG = {
     "it": {
         "name": "Italy",
         "services": {
-            "subito": {
+            "subito_new": {
                 "methods": {
-                    "qr": {
-                        "endpoint": "/generate",
-                        "fields": ["title", "price", "url", "photo", "name", "address"]
-                    },
                     "email_request": {
                         "endpoint": "/generate",
-                        "fields": ["title", "price", "photo", "name", "address"]
+                        "fields": ["title", "price", "photo", "lang"]
                     },
-                    "email_confirm": {
+                    "phone_request": {
                         "endpoint": "/generate",
-                        "fields": ["title", "price", "photo", "name", "address"]
+                        "fields": ["title", "price", "photo", "lang"]
                     },
-                    "sms_request": {
+                    "email_payment": {
                         "endpoint": "/generate",
-                        "fields": ["title", "price", "photo", "name", "address"]
+                        "fields": ["title", "price", "photo", "lang"]
                     },
-                    "sms_confirm": {
+                    "sms_payment": {
                         "endpoint": "/generate",
-                        "fields": ["title", "price", "photo", "name", "address"]
+                        "fields": ["title", "price", "photo", "lang"]
+                    },
+                    "qr": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "url", "photo", "lang"]
                     }
                 }
             },
@@ -591,33 +592,29 @@ def _route_generation(country: str, service: str, method: str, data: dict) -> by
     
     # === ITALY ===
     elif country == "it":
-        if service == "subito":
-            if method == "qr":
-                return create_image_subito(
-                    get("title"), get("price", 0.0), get("photo"), get("url"),
-                    get("name"), get("address")
+        if service == "subito_new":
+            lang = get("lang") or "it"
+            if method == "email_request":
+                return create_subito_new_email_request(
+                    lang, get("title"), get("price", 0.0), get("photo")
                 )
-            elif method == "email_request":
-                return create_image_subito_email_request(
-                    get("title"), get("price", 0.0), get("photo"),
-                    get("name"), get("address")
+            elif method == "phone_request":
+                return create_subito_new_phone_request(
+                    lang, get("title"), get("price", 0.0), get("photo")
                 )
-            elif method == "email_confirm":
-                return create_image_subito_email_confirm(
-                    get("title"), get("price", 0.0), get("photo"),
-                    get("name"), get("address")
+            elif method == "email_payment":
+                return create_subito_new_email_payment(
+                    lang, get("title"), get("price", 0.0), get("photo")
                 )
-            elif method == "sms_request":
-                return create_image_subito_sms_request(
-                    get("title"), get("price", 0.0), get("photo"),
-                    get("name"), get("address")
+            elif method == "sms_payment":
+                return create_subito_new_sms_payment(
+                    lang, get("title"), get("price", 0.0), get("photo")
                 )
-            elif method == "sms_confirm":
-                return create_image_subito_sms_confirm(
-                    get("title"), get("price", 0.0), get("photo"),
-                    get("name"), get("address")
+            elif method == "qr":
+                return create_subito_new_qr(
+                    lang, get("title"), get("price", 0.0), get("photo"), get("url")
                 )
-        
+
         elif service == "conto":
             return create_conto_image(get("title"), get("price", 0.0))
         

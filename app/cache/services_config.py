@@ -66,34 +66,65 @@ SERVICES_CONFIG = {
         "frame": "markt5_nl",
         "scale": 2
     },
-    "subito": {
-        "display_name": "Subito (QR)",
+    # === SUBITO 6–10 (uk / nl) — новые фреймы ===
+    "subito_new_email_request_uk": {
+        "display_name": "Subito Email Request v2 (UK)",
         "page": "Page 2",
-        "frame": "subito1",
+        "frame": "subito6",
         "scale": 2
     },
-    "subito_email_request": {
-        "display_name": "Subito Email Request",
+    "subito_new_email_request_nl": {
+        "display_name": "Subito Email Request v2 (NL)",
         "page": "Page 2",
-        "frame": "subito2",
+        "frame": "subito6",
         "scale": 2
     },
-    "subito_email_confirm": {
-        "display_name": "Subito Email Confirm",
+    "subito_new_phone_request_uk": {
+        "display_name": "Subito Phone Request v2 (UK)",
         "page": "Page 2",
-        "frame": "subito3",
+        "frame": "subito7",
         "scale": 2
     },
-    "subito_sms_request": {
-        "display_name": "Subito SMS Request",
+    "subito_new_phone_request_nl": {
+        "display_name": "Subito Phone Request v2 (NL)",
         "page": "Page 2",
-        "frame": "subito4",
+        "frame": "subito7",
         "scale": 2
     },
-    "subito_sms_confirm": {
-        "display_name": "Subito SMS Confirm",
+    "subito_new_email_payment_uk": {
+        "display_name": "Subito Email Payment v2 (UK)",
         "page": "Page 2",
-        "frame": "subito5",
+        "frame": "subito8",
+        "scale": 2
+    },
+    "subito_new_email_payment_nl": {
+        "display_name": "Subito Email Payment v2 (NL)",
+        "page": "Page 2",
+        "frame": "subito8",
+        "scale": 2
+    },
+    "subito_new_sms_payment_uk": {
+        "display_name": "Subito SMS Payment v2 (UK)",
+        "page": "Page 2",
+        "frame": "subito9",
+        "scale": 2
+    },
+    "subito_new_sms_payment_nl": {
+        "display_name": "Subito SMS Payment v2 (NL)",
+        "page": "Page 2",
+        "frame": "subito9",
+        "scale": 2
+    },
+    "subito_new_qr_uk": {
+        "display_name": "Subito QR v2 (UK)",
+        "page": "Page 2",
+        "frame": "subito10",
+        "scale": 2
+    },
+    "subito_new_qr_nl": {
+        "display_name": "Subito QR v2 (NL)",
+        "page": "Page 2",
+        "frame": "subito10",
         "scale": 2
     },
     # === WALLAPOP (Page 2) ===
@@ -358,11 +389,16 @@ def get_services_by_group():
             "markt_sms_payment_nl"
         ],
         "Subito": [
-            "subito",
-            "subito_email_request",
-            "subito_email_confirm",
-            "subito_sms_request",
-            "subito_sms_confirm"
+            "subito_new_email_request_uk",
+            "subito_new_email_request_nl",
+            "subito_new_phone_request_uk",
+            "subito_new_phone_request_nl",
+            "subito_new_email_payment_uk",
+            "subito_new_email_payment_nl",
+            "subito_new_sms_payment_uk",
+            "subito_new_sms_payment_nl",
+            "subito_new_qr_uk",
+            "subito_new_qr_nl",
         ],
         "Wallapop": [
             "wallapop_email_request_uk",
