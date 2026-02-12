@@ -117,10 +117,15 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
     if !matches!(os, 1 | 2 | 3 | 5) {
         return Err(QrError::InvalidOption(format!("os={os} (allowed: 1,2,3,5)")));
     }
-    let module_roundness = req.module_roundness.unwrap_or(0.45).clamp(0.0, 0.5);
+    let default_module_roundness = if profile.eq_ignore_ascii_case("wallapop") { 0.50 } else { 0.45 };
+    let module_roundness = req
+        .module_roundness
+        .unwrap_or(default_module_roundness)
+        .clamp(0.0, 0.5);
 
     let default_finder_inner = if profile.eq_ignore_ascii_case("2dehands")
         || profile.eq_ignore_ascii_case("2ememain")
+        || profile.eq_ignore_ascii_case("wallapop")
     {
         "both"
     } else {
@@ -144,7 +149,13 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
     let logo_badge_scale = req.logo_badge_scale.unwrap_or(1.25).clamp(1.0, 2.0);
     let logo_badge_color = parse_hex_color(req.logo_badge_color.as_deref().unwrap_or("#FFFFFF"))?;
 
-    let corner_radius = req.corner_radius.unwrap_or(30).clamp(0, size / 2);
+    // Wallapop reference QR has square corners (no transparency in corners),
+    // so default to 0 to avoid "black corner" artifacts in some viewers.
+    let default_corner_radius = if profile.eq_ignore_ascii_case("wallapop") { 0 } else { 30 };
+    let corner_radius = req
+        .corner_radius
+        .unwrap_or(default_corner_radius)
+        .clamp(0, size / 2);
 
     let code = QrCode::with_error_correction_level(req.text.as_bytes(), EcLevel::H)
         .map_err(|_| QrError::QrBuild)?;
@@ -162,6 +173,8 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
             light,
             // Stronger rounding for 2dehands/2ememain (match app look)
             if profile.eq_ignore_ascii_case("2dehands") || profile.eq_ignore_ascii_case("2ememain") {
+                0.48
+            } else if profile.eq_ignore_ascii_case("wallapop") {
                 0.48
             } else {
                 0.35
