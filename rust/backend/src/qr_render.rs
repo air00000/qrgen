@@ -333,7 +333,7 @@ fn draw_finder(
         max_r.saturating_sub((module_px / 2).max(3))
     } else if matches!(opts.finder_corner_style, FinderCornerStyle::InnerBoost) {
         // Subito: ensure visible rounding for the center square.
-        let base = ((module_px as f32) * 0.35).round() as u32;
+        let base = ((module_px as f32) * 0.45).round() as u32;
         base.max(1)
     } else {
         0
