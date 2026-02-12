@@ -247,9 +247,16 @@ pub fn render_stylized(code: &QrCode, opts: RenderOpts) -> ImageBuffer<Rgba<u8>,
 
     // Finder patterns (eyes)
     // Finder (eye) rounding can be stronger than module rounding.
-    // Allow up to 2.0 => radius up to 2×module_px for a more "app-like" look.
+    // Allow up to 2.0.
     let finder_roundness = opts.finder_outer_roundness.clamp(0.0, 2.0);
-    let outer_r = ((module_px as f32) * finder_roundness).round() as u32;
+
+    // Wallapop-like eyes are closer to a "pill/squircle" look: rounding near half of the eye size.
+    // When finder_roundness > 1.0 we switch to that mode.
+    let outer_r = if finder_roundness > 1.0 {
+        ((7 * module_px) / 2).saturating_sub(1)
+    } else {
+        ((module_px as f32) * finder_roundness).round() as u32
+    };
     // top-left
     draw_finder(&mut img, opts.margin, opts.margin, module_px, outer_r, opts);
     // top-right
