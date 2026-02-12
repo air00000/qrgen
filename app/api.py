@@ -478,16 +478,41 @@ async def generate(
                    f"Available: {list(service_methods.keys())}"
         )
     
-    # Роутинг и генерация
+    # Proxy generation to Rust backend (Python must not generate images).
     try:
-        image_data = _route_generation(country, service, method, data)
-        
+        # Map legacy API service names -> Rust backend service names.
+        backend_service = service
+        if backend_service == "marktplaats":
+            backend_service = "markt"
+        elif backend_service == "kleize":
+            backend_service = "kleinanzeigen"
+
+        payload = {
+            "country": country,
+            "service": backend_service,
+            "method": method,
+            **data,
+        }
+
+        import requests
+        from app.config import CFG
+
+        backend_url = f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate"
+        headers = {"X-API-Key": CFG.BACKEND_API_KEY or ""}
+        r = requests.post(backend_url, json=payload, headers=headers, timeout=90)
+
+        if not r.ok:
+            # Preserve backend message to the client.
+            raise HTTPException(status_code=r.status_code, detail=r.text)
+
+        image_data = r.content
+
         service_name = f"{service}_{method}" if method not in ("qr", "payment") else service
         send_api_notification_sync(
-            service=service_name, 
-            key_name=key_name, 
-            title=data.get("title") or "Unknown", 
-            success=True
+            service=service_name,
+            key_name=key_name,
+            title=data.get("title") or "Unknown",
+            success=True,
         )
         return Response(content=image_data, media_type="image/png")
         

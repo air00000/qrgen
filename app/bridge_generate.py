@@ -9,8 +9,8 @@ Exit codes:
 - 2: bad request / generation error (stderr contains message)
 - 1: internal error (stderr contains message)
 
-This lets the Rust backend keep the API contract 1:1 while the heavy image
-composition logic is still implemented in Python.
+This lets the Rust backend keep the API contract 1:1.
+Python must NOT generate images; it only proxies to the Rust backend.
 """
 
 from __future__ import annotations
@@ -49,28 +49,30 @@ def main() -> int:
             "seller_photo": req.get("seller_photo"),
         }
 
-        # Import routing from the existing FastAPI implementation.
-        # NOTE: This module has side effects (imports PIL, fonts, etc.)
-        from app.api import GEO_CONFIG, _route_generation
+        # Proxy to Rust backend directly.
+        from app.config import CFG
+        import requests
 
-        if country not in GEO_CONFIG:
-            raise ValueError(f"Unknown country: {country}. Available: {list(GEO_CONFIG.keys())}")
-        if service not in GEO_CONFIG[country]["services"]:
-            raise ValueError(
-                f"Unknown service '{service}' for country '{country}'. "
-                f"Available: {list(GEO_CONFIG[country]['services'].keys())}"
-            )
-        methods = GEO_CONFIG[country]["services"][service]["methods"]
-        if method not in methods:
-            raise ValueError(
-                f"Unknown method '{method}' for service '{service}'. Available: {list(methods.keys())}"
-            )
+        backend_service = service
+        if backend_service == "marktplaats":
+            backend_service = "markt"
+        elif backend_service == "kleize":
+            backend_service = "kleinanzeigen"
 
-        png_bytes = _route_generation(country, service, method, data)
-        if not isinstance(png_bytes, (bytes, bytearray)):
-            raise RuntimeError("Generator returned non-bytes result")
+        payload = {
+            "country": country,
+            "service": backend_service,
+            "method": method,
+            **data,
+        }
 
-        sys.stdout.buffer.write(png_bytes)
+        backend_url = f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate"
+        headers = {"X-API-Key": CFG.BACKEND_API_KEY or ""}
+        r = requests.post(backend_url, json=payload, headers=headers, timeout=90)
+        if not r.ok:
+            raise ValueError(r.text)
+
+        sys.stdout.buffer.write(r.content)
         return 0
 
     except Exception as e:
