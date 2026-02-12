@@ -345,9 +345,11 @@ fn draw_finder(
         let max_r = (3 * module_px) / 2;
         // reduce rounding a bit more than outer ring
         max_r.saturating_sub((module_px / 2).max(3))
-    } else {
-        // For non-squircle mode (subito etc), base center rounding on outer_r.
+    } else if matches!(opts.finder_corner_style, FinderCornerStyle::InnerBoost) {
+        // Subito: slightly round the center square.
         outer_r.saturating_sub((module_px / 3).max(1))
+    } else {
+        0
     };
 
     let (cr_tl, cr_tr, cr_bl, cr_br) = match opts.finder_corner_style {
