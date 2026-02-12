@@ -440,17 +440,22 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @with_rate_limit
 async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.message if update.message else update.callback_query.message
+
     nazvanie = context.user_data.get("nazvanie", "")
     price = context.user_data.get("price", "")
     name = context.user_data.get("name")
     address = context.user_data.get("address")
     photo_bytes = context.user_data.get("photo_bytes")
-    url = (update.message.text or "").strip()
-    if not url.startswith("http"):
+
+    # URL can come from a text message step OR be prefilled in context (variants flow).
+    url = (update.message.text or "").strip() if update.message else (context.user_data.get("url") or "")
+    url = (url or "").strip()
+    if url and not url.startswith("http"):
         url = "https://" + url
 
     service = context.user_data.get("service", "marktplaats")
-    await update.message.reply_text(f"Обрабатываю данные для {service}…", reply_markup=menu_back_kb())
+    await message.reply_text(f"Обрабатываю данные для {service}…", reply_markup=menu_back_kb())
 
     try:
         photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
@@ -493,18 +498,18 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         image_data = await asyncio.to_thread(_backend_generate, payload)
 
         await context.bot.send_document(
-            chat_id=update.message.chat_id,
+            chat_id=message.chat_id,
             document=io.BytesIO(image_data),
             filename=f"{service}_{uuid.uuid4()}.png"
         )
 
-        await update.message.reply_text("Готово!", reply_markup=main_menu_kb())
+        await message.reply_text("Готово!", reply_markup=main_menu_kb())
         clear_stack(context.user_data)
         return ConversationHandler.END
 
     except Exception as e:
         logger.exception("Ошибка генерации")
-        await update.message.reply_text(f"Ошибка: {e}", reply_markup=main_menu_kb())
+        await message.reply_text(f"Ошибка: {e}", reply_markup=main_menu_kb())
         clear_stack(context.user_data)
         return ConversationHandler.END
 
