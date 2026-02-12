@@ -247,7 +247,7 @@ async def subito_skip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def subito_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["subito_url"] = (update.message.text or "").strip()
-    return await _subito_generate(update.message, context)
+    return await _subito_generate(update, context)
 
 
 # ========== GENERATE ==========
@@ -288,7 +288,10 @@ async def _subito_generate(update_or_message, context: ContextTypes.DEFAULT_TYPE
             await msg.delete()
 
         # Send image
-        await update_or_message.reply_photo(photo=bio, reply_markup=main_menu_kb())
+        if hasattr(update_or_message, "reply_photo"):
+            await update_or_message.reply_photo(photo=bio, reply_markup=main_menu_kb())
+        else:
+            await update_or_message.reply_photo(photo=bio, reply_markup=main_menu_kb())
 
     except Exception as e:
         logger.exception("Subito generation failed")
