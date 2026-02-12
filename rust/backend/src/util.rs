@@ -43,26 +43,42 @@ pub fn truncate_with_ellipsis(mut s: String, max_len: usize) -> String {
 pub fn png_encode_rgba8(img: &ImageBuffer<Rgba<u8>, Vec<u8>>) -> Result<Vec<u8>, String> {
     let mut buf = Vec::new();
 
-    // Fast defaults: smaller CPU cost, slightly larger PNG.
-    // Can be overridden by PNG_FAST=0.
+    // Defaults: keep PNG lossless but reasonably small.
+    // PNG_FAST=1 trades size for speed.
     let fast = std::env::var("PNG_FAST").unwrap_or_else(|_| "1".to_string());
     let fast = !(fast == "0" || fast.eq_ignore_ascii_case("false"));
 
-    if fast {
-        let enc = image::codecs::png::PngEncoder::new_with_quality(
-            &mut buf,
-            CompressionType::Fast,
-            PngFilter::NoFilter,
-        );
-        enc.write_image(img, img.width(), img.height(), image::ExtendedColorType::Rgba8)
-            .map_err(|e| e.to_string())?;
+    let (comp, filter) = if fast {
+        (CompressionType::Fast, PngFilter::NoFilter)
     } else {
-        let enc = image::codecs::png::PngEncoder::new(&mut buf);
-        enc.write_image(img, img.width(), img.height(), image::ExtendedColorType::Rgba8)
-            .map_err(|e| e.to_string())?;
-    }
+        (CompressionType::Best, PngFilter::Adaptive)
+    };
 
-    Ok(buf)
+    let enc = image::codecs::png::PngEncoder::new_with_quality(&mut buf, comp, filter);
+    enc.write_image(img, img.width(), img.height(), image::ExtendedColorType::Rgba8)
+        .map_err(|e| e.to_string())?;
+
+    // Post-optimize losslessly (can reduce size a lot on UI-ish images).
+    // Disable with PNG_OXIPNG=0.
+    let oxi = std::env::var("PNG_OXIPNG").unwrap_or_else(|_| "1".to_string());
+    let oxi = !(oxi == "0" || oxi.eq_ignore_ascii_case("false"));
+    if oxi {
+        let level = std::env::var("PNG_OXIPNG_LEVEL")
+            .ok()
+            .and_then(|v| v.parse::<u8>().ok())
+            .unwrap_or(4)
+            .min(6);
+
+        let mut opts = oxipng::Options::from_preset(level);
+        opts.fix_errors = true;
+
+        match oxipng::optimize_from_memory(&buf, &opts) {
+            Ok(out) => Ok(out),
+            Err(_) => Ok(buf),
+        }
+    } else {
+        Ok(buf)
+    }
 }
 
 pub fn final_resize_filter() -> image::imageops::FilterType {
