@@ -284,18 +284,9 @@ fn draw_finder(
                 if il { 0 } else { outer_r },
             )
         }
-        FinderCornerStyle::InnerBoost => {
-            let (it, ir, ib, il) = inner_corner;
-            let inner_r = outer_r.saturating_add(boost_px);
-            (
-                if it { inner_r } else { outer_r },
-                if ir { inner_r } else { outer_r },
-                if ib { inner_r } else { outer_r },
-                if il { inner_r } else { outer_r },
-            )
-        }
+        // For Subito: outer contour corners stay uniform; boost applies to the INNER contour + center.
+        FinderCornerStyle::InnerBoost => (outer_r, outer_r, outer_r, outer_r),
     };
-
     fill_rounded_rect_radii(img, x0, y0, outer, outer, r_tl, r_tr, r_bl, r_br, true, true, true, true, dark);
 
     // Inner hole: 5x5 light
@@ -321,15 +312,10 @@ fn draw_finder(
                 if il { 0 } else { inner_r },
             )
         }
+        // Subito: round ALL inner corners a bit more.
         FinderCornerStyle::InnerBoost => {
-            let (it, ir, ib, il) = inner_corner;
             let inner2 = inner_r.saturating_add(boost_px);
-            (
-                if it { inner2 } else { inner_r },
-                if ir { inner2 } else { inner_r },
-                if ib { inner2 } else { inner_r },
-                if il { inner2 } else { inner_r },
-            )
+            (inner2, inner2, inner2, inner2)
         }
     };
 
@@ -363,16 +349,8 @@ fn draw_finder(
                 if il { 0 } else { center_r },
             )
         }
-        FinderCornerStyle::InnerBoost => {
-            let (it, ir, ib, il) = inner_corner;
-            let inner2 = center_r.saturating_add(boost_px);
-            (
-                if it { inner2 } else { center_r },
-                if ir { inner2 } else { center_r },
-                if ib { inner2 } else { center_r },
-                if il { inner2 } else { center_r },
-            )
-        }
+        // Subito: round ALL corners of the center square.
+        FinderCornerStyle::InnerBoost => (center_r, center_r, center_r, center_r),
     };
 
     fill_rounded_rect_radii(img, cx0, cy0, center, center, cr_tl, cr_tr, cr_bl, cr_br, true, true, true, true, dark);
