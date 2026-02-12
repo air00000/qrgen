@@ -151,7 +151,7 @@ def _create_subito_new(variant: str, lang: str, title: str, price: float,
                        photo: str = None, url: str = "") -> bytes:
     frame_idx  = _SUBITO_NEW_FRAMES[variant]
     frame_name = f"subito{frame_idx}"
-    service_key = f"subito_new_{variant}_{lang}"
+    service_key = f"subito_{variant}_{lang}"
 
     template_json, frame_img_cached, frame_node, use_cache = load_template_with_cache(
         service_key, "Page 2", frame_name

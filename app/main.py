@@ -111,16 +111,16 @@ def warmup_subito_cache():
     from app.services.cache_wrapper import _mem_set
 
     subito_services = [
-        ("subito_new_email_request_uk", "Page 2", "subito6"),
-        ("subito_new_email_request_nl", "Page 2", "subito6"),
-        ("subito_new_phone_request_uk", "Page 2", "subito7"),
-        ("subito_new_phone_request_nl", "Page 2", "subito7"),
-        ("subito_new_email_payment_uk", "Page 2", "subito8"),
-        ("subito_new_email_payment_nl", "Page 2", "subito8"),
-        ("subito_new_sms_payment_uk",   "Page 2", "subito9"),
-        ("subito_new_sms_payment_nl",   "Page 2", "subito9"),
-        ("subito_new_qr_uk",            "Page 2", "subito10"),
-        ("subito_new_qr_nl",            "Page 2", "subito10"),
+        ("subito_email_request_uk", "Page 2", "subito6"),
+        ("subito_email_request_nl", "Page 2", "subito6"),
+        ("subito_phone_request_uk", "Page 2", "subito7"),
+        ("subito_phone_request_nl", "Page 2", "subito7"),
+        ("subito_email_payment_uk", "Page 2", "subito8"),
+        ("subito_email_payment_nl", "Page 2", "subito8"),
+        ("subito_sms_payment_uk",   "Page 2", "subito9"),
+        ("subito_sms_payment_nl",   "Page 2", "subito9"),
+        ("subito_qr_uk",            "Page 2", "subito10"),
+        ("subito_qr_nl",            "Page 2", "subito10"),
     ]
 
     loaded = 0
@@ -150,16 +150,16 @@ def main():
     # Прогрев in-memory кэша субито (если disk-кэш заполнен)
     warmup_subito_cache()
 
-    # # Запускаем API в отдельном потоке
-    # api_thread = threading.Thread(target=start_api, daemon=True, name="API-Server")
-    # api_thread.start()
-    #
-    # # Даем API время запуститься
-    # time.sleep(1)
-    #
-    # logger.info("✅ API запущен на http://0.0.0.0:8080")
-    # logger.info("✅ Swagger UI: http://127.0.0.1:8080/docs")
-    #
+    # Запускаем API в отдельном потоке
+    api_thread = threading.Thread(target=start_api, daemon=True, name="API-Server")
+    api_thread.start()
+    
+    # Даем API время запуститься
+    time.sleep(1)
+    
+    logger.info("✅ API запущен на http://0.0.0.0:8080")
+    logger.info("✅ Swagger UI: http://127.0.0.1:8080/docs")
+    
     # Запускаем бота в основном потоке
     try:
         start_bot()

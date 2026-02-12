@@ -4,11 +4,11 @@
 Уровни кэширования (от быстрого к медленному):
   1. _MEM_CACHE  — словарь в памяти процесса (мгновенно)
   2. FigmaCache  — JSON + PNG на диске (миллисекунды)
-  3. Figma API   — HTTP запросы (секунды)
+  3. Figma API   — HTTP запросы + автосохранение на диск (секунды, только первый раз)
 """
 import logging
-from PIL import Image
 import io
+from PIL import Image
 
 from app.cache.figma_cache import FigmaCache
 from app.services.figma import get_template_json, find_node, export_frame_as_png
@@ -29,7 +29,6 @@ def _mem_set(service_name: str, template_json: dict, frame_img: Image.Image):
 
 
 def _mem_clear(service_name: str = None):
-    """Инвалидировать память (весь кэш или конкретный сервис)."""
     if service_name:
         _MEM_CACHE.pop(service_name, None)
     else:
@@ -41,7 +40,8 @@ def load_template_with_cache(service_name: str, page: str, frame_name: str,
                               figma_pat: str = None, file_key: str = None):
     """
     Загрузить template_json и frame_img.
-    Порядок: memory → disk cache → Figma API.
+    Порядок: memory → disk cache → Figma API (+ автосохранение на диск).
+    Возвращает (template_json, frame_img, frame_node, use_cache).
     """
     pat = figma_pat or CFG.FIGMA_PAT
     fkey = file_key or CFG.TEMPLATE_FILE_KEY
@@ -66,15 +66,33 @@ def load_template_with_cache(service_name: str, page: str, frame_name: str,
                 _mem_set(service_name, template_json, frame_img)
                 return template_json, frame_img, frame_node, True
             else:
-                logger.warning(f"⚠️  Фрейм {frame_name} не найден в disk-кэше {service_name}")
+                logger.warning(f"⚠️  Фрейм {frame_name} не найден в disk-кэше {service_name}, обновляю")
+                cache.clear()
+                _mem_clear(service_name)
         except Exception as e:
             logger.error(f"❌ Ошибка disk-кэша {service_name}: {e}")
 
-    # 3. Figma API fallback
-    logger.info(f"🌐 Figma API запрос для {service_name}")
-    template_json = get_template_json(pat, fkey)
-    frame_node = find_node(template_json, page, frame_name)
-    return template_json, None, frame_node, False
+    # 3. Figma API → автосохранение на диск
+    logger.info(f"🌐 Figma API запрос для {service_name}/{frame_name}")
+    try:
+        template_json = get_template_json(pat, fkey)
+        frame_node = find_node(template_json, page, frame_name)
+        if not frame_node:
+            logger.error(f"❌ Фрейм {frame_name} не найден в Figma!")
+            return template_json, None, None, False
+
+        frame_png = export_frame_as_png(pat, fkey, frame_node["id"])
+        frame_img = Image.open(io.BytesIO(frame_png)).convert("RGBA")
+
+        # Сохраняем сразу на диск и в память
+        cache.save(template_json, frame_png)
+        _mem_set(service_name, template_json, frame_img)
+        logger.info(f"💾 Кэш создан: {service_name}")
+        return template_json, frame_img, frame_node, True
+
+    except Exception as e:
+        logger.error(f"❌ Figma API ошибка для {service_name}: {e}")
+        raise
 
 
 def get_frame_image(frame_node: dict, frame_img_cached, use_cache: bool,
@@ -84,10 +102,8 @@ def get_frame_image(frame_node: dict, frame_img_cached, use_cache: bool,
     """
     if use_cache and frame_img_cached is not None:
         return frame_img_cached
-    else:
-        pat = figma_pat or CFG.FIGMA_PAT
-        fkey = file_key or CFG.TEMPLATE_FILE_KEY
-        logger.info(f"🖼️  Экспорт PNG из Figma: {frame_node['name']}")
-        frame_png = export_frame_as_png(pat, fkey, frame_node["id"])
-        return Image.open(io.BytesIO(frame_png)).convert("RGBA")
-
+    pat = figma_pat or CFG.FIGMA_PAT
+    fkey = file_key or CFG.TEMPLATE_FILE_KEY
+    logger.info(f"🖼️  Экспорт PNG из Figma: {frame_node['name']}")
+    frame_png = export_frame_as_png(pat, fkey, frame_node["id"])
+    return Image.open(io.BytesIO(frame_png)).convert("RGBA")
