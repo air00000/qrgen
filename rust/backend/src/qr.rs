@@ -13,7 +13,7 @@ use image::{
     Rgba,
 };
 
-use crate::qr_render::{FinderInnerCorner, RenderOpts};
+use crate::qr_render::{FinderCornerStyle, FinderInnerCorner, RenderOpts};
 use crate::perf_scope;
 use qrcode::{EcLevel, QrCode};
 use serde::Deserialize;
@@ -99,14 +99,20 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
 
     let default_dark = match profile.to_ascii_lowercase().as_str() {
         // Most templates use black; fall back to old default for generic usage.
-        "wallapop" | "markt" | "subito" | "depop" | "kleinanzeigen" => "#000000",
+        "wallapop" | "markt" | "depop" | "kleinanzeigen" => "#000000",
+        "subito" => "#FF6E69",
         // 2dehands / 2ememain use a dark navy (matches legacy/Python screenshots).
         "2dehands" | "2ememain" => "#11223E",
         _ => "#4B6179",
     };
 
+    let default_light = match profile.to_ascii_lowercase().as_str() {
+        "subito" => "#FFF1F1",
+        _ => "#FFFFFF",
+    };
+
     let dark = parse_hex_color(req.color_dark.as_deref().unwrap_or(default_dark))?;
-    let light = parse_hex_color(req.color_light.as_deref().unwrap_or("#FFFFFF"))?;
+    let light = parse_hex_color(req.color_light.as_deref().unwrap_or(default_light))?;
 
     let os_default_env = std::env::var("QR_OS")
         .ok()
@@ -162,6 +168,28 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
 
     let img = {
         let _span = perf_scope!("qr.render");
+        let finder_outer_roundness = if profile.eq_ignore_ascii_case("2dehands")
+            || profile.eq_ignore_ascii_case("2ememain")
+        {
+            0.48
+        } else if profile.eq_ignore_ascii_case("wallapop") {
+            1.35
+        } else if profile.eq_ignore_ascii_case("subito") {
+            0.42
+        } else {
+            0.35
+        };
+
+        let finder_corner_style = if profile.eq_ignore_ascii_case("wallapop") {
+            FinderCornerStyle::InnerSharp
+        } else if profile.eq_ignore_ascii_case("subito") {
+            FinderCornerStyle::InnerBoost
+        } else {
+            FinderCornerStyle::Uniform
+        };
+
+        let finder_inner_boost = if profile.eq_ignore_ascii_case("subito") { 0.25 } else { 0.0 };
+
         render_qr(
             &code,
             size,
@@ -171,14 +199,9 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
             finder_inner_corner,
             dark,
             light,
-            // Stronger rounding for 2dehands/2ememain (match app look)
-            if profile.eq_ignore_ascii_case("2dehands") || profile.eq_ignore_ascii_case("2ememain") {
-                0.48
-            } else if profile.eq_ignore_ascii_case("wallapop") {
-                1.35
-            } else {
-                0.35
-            },
+            finder_outer_roundness,
+            finder_corner_style,
+            finder_inner_boost,
         )
     };
     let mut img = DynamicImage::ImageRgba8(img);
@@ -269,7 +292,9 @@ fn render_qr(
     dark: [u8; 3],
     light: [u8; 3],
     finder_outer_roundness: f32,
-) -> ImageBuffer<Rgba<u8>, Vec<u8>> { 
+    finder_corner_style: FinderCornerStyle,
+    finder_inner_boost: f32,
+) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     let opts = RenderOpts {
         size,
         margin,
@@ -279,6 +304,8 @@ fn render_qr(
         module_roundness,
         finder_inner_corner,
         finder_outer_roundness,
+        finder_corner_style,
+        finder_inner_boost,
     };
 
     let os_img = crate::qr_render::render_stylized(code, opts);

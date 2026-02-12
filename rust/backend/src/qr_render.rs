@@ -11,6 +11,16 @@ pub enum FinderInnerCorner {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub enum FinderCornerStyle {
+    /// All corners follow the same rounding rules.
+    Uniform,
+    /// Keep the inner-facing corner (towards QR center) sharp.
+    InnerSharp,
+    /// Make the inner-facing corner slightly MORE rounded than the outer ones.
+    InnerBoost,
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct RenderOpts {
     pub size: u32,
     pub margin: u32,
@@ -20,8 +30,12 @@ pub struct RenderOpts {
     /// 0..0.5-ish. 0 = square modules; 0.5 = circles.
     pub module_roundness: f32,
     pub finder_inner_corner: FinderInnerCorner,
-    /// 0..0.5-ish. Controls rounding of the *finder outer ring* (eyes).
+    /// Controls rounding of the *finder outer ring* (eyes).
+    /// 0..~2.0 (values >1 enable the "squircle" mode in the renderer).
     pub finder_outer_roundness: f32,
+    pub finder_corner_style: FinderCornerStyle,
+    /// Extra rounding boost for the inner-facing corner (as a fraction of module_px).
+    pub finder_inner_boost: f32,
 }
 
 fn is_finder_module(x: u32, y: u32, w: u32) -> bool {
@@ -141,8 +155,32 @@ fn fill_rounded_rect_corners(
     round_br: bool,
     color: Rgba<u8>,
 ) {
+    fill_rounded_rect_radii(img, x0, y0, w, h, r, r, r, r, round_tl, round_tr, round_bl, round_br, color)
+}
+
+fn fill_rounded_rect_radii(
+    img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>,
+    x0: u32,
+    y0: u32,
+    w: u32,
+    h: u32,
+    r_tl: u32,
+    r_tr: u32,
+    r_bl: u32,
+    r_br: u32,
+    round_tl: bool,
+    round_tr: bool,
+    round_bl: bool,
+    round_br: bool,
+    color: Rgba<u8>,
+) {
+    let r_tl = if round_tl { r_tl } else { 0 };
+    let r_tr = if round_tr { r_tr } else { 0 };
+    let r_bl = if round_bl { r_bl } else { 0 };
+    let r_br = if round_br { r_br } else { 0 };
+
     // fast path
-    if r == 0 || (!round_tl && !round_tr && !round_bl && !round_br) {
+    if (r_tl == 0 && r_tr == 0 && r_bl == 0 && r_br == 0) {
         for y in y0..(y0 + h) {
             for x in x0..(x0 + w) {
                 img.put_pixel(x, y, color);
@@ -151,37 +189,45 @@ fn fill_rounded_rect_corners(
         return;
     }
 
-    let r_i = r as i32;
     let (w_i, h_i) = (w as i32, h as i32);
     for yy in 0..h_i {
         for xx in 0..w_i {
             let mut inside = true;
-            // Check 4 corners using circle equation, but only for corners that are enabled.
-            if xx < r_i && yy < r_i {
-                if round_tl {
+
+            // Check each corner with its own radius.
+            if r_tl > 0 {
+                let r_i = r_tl as i32;
+                if xx < r_i && yy < r_i {
                     let dx = xx - (r_i - 1);
                     let dy = yy - (r_i - 1);
                     inside = dx * dx + dy * dy <= r_i * r_i;
                 }
-            } else if xx >= w_i - r_i && yy < r_i {
-                if round_tr {
+            }
+            if inside && r_tr > 0 {
+                let r_i = r_tr as i32;
+                if xx >= w_i - r_i && yy < r_i {
                     let dx = xx - (w_i - r_i);
                     let dy = yy - (r_i - 1);
                     inside = dx * dx + dy * dy <= r_i * r_i;
                 }
-            } else if xx < r_i && yy >= h_i - r_i {
-                if round_bl {
+            }
+            if inside && r_bl > 0 {
+                let r_i = r_bl as i32;
+                if xx < r_i && yy >= h_i - r_i {
                     let dx = xx - (r_i - 1);
                     let dy = yy - (h_i - r_i);
                     inside = dx * dx + dy * dy <= r_i * r_i;
                 }
-            } else if xx >= w_i - r_i && yy >= h_i - r_i {
-                if round_br {
+            }
+            if inside && r_br > 0 {
+                let r_i = r_br as i32;
+                if xx >= w_i - r_i && yy >= h_i - r_i {
                     let dx = xx - (w_i - r_i);
                     let dy = yy - (h_i - r_i);
                     inside = dx * dx + dy * dy <= r_i * r_i;
                 }
             }
+
             if inside {
                 img.put_pixel(x0 + xx as u32, y0 + yy as u32, color);
             }
@@ -213,17 +259,44 @@ fn draw_finder(
     let y0 = start_y_mod * module_px;
     let outer = 7 * module_px;
 
-    // For Wallapop-style eyes: keep the "inner" corner (facing QR center) sharp.
+    // Determine which corner is "inner-facing" (towards QR center).
     // Internal corner by finder position:
     // - TL: bottom-right
     // - TR: bottom-left
     // - BL: top-right
-    let (rt_tl, rt_tr, rt_bl, rt_br) = match pos {
-        FinderPos::TopLeft => (true, true, true, false),
-        FinderPos::TopRight => (true, true, false, true),
-        FinderPos::BottomLeft => (true, false, true, true),
+    let inner_corner = match pos {
+        FinderPos::TopLeft => (false, false, false, true),
+        FinderPos::TopRight => (false, false, true, false),
+        FinderPos::BottomLeft => (false, true, false, false),
     };
-    fill_rounded_rect_corners(img, x0, y0, outer, outer, outer_r, rt_tl, rt_tr, rt_bl, rt_br, dark);
+
+    let boost_px = ((module_px as f32) * opts.finder_inner_boost).round() as u32;
+
+    // Per-corner radii for the outer ring.
+    let (r_tl, r_tr, r_bl, r_br) = match opts.finder_corner_style {
+        FinderCornerStyle::Uniform => (outer_r, outer_r, outer_r, outer_r),
+        FinderCornerStyle::InnerSharp => {
+            let (it, ir, ib, il) = inner_corner;
+            (
+                if it { 0 } else { outer_r },
+                if ir { 0 } else { outer_r },
+                if ib { 0 } else { outer_r },
+                if il { 0 } else { outer_r },
+            )
+        }
+        FinderCornerStyle::InnerBoost => {
+            let (it, ir, ib, il) = inner_corner;
+            let inner_r = outer_r.saturating_add(boost_px);
+            (
+                if it { inner_r } else { outer_r },
+                if ir { inner_r } else { outer_r },
+                if ib { inner_r } else { outer_r },
+                if il { inner_r } else { outer_r },
+            )
+        }
+    };
+
+    fill_rounded_rect_radii(img, x0, y0, outer, outer, r_tl, r_tr, r_bl, r_br, true, true, true, true, dark);
 
     // Inner hole: 5x5 light
     let inner = 5 * module_px;
@@ -235,23 +308,71 @@ fn draw_finder(
         // inset by 1 module => radius reduced by module_px.
         FinderInnerCorner::Both => outer_r.saturating_sub(module_px),
     };
-    fill_rounded_rect_corners(img, ix0, iy0, inner, inner, inner_r, rt_tl, rt_tr, rt_bl, rt_br, light);
+    // Apply the same per-corner style to the inner hole.
+    // Keep curvature consistent with the outer ring by using inner_r as base.
+    let (hr_tl, hr_tr, hr_bl, hr_br) = match opts.finder_corner_style {
+        FinderCornerStyle::Uniform => (inner_r, inner_r, inner_r, inner_r),
+        FinderCornerStyle::InnerSharp => {
+            let (it, ir, ib, il) = inner_corner;
+            (
+                if it { 0 } else { inner_r },
+                if ir { 0 } else { inner_r },
+                if ib { 0 } else { inner_r },
+                if il { 0 } else { inner_r },
+            )
+        }
+        FinderCornerStyle::InnerBoost => {
+            let (it, ir, ib, il) = inner_corner;
+            let inner2 = inner_r.saturating_add(boost_px);
+            (
+                if it { inner2 } else { inner_r },
+                if ir { inner2 } else { inner_r },
+                if ib { inner2 } else { inner_r },
+                if il { inner2 } else { inner_r },
+            )
+        }
+    };
+
+    fill_rounded_rect_radii(img, ix0, iy0, inner, inner, hr_tl, hr_tr, hr_bl, hr_br, true, true, true, true, light);
 
     // Center: 3x3 dark
     let center = 3 * module_px;
     let cx0 = x0 + 2 * module_px;
     let cy0 = y0 + 2 * module_px;
 
-    // Wallapop-like eyes: rounded center square too.
+    // Center: 3x3 dark. For strong finder rounding, also round the center square.
     let center_r = if opts.finder_outer_roundness > 1.0 {
-        let max_r = ((3 * module_px) / 2);
+        let max_r = (3 * module_px) / 2;
         // reduce rounding a bit more than outer ring
         max_r.saturating_sub((module_px / 2).max(3))
     } else {
         0
     };
 
-    fill_rounded_rect_corners(img, cx0, cy0, center, center, center_r, rt_tl, rt_tr, rt_bl, rt_br, dark);
+    let (cr_tl, cr_tr, cr_bl, cr_br) = match opts.finder_corner_style {
+        FinderCornerStyle::Uniform => (center_r, center_r, center_r, center_r),
+        FinderCornerStyle::InnerSharp => {
+            let (it, ir, ib, il) = inner_corner;
+            (
+                if it { 0 } else { center_r },
+                if ir { 0 } else { center_r },
+                if ib { 0 } else { center_r },
+                if il { 0 } else { center_r },
+            )
+        }
+        FinderCornerStyle::InnerBoost => {
+            let (it, ir, ib, il) = inner_corner;
+            let inner2 = center_r.saturating_add(boost_px);
+            (
+                if it { inner2 } else { center_r },
+                if ir { inner2 } else { center_r },
+                if ib { inner2 } else { center_r },
+                if il { inner2 } else { center_r },
+            )
+        }
+    };
+
+    fill_rounded_rect_radii(img, cx0, cy0, center, center, cr_tl, cr_tr, cr_bl, cr_br, true, true, true, true, dark);
 }
 
 pub fn render_stylized(code: &QrCode, opts: RenderOpts) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
