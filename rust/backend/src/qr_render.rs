@@ -284,8 +284,17 @@ fn draw_finder(
                 if il { 0 } else { outer_r },
             )
         }
-        // For Subito: outer contour corners stay uniform; boost applies to the INNER contour + center.
-        FinderCornerStyle::InnerBoost => (outer_r, outer_r, outer_r, outer_r),
+        // Subito: make the INNER-facing corner slightly more rounded than the outer ones.
+        FinderCornerStyle::InnerBoost => {
+            let (c_tl, c_tr, c_bl, c_br) = inner_corner;
+            let inner_r = outer_r.saturating_add(boost_px);
+            (
+                if c_tl { inner_r } else { outer_r },
+                if c_tr { inner_r } else { outer_r },
+                if c_bl { inner_r } else { outer_r },
+                if c_br { inner_r } else { outer_r },
+            )
+        }
     };
     fill_rounded_rect_radii(img, x0, y0, outer, outer, r_tl, r_tr, r_bl, r_br, true, true, true, true, dark);
 
@@ -332,8 +341,9 @@ fn draw_finder(
         // reduce rounding a bit more than outer ring
         max_r.saturating_sub((module_px / 2).max(3))
     } else if matches!(opts.finder_corner_style, FinderCornerStyle::InnerBoost) {
-        // Subito: slightly round the center square.
-        outer_r.saturating_sub((module_px / 3).max(1))
+        // Subito: ensure visible rounding for the center square.
+        let base = ((module_px as f32) * 0.35).round() as u32;
+        base.max(1)
     } else {
         0
     };
@@ -349,8 +359,19 @@ fn draw_finder(
                 if il { 0 } else { center_r },
             )
         }
-        // Subito: round ALL corners of the center square.
-        FinderCornerStyle::InnerBoost => (center_r, center_r, center_r, center_r),
+        FinderCornerStyle::InnerBoost => {
+            // Subito: inner-facing corner slightly more rounded.
+            let (c_tl, c_tr, c_bl, c_br) = inner_corner;
+            // Use a smaller boost for 3x3 to avoid over-rounding.
+            let boost2 = (boost_px / 2).max(1);
+            let inner2 = center_r.saturating_add(boost2);
+            (
+                if c_tl { inner2 } else { center_r },
+                if c_tr { inner2 } else { center_r },
+                if c_bl { inner2 } else { center_r },
+                if c_br { inner2 } else { center_r },
+            )
+        },
     };
 
     fill_rounded_rect_radii(img, cx0, cy0, center, center, cr_tl, cr_tr, cr_bl, cr_br, true, true, true, true, dark);
