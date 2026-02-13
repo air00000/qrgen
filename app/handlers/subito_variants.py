@@ -35,7 +35,7 @@ from telegram.ext import (
 )
 
 from app.config import CFG
-from app.keyboards.qr import menu_back_kb, photo_step_kb, main_menu_kb
+from app.keyboards.qr import main_menu_kb
 from app.utils.state_stack import push_state, clear_stack
 from app.utils.async_helpers import generate_with_queue
 
@@ -76,6 +76,13 @@ def _backend_generate_subito(
 
 # ========== KEYBOARDS ==========
 
+def _nav_row(back_cb: str):
+    return [
+        InlineKeyboardButton("⬅️ Назад", callback_data=back_cb),
+        InlineKeyboardButton("🏠 Главное меню", callback_data="MENU"),
+    ]
+
+
 def subito_type_kb():
     return InlineKeyboardMarkup(
         [
@@ -84,7 +91,7 @@ def subito_type_kb():
             [InlineKeyboardButton("💳 Mail оплата", callback_data="SUBITO_TYPE:email_payment")],
             [InlineKeyboardButton("📱 SMS оплата", callback_data="SUBITO_TYPE:sms_payment")],
             [InlineKeyboardButton("🔳 QR", callback_data="SUBITO_TYPE:qr")],
-            [InlineKeyboardButton("⬅️ Назад", callback_data="QR:MENU")],
+            _nav_row("QR:MENU"),
         ]
     )
 
@@ -96,12 +103,30 @@ def subito_lang_kb():
                 InlineKeyboardButton("🇬🇧 UK", callback_data="SUBITO_LANG:uk"),
                 InlineKeyboardButton("🇳🇱 NL", callback_data="SUBITO_LANG:nl"),
             ],
-            [
-                InlineKeyboardButton("⬅️ Назад", callback_data="SUBITO_BACK:TYPE"),
-                InlineKeyboardButton("🏠 Главное меню", callback_data="MENU"),
-            ],
+            _nav_row("SUBITO_BACK:TYPE"),
         ]
     )
+
+
+def subito_title_kb():
+    return InlineKeyboardMarkup([_nav_row("SUBITO_BACK:LANG")])
+
+
+def subito_price_kb():
+    return InlineKeyboardMarkup([_nav_row("SUBITO_BACK:TITLE")])
+
+
+def subito_photo_kb():
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("⏭️ Пропустить фото", callback_data="SUBITO:SKIP_PHOTO")],
+            _nav_row("SUBITO_BACK:PRICE"),
+        ]
+    )
+
+
+def subito_url_kb():
+    return InlineKeyboardMarkup([_nav_row("SUBITO_BACK:PHOTO")])
 
 
 # ========== ENTRY ==========
@@ -148,6 +173,49 @@ async def subito_back_to_type(update: Update, context: ContextTypes.DEFAULT_TYPE
     return SUBITO_TYPE
 
 
+async def subito_back_to_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    await q.edit_message_text(
+        "Выбери язык (теги uk / nl):",
+        reply_markup=subito_lang_kb(),
+    )
+    return SUBITO_LANG
+
+
+async def subito_back_to_title(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    await q.edit_message_text(
+        "📝 Введи <b>название товара</b>:",
+        parse_mode="HTML",
+        reply_markup=subito_title_kb(),
+    )
+    return SUBITO_TITLE
+
+
+async def subito_back_to_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    await q.edit_message_text(
+        "💵 Введи <b>цену</b> (например: 123.45):",
+        parse_mode="HTML",
+        reply_markup=subito_price_kb(),
+    )
+    return SUBITO_PRICE
+
+
+async def subito_back_to_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    await q.edit_message_text(
+        "📸 Отправь <b>фото товара</b> или пропусти:",
+        parse_mode="HTML",
+        reply_markup=subito_photo_kb(),
+    )
+    return SUBITO_PHOTO
+
+
 # ========== LANG ==========
 
 async def subito_lang_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -159,6 +227,7 @@ async def subito_lang_selected(update: Update, context: ContextTypes.DEFAULT_TYP
     await q.edit_message_text(
         "📝 Введи <b>название товара</b>:",
         parse_mode="HTML",
+        reply_markup=subito_title_kb(),
     )
     push_state(context.user_data, SUBITO_TITLE)
     return SUBITO_TITLE
@@ -171,7 +240,7 @@ async def subito_title(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "💵 Введи <b>цену</b> (например: 123.45):",
         parse_mode="HTML",
-        reply_markup=menu_back_kb(),
+        reply_markup=subito_price_kb(),
     )
     push_state(context.user_data, SUBITO_PRICE)
     return SUBITO_PRICE
@@ -189,7 +258,7 @@ async def subito_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "📸 Отправь <b>фото товара</b> или пропусти:",
         parse_mode="HTML",
-        reply_markup=photo_step_kb(),
+        reply_markup=subito_photo_kb(),
     )
     push_state(context.user_data, SUBITO_PHOTO)
     return SUBITO_PHOTO
@@ -213,13 +282,13 @@ async def subito_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "🔗 Введи <b>URL</b> для QR:",
             parse_mode="HTML",
-            reply_markup=menu_back_kb(),
+            reply_markup=subito_url_kb(),
         )
         push_state(context.user_data, SUBITO_URL)
         return SUBITO_URL
 
     # otherwise generate immediately
-    return await _subito_generate(update, context)
+    return await _subito_generate(update.message, context)
 
 
 async def subito_skip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -232,7 +301,7 @@ async def subito_skip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.edit_message_text(
             "🔗 Введи <b>URL</b> для QR:",
             parse_mode="HTML",
-            reply_markup=menu_back_kb(),
+            reply_markup=subito_url_kb(),
         )
         push_state(context.user_data, SUBITO_URL)
         return SUBITO_URL
@@ -312,16 +381,20 @@ subito_variants_conv = ConversationHandler(
         ],
         SUBITO_TITLE: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, subito_title),
+            CallbackQueryHandler(subito_back_to_lang, pattern=r"^SUBITO_BACK:LANG$")
         ],
         SUBITO_PRICE: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, subito_price),
+            CallbackQueryHandler(subito_back_to_title, pattern=r"^SUBITO_BACK:TITLE$"),
         ],
         SUBITO_PHOTO: [
             MessageHandler(filters.PHOTO, subito_photo),
-            CallbackQueryHandler(subito_skip_photo, pattern=r"^QR:SKIP_PHOTO$"),
+            CallbackQueryHandler(subito_skip_photo, pattern=r"^SUBITO:SKIP_PHOTO$"),
+            CallbackQueryHandler(subito_back_to_price, pattern=r"^SUBITO_BACK:PRICE$"),
         ],
         SUBITO_URL: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, subito_url),
+            CallbackQueryHandler(subito_back_to_photo, pattern=r"^SUBITO_BACK:PHOTO$"),
         ],
     },
     fallbacks=[],
