@@ -67,64 +67,67 @@ SERVICES_CONFIG = {
         "scale": 2
     },
     # === SUBITO (UK and NL) ===
+    # NOTE: In the updated Figma, Subito frames are named subito6..subito10.
+    # Language is tracked via tags (uk/nl) and NOT encoded in the frame name.
+    # For caching we still keep separate service keys per lang, but point both to the same frame.
     "subito_email_request_uk": {
         "display_name": "Subito Mail Request (UK)",
         "page": "Page 2",
-        "frame": "subito6_uk",
+        "frame": "subito6",
         "scale": 2
     },
     "subito_email_request_nl": {
         "display_name": "Subito Mail Request (NL)",
         "page": "Page 2",
-        "frame": "subito6_nl",
+        "frame": "subito6",
         "scale": 2
     },
     "subito_phone_request_uk": {
         "display_name": "Subito Phone Request (UK)",
         "page": "Page 2",
-        "frame": "subito7_uk",
+        "frame": "subito7",
         "scale": 2
     },
     "subito_phone_request_nl": {
         "display_name": "Subito Phone Request (NL)",
         "page": "Page 2",
-        "frame": "subito7_nl",
+        "frame": "subito7",
         "scale": 2
     },
     "subito_email_payment_uk": {
         "display_name": "Subito Mail Payment (UK)",
         "page": "Page 2",
-        "frame": "subito8_uk",
+        "frame": "subito8",
         "scale": 2
     },
     "subito_email_payment_nl": {
         "display_name": "Subito Mail Payment (NL)",
         "page": "Page 2",
-        "frame": "subito8_nl",
+        "frame": "subito8",
         "scale": 2
     },
     "subito_sms_payment_uk": {
         "display_name": "Subito SMS Payment (UK)",
         "page": "Page 2",
-        "frame": "subito9_uk",
+        "frame": "subito9",
         "scale": 2
     },
     "subito_sms_payment_nl": {
         "display_name": "Subito SMS Payment (NL)",
         "page": "Page 2",
-        "frame": "subito9_nl",
+        "frame": "subito9",
         "scale": 2
     },
     "subito_qr_uk": {
         "display_name": "Subito QR (UK)",
         "page": "Page 2",
-        "frame": "subito10_uk",
+        "frame": "subito10",
         "scale": 2
     },
     "subito_qr_nl": {
         "display_name": "Subito QR (NL)",
         "page": "Page 2",
-        "frame": "subito10_nl",
+        "frame": "subito10",
         "scale": 2
     },
     # === WALLAPOP (Page 2) ===
@@ -292,12 +295,15 @@ SERVICES_CONFIG = {
         "scale": 2
     },
     # === KLEINANZEIGEN ===
-    "kleize": {
-        "display_name": "Kleinanzeigen",
-        "page": "Page 2",
-        "frame": "kleize1",
-        "scale": 2
-    },
+    # NOTE: Kleinanzeigen frame name may differ between template versions.
+    # If your Figma does not contain the expected frame, keep it out of cache_all to avoid errors.
+    # Re-enable once the exact frame name is confirmed.
+    # "kleize": {
+    #     "display_name": "Kleinanzeigen",
+    #     "page": "Page 2",
+    #     "frame": "kleize1",
+    #     "scale": 2
+    # },
     # === CONTO (2 фрейма) ===
     "conto_long": {
         "display_name": "Conto Long",
@@ -342,24 +348,26 @@ SERVICES_CONFIG = {
         "frame": "depop5_au",
         "scale": 2
     },
-    "depop_uk": {
-        "display_name": "Depop (UK)",
-        "page": "Page 2",
-        "frame": "depop1_uk",
-        "scale": 2
-    },
-    "depop_us": {
-        "display_name": "Depop (US)",
-        "page": "Page 2",
-        "frame": "depop1_us",
-        "scale": 2
-    },
-    "depop_it": {
-        "display_name": "Depop (Italy)",
-        "page": "Page 2",
-        "frame": "depop1_it",
-        "scale": 2
-    }
+    # NOTE: These frames are not present in the current Figma template.
+    # Keep them out of cache_all to avoid errors.
+    # "depop_uk": {
+    #     "display_name": "Depop (UK)",
+    #     "page": "Page 2",
+    #     "frame": "depop1_uk",
+    #     "scale": 2
+    # },
+    # "depop_us": {
+    #     "display_name": "Depop (US)",
+    #     "page": "Page 2",
+    #     "frame": "depop1_us",
+    #     "scale": 2
+    # },
+    # "depop_it": {
+    #     "display_name": "Depop (Italy)",
+    #     "page": "Page 2",
+    #     "frame": "depop1_it",
+    #     "scale": 2
+    # }
 }
 
 
@@ -431,16 +439,13 @@ def get_services_by_group():
             "2dehands",
             "2ememain"
         ],
-        "Kleinanzeigen": ["kleize"],
+        # "Kleinanzeigen": ["kleize"],
         "Conto": ["conto_long", "conto_short"],
         "Depop": [
             "depop_au",
             "depop_au_email_request",
             "depop_au_email_confirm",
             "depop_au_sms_request",
-            "depop_au_sms_confirm",
-            "depop_uk",
-            "depop_us",
-            "depop_it"
+            "depop_au_sms_confirm"
         ]
     }
