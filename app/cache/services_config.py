@@ -131,35 +131,36 @@ SERVICES_CONFIG = {
         "scale": 2
     },
 
-    # === SUBITO (IT legacy subito1..subito5) ===
-    "subito": {
-        "display_name": "Subito (IT) QR (legacy)",
+    # === SUBITO (IT) ===
+    # NOTE: Subito IT uses the same frame names subito6..subito10; language is a tag.
+    "subito_email_request_it": {
+        "display_name": "Subito Mail Request (IT)",
         "page": "Page 2",
-        "frame": "subito1",
+        "frame": "subito6",
         "scale": 2
     },
-    "subito_email_request": {
-        "display_name": "Subito (IT) Email Request (legacy)",
+    "subito_phone_request_it": {
+        "display_name": "Subito Phone Request (IT)",
         "page": "Page 2",
-        "frame": "subito2",
+        "frame": "subito7",
         "scale": 2
     },
-    "subito_email_confirm": {
-        "display_name": "Subito (IT) Email Confirm (legacy)",
+    "subito_email_payment_it": {
+        "display_name": "Subito Mail Payment (IT)",
         "page": "Page 2",
-        "frame": "subito3",
+        "frame": "subito8",
         "scale": 2
     },
-    "subito_sms_request": {
-        "display_name": "Subito (IT) SMS Request (legacy)",
+    "subito_sms_payment_it": {
+        "display_name": "Subito SMS Payment (IT)",
         "page": "Page 2",
-        "frame": "subito4",
+        "frame": "subito9",
         "scale": 2
     },
-    "subito_sms_confirm": {
-        "display_name": "Subito (IT) SMS Confirm (legacy)",
+    "subito_qr_it": {
+        "display_name": "Subito QR (IT)",
         "page": "Page 2",
-        "frame": "subito5",
+        "frame": "subito10",
         "scale": 2
     },
 

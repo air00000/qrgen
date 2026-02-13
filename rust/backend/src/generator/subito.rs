@@ -730,18 +730,14 @@ pub async fn generate_subito(
 ) -> Result<Vec<u8>, GenError> {
     let _span_total = perf_scope!("gen.subito.total");
 
-    // Legacy Italian Subito (frames subito1..5)
-    if country_or_lang.eq_ignore_ascii_case("it") {
-        return generate_subito_it(http, method, title, price, photo_b64, url, name, address).await;
-    }
-
     let variant = NewVariant::parse(method)
         .ok_or_else(|| GenError::BadRequest(format!("unknown subito method: {method}")))?;
 
     let lang = match country_or_lang.to_lowercase().as_str() {
-        "uk" | "nl" => country_or_lang.to_lowercase(),
+        "uk" | "nl" | "it" => country_or_lang.to_lowercase(),
         other if other.starts_with("uk") => "uk".to_string(),
         other if other.starts_with("nl") => "nl".to_string(),
+        other if other.starts_with("it") => "it".to_string(),
         _ => "uk".to_string(),
     };
 

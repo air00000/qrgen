@@ -48,11 +48,11 @@ pub fn geo_config() -> Value {
         "services": {
           "subito": {
             "methods": {
-              "qr": {"endpoint": "/generate", "fields": ["title", "price", "url", "photo", "name", "address"]},
-              "email_request": {"endpoint": "/generate", "fields": ["title", "price", "photo", "name", "address"]},
-              "email_confirm": {"endpoint": "/generate", "fields": ["title", "price", "photo", "name", "address"]},
-              "sms_request": {"endpoint": "/generate", "fields": ["title", "price", "photo", "name", "address"]},
-              "sms_confirm": {"endpoint": "/generate", "fields": ["title", "price", "photo", "name", "address"]}
+              "email_request": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
+              "phone_request": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
+              "email_payment": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
+              "sms_payment": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
+              "qr": {"endpoint": "/generate", "fields": ["title", "price", "url", "photo"]}
             }
           },
           "conto": {
