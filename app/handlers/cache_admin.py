@@ -280,54 +280,65 @@ async def cache_all_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Это займет ~{total * 3} секунд"
     )
     
-    results = {
-        'success': [],
-        'failed': []
-    }
-    
+    failed: list[str] = []
+    success_count = 0
+
     # Кэшируем каждый сервис
     for i, service_name in enumerate(services, 1):
         config = SERVICES_CONFIG[service_name]
-        
+
         await msg.edit_text(
             f"🔄 Кэширование ({i}/{total})...\n\n"
             f"Текущий: {config['display_name']}"
         )
-        
+
         success, message = await refresh_service_cache(service_name)
-        
+
         if success:
-            results['success'].append(message)
+            success_count += 1
         else:
-            results['failed'].append(message)
-        
+            failed.append(message)
+
         # Небольшая пауза чтобы не перегружать API
         if i < total:
             await asyncio.sleep(2)
-    
-    # Финальный отчет
-    success_count = len(results['success'])
-    failed_count = len(results['failed'])
-    
-    report = f"📊 Кэширование завершено!\n\n"
-    report += f"✅ Успешно: {success_count}/{total}\n"
-    report += f"❌ Ошибок: {failed_count}/{total}\n\n"
-    
-    if results['success']:
-        report += "✅ Закэшировано:\n"
-        for msg_text in results['success'][:10]:  # Показываем первые 10
-            report += f"  {msg_text}\n"
-        if success_count > 10:
-            report += f"  ... и еще {success_count - 10}\n"
-        report += "\n"
-    
-    if results['failed']:
-        report += "❌ Ошибки:\n"
-        for msg_text in results['failed']:
-            report += f"  {msg_text}\n"
-    
+
+    failed_count = len(failed)
+
+    # Финальный отчет: по запросу — показываем только ошибки
+    report = (
+        f"📊 Кэширование завершено!\n\n"
+        f"✅ Успешно: {success_count}/{total}\n"
+        f"❌ Ошибок: {failed_count}/{total}\n\n"
+    )
+
+    if not failed:
+        report += "✅ Ошибок нет."
+        await msg.edit_text(report)
+        logger.info(f"✅ Массовое кэширование завершено: {success_count} успешно, {failed_count} ошибок")
+        return
+
+    report += "❌ Ошибки (показываю только проблемные):\n"
+
+    # Telegram лимит ~4096 символов. Оставим запас.
+    limit = 3500
+    out_lines = []
+    used = len(report)
+    remaining = 0
+    for m in failed:
+        line = f"  {m}"
+        if used + len(line) + 1 > limit:
+            remaining += 1
+            continue
+        out_lines.append(line)
+        used += len(line) + 1
+
+    report += "\n".join(out_lines)
+    if remaining > 0:
+        report += f"\n  ... и еще {remaining} ошибок"
+
     await msg.edit_text(report)
-    
+
     logger.info(f"✅ Массовое кэширование завершено: {success_count} успешно, {failed_count} ошибок")
 
 
@@ -384,42 +395,57 @@ async def cache_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         services = get_all_services()
         total = len(services)
         
-        results = {
-            'success': [],
-            'failed': []
-        }
-        
+        failed: list[str] = []
+        success_count = 0
+
         for i, service_name in enumerate(services, 1):
             config = SERVICES_CONFIG[service_name]
-            
+
             await query.edit_message_text(
                 f"🔄 Кэширование ({i}/{total})...\n\n"
                 f"Текущий: {config['display_name']}"
             )
-            
+
             success, message = await refresh_service_cache(service_name)
-            
+
             if success:
-                results['success'].append(message)
+                success_count += 1
             else:
-                results['failed'].append(message)
-            
+                failed.append(message)
+
             if i < total:
                 await asyncio.sleep(2)
-        
-        # Финальный отчет
-        success_count = len(results['success'])
-        failed_count = len(results['failed'])
-        
-        report = f"📊 Кэширование завершено!\n\n"
-        report += f"✅ Успешно: {success_count}/{total}\n"
-        report += f"❌ Ошибок: {failed_count}/{total}\n\n"
-        
-        if results['failed']:
-            report += "❌ Ошибки:\n"
-            for msg_text in results['failed'][:5]:
-                report += f"  {msg_text}\n"
-        
+
+        failed_count = len(failed)
+
+        report = (
+            f"📊 Кэширование завершено!\n\n"
+            f"✅ Успешно: {success_count}/{total}\n"
+            f"❌ Ошибок: {failed_count}/{total}\n\n"
+        )
+
+        if not failed:
+            report += "✅ Ошибок нет."
+            await query.edit_message_text(report)
+            return
+
+        report += "❌ Ошибки (показываю только проблемные):\n"
+        limit = 3500
+        out_lines = []
+        used = len(report)
+        remaining = 0
+        for m in failed:
+            line = f"  {m}"
+            if used + len(line) + 1 > limit:
+                remaining += 1
+                continue
+            out_lines.append(line)
+            used += len(line) + 1
+
+        report += "\n".join(out_lines)
+        if remaining > 0:
+            report += f"\n  ... и еще {remaining} ошибок"
+
         await query.edit_message_text(report)
         
     elif action == "STATUS":
