@@ -15,7 +15,7 @@ from app.config import CFG
 logger = logging.getLogger(__name__)
 
 # Директория для кэша
-CACHE_DIR = Path(CFG.BASE_DIR) / "figma_cache"
+CACHE_DIR = (Path(CFG.BASE_DIR) / "figma_cache").resolve()
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 logger.info(f"📁 Кэш директория: {CACHE_DIR}")
@@ -49,6 +49,8 @@ class FigmaCache:
     """Менеджер кэша Figma"""
     
     def __init__(self, service_name: str):
+        # Ensure cache dir exists even if it was deleted after import
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
         self.service_name = service_name
         self.structure_path = CACHE_DIR / f"{service_name}_structure.json"
         self.template_path = CACHE_DIR / f"{service_name}_template.png"
@@ -66,12 +68,15 @@ class FigmaCache:
             template_bytes: PNG байты шаблона
         """
         try:
+            # Ensure cache dir exists (can be deleted between runs)
+            self.structure_path.parent.mkdir(parents=True, exist_ok=True)
+
             # Сохраняем структуру
             self.structure_path.write_text(
                 json.dumps(structure, ensure_ascii=False, indent=2),
                 encoding='utf-8'
             )
-            
+
             # Сохраняем PNG
             self.template_path.write_bytes(template_bytes)
             
