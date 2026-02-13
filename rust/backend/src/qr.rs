@@ -153,8 +153,9 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
         other => return Err(QrError::InvalidOption(format!("finderInnerCorner={other}"))),
     };
 
-    // Subito logo tends to be visually heavy; default a bit smaller to avoid covering modules.
-    let default_logo_scale = if profile.eq_ignore_ascii_case("subito") { 0.18 } else { 0.22 };
+    // Subito logo tends to be visually heavy; keep slightly smaller than others,
+    // but make it a bit bigger for better readability on the new Subito QR mockups.
+    let default_logo_scale = if profile.eq_ignore_ascii_case("subito") { 0.20 } else { 0.22 };
     let logo_scale = req.logo_scale.unwrap_or(default_logo_scale).clamp(0.05, 0.5);
     let logo_badge = req.logo_badge.unwrap_or(false);
     let logo_badge_scale = req.logo_badge_scale.unwrap_or(1.25).clamp(1.0, 2.0);
