@@ -733,13 +733,11 @@ pub async fn generate_subito(
     let variant = NewVariant::parse(method)
         .ok_or_else(|| GenError::BadRequest(format!("unknown subito method: {method}")))?;
 
-    let lang = match country_or_lang.to_lowercase().as_str() {
-        "uk" | "nl" | "it" => country_or_lang.to_lowercase(),
-        other if other.starts_with("uk") => "uk".to_string(),
-        other if other.starts_with("nl") => "nl".to_string(),
-        other if other.starts_with("it") => "it".to_string(),
-        _ => "uk".to_string(),
-    };
+    // Subito supports only Italy now.
+    let lang = "it".to_string();
+    if !country_or_lang.eq_ignore_ascii_case("it") {
+        return Err(GenError::BadRequest("subito supports only country=it".into()));
+    }
 
     if variant.needs_url() && url.map(|s| s.trim().is_empty()).unwrap_or(true) {
         return Err(GenError::BadRequest("url is required for qr".into()));
@@ -754,26 +752,7 @@ pub async fn generate_subito(
         let _span = perf_scope!("gen.subito.figma.load");
 
         let try_find_frame = |structure: &serde_json::Value| -> Option<(serde_json::Value, String)> {
-            // Prefer language-specific frames.
-            // Current naming in Figma: subito6_uk / subito6_nl.
-            let candidate1 = format!("{frame_base}_{lang}");
-            if let Some(n) = figma::find_node(structure, PAGE, &candidate1) {
-                return Some((n, candidate1));
-            }
-
-            // Back-compat: some experiments used subito6uk / subito6nl.
-            let candidate0 = format!("{frame_base}{lang}");
-            if let Some(n) = figma::find_node(structure, PAGE, &candidate0) {
-                return Some((n, candidate0));
-            }
-
-            // IMPORTANT: For uk/nl we should NOT silently fall back to the base frame,
-            // because that can mix languages when an old cache exists.
-            if lang == "uk" || lang == "nl" {
-                return None;
-            }
-
-            // Fallback: frame without lang suffix (used for it or older templates).
+            // Only Italy: use frame without lang suffix.
             if let Some(n) = figma::find_node(structure, PAGE, frame_base) {
                 return Some((n, frame_base.to_string()));
             }

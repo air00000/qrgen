@@ -66,98 +66,32 @@ SERVICES_CONFIG = {
         "frame": "markt5_nl",
         "scale": 2
     },
-    # === SUBITO (UK and NL) ===
-    # NOTE: In the updated Figma, Subito frames are named subito6..subito10.
-    # Language is tracked via tags (uk/nl) and NOT encoded in the frame name.
-    # For caching we still keep separate service keys per lang, but point both to the same frame.
-    "subito_email_request_uk": {
-        "display_name": "Subito Mail Request (UK)",
-        "page": "Page 2",
-        "frame": "subito6_uk",
-        "scale": 2
-    },
-    "subito_email_request_nl": {
-        "display_name": "Subito Mail Request (NL)",
-        "page": "Page 2",
-        "frame": "subito6_nl",
-        "scale": 2
-    },
-    "subito_phone_request_uk": {
-        "display_name": "Subito Phone Request (UK)",
-        "page": "Page 2",
-        "frame": "subito7_uk",
-        "scale": 2
-    },
-    "subito_phone_request_nl": {
-        "display_name": "Subito Phone Request (NL)",
-        "page": "Page 2",
-        "frame": "subito7_nl",
-        "scale": 2
-    },
-    "subito_email_payment_uk": {
-        "display_name": "Subito Mail Payment (UK)",
-        "page": "Page 2",
-        "frame": "subito8_uk",
-        "scale": 2
-    },
-    "subito_email_payment_nl": {
-        "display_name": "Subito Mail Payment (NL)",
-        "page": "Page 2",
-        "frame": "subito8_nl",
-        "scale": 2
-    },
-    "subito_sms_payment_uk": {
-        "display_name": "Subito SMS Payment (UK)",
-        "page": "Page 2",
-        "frame": "subito9_uk",
-        "scale": 2
-    },
-    "subito_sms_payment_nl": {
-        "display_name": "Subito SMS Payment (NL)",
-        "page": "Page 2",
-        "frame": "subito9_nl",
-        "scale": 2
-    },
-    "subito_qr_uk": {
-        "display_name": "Subito QR (UK)",
-        "page": "Page 2",
-        "frame": "subito10_uk",
-        "scale": 2
-    },
-    "subito_qr_nl": {
-        "display_name": "Subito QR (NL)",
-        "page": "Page 2",
-        "frame": "subito10_nl",
-        "scale": 2
-    },
-
-    # === SUBITO (IT) ===
-    # NOTE: IT frames might be subito6it..subito10it. If absent, we fall back to subito6..subito10.
-    "subito_email_request_it": {
+    # === SUBITO (IT only) ===
+    "subito_email_request": {
         "display_name": "Subito Mail Request (IT)",
         "page": "Page 2",
         "frame": "subito6",
         "scale": 2
     },
-    "subito_phone_request_it": {
+    "subito_phone_request": {
         "display_name": "Subito Phone Request (IT)",
         "page": "Page 2",
         "frame": "subito7",
         "scale": 2
     },
-    "subito_email_payment_it": {
+    "subito_email_payment": {
         "display_name": "Subito Mail Payment (IT)",
         "page": "Page 2",
         "frame": "subito8",
         "scale": 2
     },
-    "subito_sms_payment_it": {
+    "subito_sms_payment": {
         "display_name": "Subito SMS Payment (IT)",
         "page": "Page 2",
         "frame": "subito9",
         "scale": 2
     },
-    "subito_qr_it": {
+    "subito_qr": {
         "display_name": "Subito QR (IT)",
         "page": "Page 2",
         "frame": "subito10",
@@ -431,21 +365,11 @@ def get_services_by_group():
             "markt_sms_payment_nl"
         ],
         "Subito": [
-            "subito_email_request_uk",
-            "subito_email_request_nl",
-            "subito_phone_request_uk",
-            "subito_phone_request_nl",
-            "subito_email_payment_uk",
-            "subito_email_payment_nl",
-            "subito_sms_payment_uk",
-            "subito_sms_payment_nl",
-            "subito_qr_uk",
-            "subito_qr_nl",
-            "subito",
             "subito_email_request",
-            "subito_email_confirm",
-            "subito_sms_request",
-            "subito_sms_confirm"
+            "subito_phone_request",
+            "subito_email_payment",
+            "subito_sms_payment",
+            "subito_qr"
         ],
         "Wallapop": [
             "wallapop_email_request_uk",

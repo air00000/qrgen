@@ -1,12 +1,12 @@
 # app/handlers/subito_variants.py
 """Subito variants (frames subito6..subito10).
 
-Languages: uk / nl / it (language is tracked via tags; NOT in frame name).
+Only Italy is supported for Subito.
 
 Backend contract:
   service = "subito"
   method  = one of: qr | email_request | phone_request | email_payment | sms_payment
-  country = lang (uk|nl|it)
+  country = "it"
 
 Thin client MUST call Rust backend (/generate); no local PIL generation.
 """
@@ -36,11 +36,10 @@ from app.utils.state_stack import clear_stack, push_state
 logger = logging.getLogger(__name__)
 
 # States
-SUBITO_LANG, SUBITO_TYPE, SUBITO_TITLE, SUBITO_PRICE, SUBITO_PHOTO, SUBITO_URL = range(200, 206)
+SUBITO_TYPE, SUBITO_TITLE, SUBITO_PRICE, SUBITO_PHOTO, SUBITO_URL = range(200, 205)
 
 
 def _backend_generate_subito(
-    lang: str,
     method: str,
     title: str,
     price: float,
@@ -51,7 +50,7 @@ def _backend_generate_subito(
     headers = {"X-API-Key": CFG.BACKEND_API_KEY or ""}
 
     payload = {
-        "country": lang,
+        "country": "it",
         "service": "subito",
         "method": method,
         "title": title,
@@ -73,19 +72,6 @@ def _nav_row(back_cb: str):
     ]
 
 
-def subito_lang_kb():
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton("🇬🇧 UK", callback_data="SUBITO_LANG:uk"),
-                InlineKeyboardButton("🇳🇱 NL", callback_data="SUBITO_LANG:nl"),
-                InlineKeyboardButton("🇮🇹 IT", callback_data="SUBITO_LANG:it"),
-            ],
-            _nav_row("QR:MENU"),
-        ]
-    )
-
-
 def subito_type_kb():
     return InlineKeyboardMarkup(
         [
@@ -94,7 +80,7 @@ def subito_type_kb():
             [InlineKeyboardButton("💳 Mail оплата", callback_data="SUBITO_TYPE:email_payment")],
             [InlineKeyboardButton("📱 SMS оплата", callback_data="SUBITO_TYPE:sms_payment")],
             [InlineKeyboardButton("🔳 QR", callback_data="SUBITO_TYPE:qr")],
-            _nav_row("SUBITO_BACK:LANG"),
+            _nav_row("QR:MENU"),
         ]
     )
 
@@ -122,37 +108,12 @@ async def subito_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.callback_query.answer()
     await update.callback_query.edit_message_text(
-        "🇮🇹 <b>Subito</b> — выбери язык:",
-        reply_markup=subito_lang_kb(),
-        parse_mode="HTML",
-    )
-    push_state(context.user_data, SUBITO_LANG)
-    return SUBITO_LANG
-
-
-async def subito_lang_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    lang = q.data.split(":", 1)[1]
-    context.user_data["subito_lang"] = lang
-
-    await q.answer()
-    await q.edit_message_text(
-        "Выбери тип Subito:",
+        "🇮🇹 <b>Subito</b> — выбери тип:",
         reply_markup=subito_type_kb(),
+        parse_mode="HTML",
     )
     push_state(context.user_data, SUBITO_TYPE)
     return SUBITO_TYPE
-
-
-async def subito_back_to_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    await q.edit_message_text(
-        "🇮🇹 <b>Subito</b> — выбери язык:",
-        reply_markup=subito_lang_kb(),
-        parse_mode="HTML",
-    )
-    return SUBITO_LANG
 
 
 async def subito_type_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -173,7 +134,11 @@ async def subito_type_selected(update: Update, context: ContextTypes.DEFAULT_TYP
 async def subito_back_to_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
-    await q.edit_message_text("Выбери тип Subito:", reply_markup=subito_type_kb())
+    await q.edit_message_text(
+        "🇮🇹 <b>Subito</b> — выбери тип:",
+        reply_markup=subito_type_kb(),
+        parse_mode="HTML",
+    )
     return SUBITO_TYPE
 
 
@@ -286,7 +251,6 @@ async def subito_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def _subito_generate(message, context: ContextTypes.DEFAULT_TYPE):
-    lang = context.user_data.get("subito_lang", "uk")
     method = context.user_data.get("subito_type", "qr")
     title = context.user_data.get("subito_title", "")
     price = float(context.user_data.get("subito_price", 0.0))
@@ -301,7 +265,6 @@ async def _subito_generate(message, context: ContextTypes.DEFAULT_TYPE):
         png_bytes = await generate_with_queue(
             executor,
             _backend_generate_subito,
-            lang,
             method,
             title,
             price,
@@ -310,7 +273,7 @@ async def _subito_generate(message, context: ContextTypes.DEFAULT_TYPE):
         )
 
         bio = io.BytesIO(png_bytes)
-        bio.name = f"subito_{method}_{lang}.png"
+        bio.name = f"subito_{method}_it.png"
         bio.seek(0)
 
         await msg.delete()
@@ -326,10 +289,8 @@ async def _subito_generate(message, context: ContextTypes.DEFAULT_TYPE):
 subito_variants_conv = ConversationHandler(
     entry_points=[CallbackQueryHandler(subito_start, pattern=r"^QR:SUBITO$")],
     states={
-        SUBITO_LANG: [CallbackQueryHandler(subito_lang_selected, pattern=r"^SUBITO_LANG:")],
         SUBITO_TYPE: [
             CallbackQueryHandler(subito_type_selected, pattern=r"^SUBITO_TYPE:"),
-            CallbackQueryHandler(subito_back_to_lang, pattern=r"^SUBITO_BACK:LANG$"),
         ],
         SUBITO_TITLE: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, subito_title),
