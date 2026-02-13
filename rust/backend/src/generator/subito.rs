@@ -571,17 +571,18 @@ pub async fn generate_subito(
         let (x, y, w, h) = rel_box(&qr_node, &frame_node)?;
 
         let gen_size = (500.0 * sf).round() as u32;
-        let target_size = (431.0 * sf).round() as u32;
+        // Make QR slightly smaller than the placeholder to avoid covering the mockup.
+        // Requested: ~5px smaller (at scale=1). We render at scale=2, so subtract 5*sf.
+        let target_size = ((431.0 - 5.0) * sf).round() as u32;
         let corner = (16.0 * sf).round() as u32;
 
         let mut qr_img = generate_subito_qr_png(http, url, gen_size, corner).await?;
         qr_img = qr_img.resize_exact(target_size, target_size, image::imageops::FilterType::Lanczos3);
 
-        // Fit into Figma node box (should already match, but keep safe).
-        if qr_img.width() != w || qr_img.height() != h {
-            qr_img = qr_img.resize_exact(w, h, image::imageops::FilterType::Lanczos3);
-        }
-        overlay_alpha(&mut out, &qr_img.to_rgba8(), x, y);
+        // Center inside the Figma node box (do NOT stretch back to full size).
+        let dx = ((w as i32 - qr_img.width() as i32) / 2).max(0) as u32;
+        let dy = ((h as i32 - qr_img.height() as i32) / 2).max(0) as u32;
+        overlay_alpha(&mut out, &qr_img.to_rgba8(), x + dx, y + dy);
         drop(_span);
     }
 
