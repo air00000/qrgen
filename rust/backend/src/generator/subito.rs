@@ -573,7 +573,7 @@ pub async fn generate_subito(
         let gen_size = (500.0 * sf).round() as u32;
         // Make QR slightly smaller than the placeholder to avoid covering the mockup.
         // Requested: ~5px smaller (at scale=1). We render at scale=2, so subtract 5*sf.
-        let target_size = ((431.0 - 5.0) * sf).round() as u32;
+        let target_size = ((431.0 - 15.0) * sf).round() as u32;
         let corner = (16.0 * sf).round() as u32;
 
         let mut qr_img = generate_subito_qr_png(http, url, gen_size, corner).await?;
