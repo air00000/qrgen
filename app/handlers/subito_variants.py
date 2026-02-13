@@ -315,6 +315,65 @@ async def subito_back_to_lang(update: Update, context: ContextTypes.DEFAULT_TYPE
     return SUBITO_LANG
 
 
+# ========== BACK (INPUT STEPS) ==========
+
+async def subito_back_to_title(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    await q.edit_message_text(
+        "📝 Введи <b>название товара</b>:" ,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([
+            _nav_row("SUBITO_BACK:LANG" if _is_new(context) else "SUBITO_BACK:TYPE")
+        ]),
+    )
+    return SUBITO_TITLE
+
+
+async def subito_back_to_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    await q.edit_message_text(
+        "💵 Введи <b>цену</b> (например: 123.45):",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([_nav_row("SUBITO_BACK:TITLE")]),
+    )
+    return SUBITO_PRICE
+
+
+async def subito_back_to_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    await q.edit_message_text(
+        "📸 Отправь <b>фото товара</b> или пропусти:",
+        parse_mode="HTML",
+        reply_markup=subito_photo_kb(),
+    )
+    return SUBITO_PHOTO
+
+
+async def subito_back_to_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    await q.edit_message_text(
+        "🔗 Введи <b>URL</b> для QR:",
+        parse_mode="HTML",
+        reply_markup=subito_url_kb(),
+    )
+    return SUBITO_URL
+
+
+async def subito_back_to_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    await q.edit_message_text(
+        "👤 Введи <b>имя</b> (можно пропустить):",
+        parse_mode="HTML",
+        reply_markup=subito_name_kb(),
+    )
+    return SUBITO_NAME
+
+
 # ========== TITLE / PRICE ==========
 
 async def subito_title(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -546,10 +605,12 @@ subito_variants_conv = ConversationHandler(
         SUBITO_NAME: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, subito_name),
             CallbackQueryHandler(subito_skip_name, pattern=r"^SUBITO:SKIP_NAME$"),
+            CallbackQueryHandler(subito_back_to_url, pattern=r"^SUBITO_BACK:URL$"),
         ],
         SUBITO_ADDRESS: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, subito_address),
             CallbackQueryHandler(subito_skip_address, pattern=r"^SUBITO:SKIP_ADDRESS$"),
+            CallbackQueryHandler(subito_back_to_name, pattern=r"^SUBITO_BACK:NAME$"),
         ],
     },
     fallbacks=[],
