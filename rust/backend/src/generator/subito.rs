@@ -754,7 +754,7 @@ pub async fn generate_subito(
         let _span = perf_scope!("gen.subito.figma.load");
 
         let try_find_frame = |structure: &serde_json::Value| -> Option<(serde_json::Value, String)> {
-            // Prefer language-specific frames if they exist.
+            // Prefer language-specific frames.
             // Current naming in Figma: subito6uk / subito6nl (no underscore).
             let candidate0 = format!("{frame_base}{lang}");
             if let Some(n) = figma::find_node(structure, PAGE, &candidate0) {
@@ -767,7 +767,13 @@ pub async fn generate_subito(
                 return Some((n, candidate1));
             }
 
-            // Fallback: frame without lang suffix.
+            // IMPORTANT: For uk/nl we should NOT silently fall back to the base frame,
+            // because that can mix languages when an old cache exists.
+            if lang == "uk" || lang == "nl" {
+                return None;
+            }
+
+            // Fallback: frame without lang suffix (used for it or older templates).
             if let Some(n) = figma::find_node(structure, PAGE, frame_base) {
                 return Some((n, frame_base.to_string()));
             }
