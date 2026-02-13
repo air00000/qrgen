@@ -297,6 +297,25 @@ fn apply_round_corners_alpha(mut img: ImageBuffer<Rgba<u8>, Vec<u8>>, radius: u3
     img
 }
 
+fn square_photo_from_b64(photo_b64: &str, w: u32, h: u32, radius: u32) -> Result<Option<DynamicImage>, GenError> {
+    let Some(bytes) = util::b64_decode(photo_b64) else {
+        return Ok(None);
+    };
+    let img = image::load_from_memory(&bytes)
+        .map_err(|e| GenError::BadRequest(format!("invalid photo: {e}")))?;
+    let mut img = img.to_rgba8();
+
+    // Crop to square (center)
+    let min_dim = img.width().min(img.height());
+    let left = (img.width().saturating_sub(min_dim)) / 2;
+    let top = (img.height().saturating_sub(min_dim)) / 2;
+    let cropped = image::imageops::crop(&mut img, left, top, min_dim, min_dim).to_image();
+    let resized = image::imageops::resize(&cropped, w, h, image::imageops::FilterType::Lanczos3);
+
+    let rounded = apply_round_corners_alpha(resized, radius);
+    Ok(Some(DynamicImage::ImageRgba8(rounded)))
+}
+
 fn rect_photo_from_b64(photo_b64: &str, w: u32, h: u32, radius: u32) -> Result<Option<DynamicImage>, GenError> {
     let Some(bytes) = util::b64_decode(photo_b64) else {
         return Ok(None);
