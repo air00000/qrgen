@@ -292,7 +292,7 @@ async fn generate_subito_qr_png(
         "text": url,
         "profile": "subito",
         "size": size,
-        "margin": 2,
+        "margin": 1,
         "colorDark": "#FF6E69",
         "colorLight": "#FFFFFF",
         "cornerRadius": corner_radius,
