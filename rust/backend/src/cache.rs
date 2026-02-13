@@ -93,21 +93,38 @@ impl FigmaCache {
 /// Python version uses: Path(CFG.BASE_DIR) / "figma_cache" where BASE_DIR is qrgen/app.
 /// In Rust backend we default to: {PROJECT_ROOT}/app/figma_cache.
 pub fn cache_dir() -> PathBuf {
-    // 1) Explicit override
+    // 1) Explicit override (kept for emergencies)
     if let Ok(p) = std::env::var("FIGMA_CACHE_DIR") {
         return PathBuf::from(p);
     }
 
-    // 2) Explicit project root
-    if let Ok(project_root) = std::env::var("PROJECT_ROOT") {
-        return PathBuf::from(project_root).join("app").join("figma_cache");
+    // Helper: search upwards for an app/figma_cache directory.
+    fn find_up(mut base: PathBuf) -> Option<PathBuf> {
+        for _ in 0..6 {
+            let candidate = base.join("app").join("figma_cache");
+            if candidate.exists() {
+                return Some(candidate);
+            }
+            if !base.pop() {
+                break;
+            }
+        }
+        None
     }
 
-    // 3) If running with cwd = repo root (common in prod), prefer ./app/figma_cache.
+    // 2) Prefer CWD-based repo discovery: if you run from /root/qrgen it will resolve to /root/qrgen/app/figma_cache.
     if let Ok(cwd) = std::env::current_dir() {
-        let p = cwd.join("app").join("figma_cache");
-        if p.exists() {
+        if let Some(p) = find_up(cwd) {
             return p;
+        }
+    }
+
+    // 3) If launched from elsewhere (systemd, etc.), try resolving relative to the executable location.
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent().map(|p| p.to_path_buf()) {
+            if let Some(p) = find_up(dir) {
+                return p;
+            }
         }
     }
 
