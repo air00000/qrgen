@@ -5,9 +5,10 @@
 
 import logging
 import multiprocessing
-import uvicorn
-import threading
-import time
+# uvicorn/threading/time are legacy (python API server). Keep commented to avoid confusion.
+# import uvicorn
+# import threading
+# import time
 from concurrent.futures import ThreadPoolExecutor
 
 from telegram.ext import (
@@ -35,15 +36,19 @@ logger = logging.getLogger(__name__)
 
 
 def start_api():
-    """Запуск API сервера"""
-    logger.info("🌐 Запуск API сервера на http://0.0.0.0:8080")
-    uvicorn.run(
-        "app.api:app",
-        host="0.0.0.0",
-        port=8080,
-        log_level="info",
-        access_log=True
-    )
+    """Запуск API сервера (LEGACY).
+
+    Сейчас API работает в Rust backend (`qrgen-backend`), поэтому Python-uvicorn
+    по умолчанию не запускаем.
+    """
+    logger.info("🌐 (LEGACY) Python API server disabled; use Rust backend instead")
+    # uvicorn.run(
+    #     "app.api:app",
+    #     host="0.0.0.0",
+    #     port=8080,
+    #     log_level="info",
+    #     access_log=True
+    # )
 
 
 def start_bot():
