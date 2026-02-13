@@ -18,7 +18,7 @@ const PAGE: &str = "Page 2";
 /// - email_payment
 /// - sms_payment
 #[derive(Clone, Copy, Debug)]
-enum Variant {
+enum NewVariant {
     EmailRequest,
     PhoneRequest,
     EmailPayment,
@@ -26,45 +26,93 @@ enum Variant {
     Qr,
 }
 
-impl Variant {
+impl NewVariant {
     fn parse(s: &str) -> Option<Self> {
         Some(match s {
-            "email_request" => Variant::EmailRequest,
-            "phone_request" => Variant::PhoneRequest,
-            "email_payment" => Variant::EmailPayment,
-            "sms_payment" => Variant::SmsPayment,
-            "qr" => Variant::Qr,
+            "email_request" => NewVariant::EmailRequest,
+            "phone_request" => NewVariant::PhoneRequest,
+            "email_payment" => NewVariant::EmailPayment,
+            "sms_payment" => NewVariant::SmsPayment,
+            "qr" => NewVariant::Qr,
             _ => return None,
         })
     }
 
     fn frame_base(self) -> &'static str {
         match self {
-            Variant::EmailRequest => "subito6",
-            Variant::PhoneRequest => "subito7",
-            Variant::EmailPayment => "subito8",
-            Variant::SmsPayment => "subito9",
-            Variant::Qr => "subito10",
+            NewVariant::EmailRequest => "subito6",
+            NewVariant::PhoneRequest => "subito7",
+            NewVariant::EmailPayment => "subito8",
+            NewVariant::SmsPayment => "subito9",
+            NewVariant::Qr => "subito10",
         }
     }
 
     fn cache_service_name(self, lang: &str) -> String {
         // MUST stay compatible with Python cache layout: app/figma_cache/{service}_*.{json,png}
         match self {
-            Variant::EmailRequest => format!("subito_email_request_{lang}"),
-            Variant::PhoneRequest => format!("subito_phone_request_{lang}"),
-            Variant::EmailPayment => format!("subito_email_payment_{lang}"),
-            Variant::SmsPayment => format!("subito_sms_payment_{lang}"),
-            Variant::Qr => format!("subito_qr_{lang}"),
+            NewVariant::EmailRequest => format!("subito_email_request_{lang}"),
+            NewVariant::PhoneRequest => format!("subito_phone_request_{lang}"),
+            NewVariant::EmailPayment => format!("subito_email_payment_{lang}"),
+            NewVariant::SmsPayment => format!("subito_sms_payment_{lang}"),
+            NewVariant::Qr => format!("subito_qr_{lang}"),
         }
     }
 
     fn needs_url(self) -> bool {
-        matches!(self, Variant::Qr)
+        matches!(self, NewVariant::Qr)
     }
 
     fn has_qr(self) -> bool {
-        matches!(self, Variant::Qr)
+        matches!(self, NewVariant::Qr)
+    }
+}
+
+// Legacy Subito variants (Italian frames subito1..subito5).
+#[derive(Clone, Copy, Debug)]
+enum ItVariant {
+    Qr,
+    EmailRequest,
+    EmailConfirm,
+    SmsRequest,
+    SmsConfirm,
+}
+
+impl ItVariant {
+    fn parse(s: &str) -> Option<Self> {
+        Some(match s {
+            "qr" => ItVariant::Qr,
+            "email_request" => ItVariant::EmailRequest,
+            "email_confirm" => ItVariant::EmailConfirm,
+            "sms_request" => ItVariant::SmsRequest,
+            "sms_confirm" => ItVariant::SmsConfirm,
+            _ => return None,
+        })
+    }
+
+    fn frame_name(self) -> &'static str {
+        match self {
+            ItVariant::Qr => "subito1",
+            ItVariant::EmailRequest => "subito2",
+            ItVariant::EmailConfirm => "subito3",
+            ItVariant::SmsRequest => "subito4",
+            ItVariant::SmsConfirm => "subito5",
+        }
+    }
+
+    fn cache_service_name(self) -> &'static str {
+        // MUST match Python cache keys to keep app/figma_cache 1:1
+        match self {
+            ItVariant::Qr => "subito",
+            ItVariant::EmailRequest => "subito_email_request",
+            ItVariant::EmailConfirm => "subito_email_confirm",
+            ItVariant::SmsRequest => "subito_sms_request",
+            ItVariant::SmsConfirm => "subito_sms_confirm",
+        }
+    }
+
+    fn has_qr(self) -> bool {
+        matches!(self, ItVariant::Qr)
     }
 }
 
@@ -307,6 +355,323 @@ async fn generate_subito_qr_png(
     Ok(img)
 }
 
+async fn generate_subito_it_qr_png(
+    http: &reqwest::Client,
+    url: &str,
+    size: u32,
+    corner_radius: u32,
+) -> Result<DynamicImage, GenError> {
+    // Legacy Subito (IT) QR settings (subito1..5).
+    let payload = serde_json::json!({
+        "text": url,
+        "profile": "subito",
+        "size": size,
+        "margin": 2,
+        "colorDark": "#FF6E69",
+        "colorLight": "#FFFFFF",
+        "cornerRadius": corner_radius,
+        "os": 1
+    });
+
+    let req: qr::QrRequest = serde_json::from_value(payload)
+        .map_err(|e| GenError::Internal(e.to_string()))?;
+
+    let img = qr::build_qr_image(http, req)
+        .await
+        .map_err(|e| GenError::BadRequest(e.to_string()))?;
+    Ok(img)
+}
+
+async fn generate_subito_it(
+    http: &reqwest::Client,
+    method: &str,
+    title: &str,
+    price: f64,
+    photo_b64: Option<&str>,
+    url: Option<&str>,
+    name: Option<&str>,
+    address: Option<&str>,
+) -> Result<Vec<u8>, GenError> {
+    let _span_total = perf_scope!("gen.subito_it.total");
+
+    let variant = ItVariant::parse(method)
+        .ok_or_else(|| GenError::BadRequest(format!("unknown subito method: {method}")))?;
+
+    if variant.has_qr() && url.map(|s| s.trim().is_empty()).unwrap_or(true) {
+        return Err(GenError::BadRequest("url is required for qr".into()));
+    }
+
+    // Python truncation rules are char-count based
+    let title = util::truncate_with_ellipsis(title.to_string(), 25);
+    let name = name.map(|s| util::truncate_with_ellipsis(s.to_string(), 50));
+    let address = address.map(|s| util::truncate_with_ellipsis(s.to_string(), 100));
+    let url_trunc = url.map(|s| util::truncate_with_ellipsis(s.to_string(), 500));
+
+    let frame_name = variant.frame_name();
+    let service_name = variant.cache_service_name();
+
+    let cache = FigmaCache::new(service_name);
+    let (template_json, frame_png, frame_node, used_cache) = {
+        let _span = perf_scope!("gen.subito_it.figma.load");
+        if cache.exists() {
+            let (structure, png) = cache.load()?;
+            let frame_node = figma::find_node(&structure, PAGE, frame_name);
+            if let Some(node) = frame_node {
+                (structure, png, node, true)
+            } else {
+                let structure = figma::get_template_json(http).await?;
+                let frame_node = figma::find_node(&structure, PAGE, frame_name)
+                    .ok_or_else(|| GenError::BadRequest(format!("frame not found: {frame_name}")))?;
+                (structure, Vec::new(), frame_node, false)
+            }
+        } else {
+            let structure = figma::get_template_json(http).await?;
+            let frame_node = figma::find_node(&structure, PAGE, frame_name)
+                .ok_or_else(|| GenError::BadRequest(format!("frame not found: {frame_name}")))?;
+            (structure, Vec::new(), frame_node, false)
+        }
+    };
+
+    let frame_png = if used_cache {
+        frame_png
+    } else {
+        let node_id = frame_node
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| GenError::Internal("frame node missing id".into()))?;
+        let png = figma::export_frame_as_png(http, node_id, Some(2)).await?;
+        cache.save(&template_json, &png)?;
+        png
+    };
+
+    let mut out = {
+        let _span = perf_scope!("gen.subito_it.frame.decode");
+        image::load_from_memory(&frame_png)
+            .map_err(|e| GenError::Image(e.to_string()))?
+            .to_rgba8()
+    };
+
+    // nodes
+    let node = |name: &str| -> Result<serde_json::Value, GenError> {
+        figma::find_node(&template_json, PAGE, name)
+            .ok_or_else(|| GenError::BadRequest(format!("node not found: {name}")))
+    };
+    let node_opt = |name: &str| -> Option<serde_json::Value> { figma::find_node(&template_json, PAGE, name) };
+
+    let title_layer = match variant {
+        ItVariant::Qr => "NAZVANIE_SUB1",
+        ItVariant::EmailRequest => "NAZVANIE_SUB2",
+        ItVariant::EmailConfirm => "NAZVANIE_SUB3",
+        ItVariant::SmsRequest => "NAZVANIE_SUB4",
+        ItVariant::SmsConfirm => "NAZVANIE_SUB5",
+    };
+    let price_layer = match variant {
+        ItVariant::Qr => "PRICE_SUB1",
+        ItVariant::EmailRequest => "PRICE_SUB2",
+        ItVariant::EmailConfirm => "PRICE_SUB3",
+        ItVariant::SmsRequest => "PRICE_SUB4",
+        ItVariant::SmsConfirm => "PRICE_SUB5",
+    };
+    let total_layer = match variant {
+        ItVariant::Qr => "TOTAL_SUB1",
+        ItVariant::EmailRequest => "TOTAL_SUB2",
+        ItVariant::EmailConfirm => "TOTAL_SUB3",
+        ItVariant::SmsRequest => "TOTAL_SUB4",
+        ItVariant::SmsConfirm => "TOTAL_SUB5",
+    };
+    let address_layer = match variant {
+        ItVariant::Qr => "ADRESS_SUB1",
+        ItVariant::EmailRequest => "ADRESS_SUB2",
+        ItVariant::EmailConfirm => "ADRESS_SUB3",
+        ItVariant::SmsRequest => "ADRESS_SUB4",
+        ItVariant::SmsConfirm => "ADRESS_SUB5",
+    };
+    let name_layer = match variant {
+        ItVariant::Qr => "IMYA_SUB1",
+        ItVariant::EmailRequest => "IMYA_SUB2",
+        ItVariant::EmailConfirm => "IMYA_SUB3",
+        ItVariant::SmsRequest => "IMYA_SUB4",
+        ItVariant::SmsConfirm => "IMYA_SUB5",
+    };
+    let time_layer = match variant {
+        ItVariant::Qr => "TIME_SUB1",
+        ItVariant::EmailRequest => "TIME_SUB2",
+        ItVariant::EmailConfirm => "TIME_SUB3",
+        ItVariant::SmsRequest => "TIME_SUB4",
+        ItVariant::SmsConfirm => "TIME_SUB5",
+    };
+    let photo_layer = match variant {
+        ItVariant::Qr => "PHOTO_SUB1",
+        ItVariant::EmailRequest => "PHOTO_SUB2",
+        ItVariant::EmailConfirm => "PHOTO_SUB3",
+        ItVariant::SmsRequest => "PHOTO_SUB4",
+        ItVariant::SmsConfirm => "PHOTO_SUB5",
+    };
+
+    let title_node = node(title_layer)?;
+    let price_node = node(price_layer)?;
+    let total_node = node(total_layer)?;
+    let time_node = node(time_layer)?;
+    let photo_node = node(photo_layer)?;
+
+    let address_node = node_opt(address_layer);
+    let name_node = node_opt(name_layer);
+
+    let qr_node = if variant.has_qr() {
+        Some(node("QR_SUB1")?)
+    } else {
+        None
+    };
+
+    // fonts
+    let aktiv = load_font("aktivgroteskcorp_medium.ttf")?;
+    let sfpro = load_font("SFProText-Semibold.ttf")?;
+
+    let sf = scale_factor();
+    let nazv_px = 96.0 * sf;
+    let small_px = 64.0 * sf;
+    let time_px = 112.0 * sf;
+
+    let formatted_price = format!("€{:.2}", price);
+
+    // photo
+    if let Some(photo_b64) = photo_b64 {
+        let _span = perf_scope!("gen.subito_it.photo");
+        let (ix, iy, iw, ih) = rel_box(&photo_node, &frame_node)?;
+        let radius = (15.0 * sf).round() as u32;
+        if let Some(photo) = square_photo_from_b64(photo_b64, iw, ih, radius)? {
+            overlay_alpha(&mut out, &photo.to_rgba8(), ix, iy);
+        }
+        drop(_span);
+    }
+
+    // qr
+    if let Some(qr_node) = qr_node {
+        let _span = perf_scope!("gen.subito_it.qr");
+        let url = url_trunc.as_deref().unwrap_or("");
+        let (qx, qy, qw, qh) = rel_box(&qr_node, &frame_node)?;
+        let corner = (15.0 * sf).round() as u32;
+        let mut qr_img = generate_subito_it_qr_png(http, url, qw, corner).await?;
+        if qr_img.width() != qw || qr_img.height() != qh {
+            qr_img = qr_img.resize_exact(qw, qh, image::imageops::FilterType::Lanczos3);
+        }
+        overlay_alpha(&mut out, &qr_img.to_rgba8(), qx, qy);
+        drop(_span);
+    }
+
+    // title
+    {
+        let (tx, ty, _tw, _th) = rel_box(&title_node, &frame_node)?;
+        draw_text_with_letter_spacing(
+            &mut out,
+            &*aktiv,
+            nazv_px,
+            tx as i32,
+            ty as i32,
+            hex_color("#1F262D")?,
+            &title,
+            0.0,
+        );
+    }
+
+    // price
+    {
+        let (px, py, _pw, _ph) = rel_box(&price_node, &frame_node)?;
+        draw_text_with_letter_spacing(
+            &mut out,
+            &*aktiv,
+            nazv_px,
+            px as i32,
+            py as i32,
+            hex_color("#838386")?,
+            &formatted_price,
+            0.0,
+        );
+    }
+
+    // name
+    if let (Some(n), Some(name)) = (name_node, name.as_deref()) {
+        if !name.is_empty() {
+            let (ix, iy, _iw, _ih) = rel_box(&n, &frame_node)?;
+            draw_text_with_letter_spacing(
+                &mut out,
+                &*aktiv,
+                small_px,
+                ix as i32,
+                iy as i32,
+                hex_color("#838386")?,
+                name,
+                0.0,
+            );
+        }
+    }
+
+    // address
+    if let (Some(n), Some(addr)) = (address_node, address.as_deref()) {
+        if !addr.is_empty() {
+            let (ix, iy, _iw, _ih) = rel_box(&n, &frame_node)?;
+            draw_text_with_letter_spacing(
+                &mut out,
+                &*aktiv,
+                small_px,
+                ix as i32,
+                iy as i32,
+                hex_color("#838386")?,
+                addr,
+                0.0,
+            );
+        }
+    }
+
+    // total (right aligned)
+    {
+        let (bx, by, bw, _bh) = rel_box(&total_node, &frame_node)?;
+        let right_x = (bx + bw) as f32;
+        let width = text_width(&*aktiv, nazv_px, &formatted_price, 0.0);
+        let start_x = (right_x - width).round() as i32;
+        draw_text_with_letter_spacing(
+            &mut out,
+            &*aktiv,
+            nazv_px,
+            start_x,
+            by as i32,
+            hex_color("#838386")?,
+            &formatted_price,
+            0.0,
+        );
+    }
+
+    // time (right aligned with letter spacing)
+    {
+        let rome_tz = chrono_tz::Europe::Rome;
+        let now = chrono::Utc::now().with_timezone(&rome_tz);
+        let time_text = format!("{}:{:02}", now.hour(), now.minute());
+
+        let (bx, by, bw, _bh) = rel_box(&time_node, &frame_node)?;
+        let right_x = (bx + bw) as f32;
+        let letter_spacing = (time_px * 0.02).round();
+        let width = text_width(&*sfpro, time_px, &time_text, letter_spacing);
+        let start_x = (right_x - width).round() as i32;
+        draw_text_with_letter_spacing(
+            &mut out,
+            &*sfpro,
+            time_px,
+            start_x,
+            by as i32,
+            hex_color("#FFFFFF")?,
+            &time_text,
+            letter_spacing,
+        );
+    }
+
+    let buf = {
+        let _span = perf_scope!("gen.subito_it.png.encode");
+        util::png_encode_rgba8(&out).map_err(GenError::Image)?
+    };
+
+    Ok(buf)
+}
+
 fn format_price_main(price: f64) -> String {
     // Format: XX,XX € but drop decimals if cents are zero.
     let cents_total = (price * 100.0).round() as i64;
@@ -327,26 +692,7 @@ fn format_price_2dec(price: f64) -> String {
     format!("{},{} €", euros, format!("{:02}", cents)).replace('.', ",")
 }
 
-fn purge_legacy_subito_cache() {
-    use std::sync::OnceLock;
-    static ONCE: OnceLock<()> = OnceLock::new();
-    ONCE.get_or_init(|| {
-        let dir = cache::cache_dir();
-        let legacy = [
-            "subito",
-            "subito_email_request",
-            "subito_email_confirm",
-            "subito_sms_request",
-            "subito_sms_confirm",
-        ];
-        for s in legacy {
-            let sp = dir.join(format!("{s}_structure.json"));
-            let tp = dir.join(format!("{s}_template.png"));
-            let _ = std::fs::remove_file(sp);
-            let _ = std::fs::remove_file(tp);
-        }
-    });
-}
+// legacy cache purge removed: we support subito1..5 again
 
 pub async fn generate_subito(
     http: &reqwest::Client,
@@ -356,14 +702,18 @@ pub async fn generate_subito(
     price: f64,
     photo_b64: Option<&str>,
     url: Option<&str>,
-    _name: Option<&str>,
-    _address: Option<&str>,
+    name: Option<&str>,
+    address: Option<&str>,
 ) -> Result<Vec<u8>, GenError> {
     let _span_total = perf_scope!("gen.subito.total");
 
-    purge_legacy_subito_cache();
+    // Legacy Italian Subito (frames subito1..5)
+    if country_or_lang.eq_ignore_ascii_case("it") {
+        return generate_subito_it(http, method, title, price, photo_b64, url, name, address).await;
+    }
 
-    let variant = Variant::parse(method).ok_or_else(|| GenError::BadRequest(format!("unknown subito method: {method}")))?;
+    let variant = NewVariant::parse(method)
+        .ok_or_else(|| GenError::BadRequest(format!("unknown subito method: {method}")))?;
 
     let lang = match country_or_lang.to_lowercase().as_str() {
         "uk" | "nl" => country_or_lang.to_lowercase(),

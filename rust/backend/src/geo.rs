@@ -46,6 +46,15 @@ pub fn geo_config() -> Value {
       "it": {
         "name": "Italy",
         "services": {
+          "subito": {
+            "methods": {
+              "qr": {"endpoint": "/generate", "fields": ["title", "price", "url", "photo", "name", "address"]},
+              "email_request": {"endpoint": "/generate", "fields": ["title", "price", "photo", "name", "address"]},
+              "email_confirm": {"endpoint": "/generate", "fields": ["title", "price", "photo", "name", "address"]},
+              "sms_request": {"endpoint": "/generate", "fields": ["title", "price", "photo", "name", "address"]},
+              "sms_confirm": {"endpoint": "/generate", "fields": ["title", "price", "photo", "name", "address"]}
+            }
+          },
           "conto": {
             "methods": {
               "payment": {"endpoint": "/generate", "fields": ["title", "price"]}

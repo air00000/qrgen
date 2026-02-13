@@ -20,29 +20,7 @@ CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 logger.info(f"📁 Кэш директория: {CACHE_DIR}")
 
-
-def _purge_legacy_subito_cache() -> None:
-    """Удаляет кэш старых макетов Subito (subito1-5) чтобы не мешали новой генерации.
-
-    Мы держим список точечно, чтобы не трогать новые ключи кэша (subito_*_(uk|nl)).
-    """
-    legacy_services = [
-        "subito",
-        "subito_email_request",
-        "subito_email_confirm",
-        "subito_sms_request",
-        "subito_sms_confirm",
-    ]
-    for s in legacy_services:
-        try:
-            (CACHE_DIR / f"{s}_structure.json").unlink(missing_ok=True)
-            (CACHE_DIR / f"{s}_template.png").unlink(missing_ok=True)
-        except Exception as e:
-            logger.warning(f"⚠️  Не смог удалить legacy-кэш {s}: {e}")
-
-
-# Best-effort cleanup on import (safe to run multiple times)
-_purge_legacy_subito_cache()
+# NOTE: do not purge legacy caches; Subito IT (subito1..5) is supported.
 
 
 class FigmaCache:

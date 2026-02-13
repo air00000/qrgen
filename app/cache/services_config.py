@@ -130,6 +130,39 @@ SERVICES_CONFIG = {
         "frame": "subito10",
         "scale": 2
     },
+
+    # === SUBITO (IT legacy subito1..subito5) ===
+    "subito": {
+        "display_name": "Subito (IT) QR (legacy)",
+        "page": "Page 2",
+        "frame": "subito1",
+        "scale": 2
+    },
+    "subito_email_request": {
+        "display_name": "Subito (IT) Email Request (legacy)",
+        "page": "Page 2",
+        "frame": "subito2",
+        "scale": 2
+    },
+    "subito_email_confirm": {
+        "display_name": "Subito (IT) Email Confirm (legacy)",
+        "page": "Page 2",
+        "frame": "subito3",
+        "scale": 2
+    },
+    "subito_sms_request": {
+        "display_name": "Subito (IT) SMS Request (legacy)",
+        "page": "Page 2",
+        "frame": "subito4",
+        "scale": 2
+    },
+    "subito_sms_confirm": {
+        "display_name": "Subito (IT) SMS Confirm (legacy)",
+        "page": "Page 2",
+        "frame": "subito5",
+        "scale": 2
+    },
+
     # === WALLAPOP (Page 2) ===
     "wallapop_email_request_uk": {
         "display_name": "Wallapop Email Request (UK)",
@@ -406,7 +439,12 @@ def get_services_by_group():
             "subito_sms_payment_uk",
             "subito_sms_payment_nl",
             "subito_qr_uk",
-            "subito_qr_nl"
+            "subito_qr_nl",
+            "subito",
+            "subito_email_request",
+            "subito_email_confirm",
+            "subito_sms_request",
+            "subito_sms_confirm"
         ],
         "Wallapop": [
             "wallapop_email_request_uk",
