@@ -73,66 +73,66 @@ SERVICES_CONFIG = {
     "subito_email_request_uk": {
         "display_name": "Subito Mail Request (UK)",
         "page": "Page 2",
-        "frame": "subito6",
+        "frame": "subito6uk",
         "scale": 2
     },
     "subito_email_request_nl": {
         "display_name": "Subito Mail Request (NL)",
         "page": "Page 2",
-        "frame": "subito6",
+        "frame": "subito6nl",
         "scale": 2
     },
     "subito_phone_request_uk": {
         "display_name": "Subito Phone Request (UK)",
         "page": "Page 2",
-        "frame": "subito7",
+        "frame": "subito7uk",
         "scale": 2
     },
     "subito_phone_request_nl": {
         "display_name": "Subito Phone Request (NL)",
         "page": "Page 2",
-        "frame": "subito7",
+        "frame": "subito7nl",
         "scale": 2
     },
     "subito_email_payment_uk": {
         "display_name": "Subito Mail Payment (UK)",
         "page": "Page 2",
-        "frame": "subito8",
+        "frame": "subito8uk",
         "scale": 2
     },
     "subito_email_payment_nl": {
         "display_name": "Subito Mail Payment (NL)",
         "page": "Page 2",
-        "frame": "subito8",
+        "frame": "subito8nl",
         "scale": 2
     },
     "subito_sms_payment_uk": {
         "display_name": "Subito SMS Payment (UK)",
         "page": "Page 2",
-        "frame": "subito9",
+        "frame": "subito9uk",
         "scale": 2
     },
     "subito_sms_payment_nl": {
         "display_name": "Subito SMS Payment (NL)",
         "page": "Page 2",
-        "frame": "subito9",
+        "frame": "subito9nl",
         "scale": 2
     },
     "subito_qr_uk": {
         "display_name": "Subito QR (UK)",
         "page": "Page 2",
-        "frame": "subito10",
+        "frame": "subito10uk",
         "scale": 2
     },
     "subito_qr_nl": {
         "display_name": "Subito QR (NL)",
         "page": "Page 2",
-        "frame": "subito10",
+        "frame": "subito10nl",
         "scale": 2
     },
 
     # === SUBITO (IT) ===
-    # NOTE: Subito IT uses the same frame names subito6..subito10; language is a tag.
+    # NOTE: IT frames might be subito6it..subito10it. If absent, we fall back to subito6..subito10.
     "subito_email_request_it": {
         "display_name": "Subito Mail Request (IT)",
         "page": "Page 2",

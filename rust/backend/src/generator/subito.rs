@@ -754,10 +754,20 @@ pub async fn generate_subito(
         let _span = perf_scope!("gen.subito.figma.load");
 
         let try_find_frame = |structure: &serde_json::Value| -> Option<(serde_json::Value, String)> {
+            // Prefer language-specific frames if they exist.
+            // Current naming in Figma: subito6uk / subito6nl (no underscore).
+            let candidate0 = format!("{frame_base}{lang}");
+            if let Some(n) = figma::find_node(structure, PAGE, &candidate0) {
+                return Some((n, candidate0));
+            }
+
+            // Back-compat: older naming could be subito6_uk.
             let candidate1 = format!("{frame_base}_{lang}");
             if let Some(n) = figma::find_node(structure, PAGE, &candidate1) {
                 return Some((n, candidate1));
             }
+
+            // Fallback: frame without lang suffix.
             if let Some(n) = figma::find_node(structure, PAGE, frame_base) {
                 return Some((n, frame_base.to_string()));
             }
