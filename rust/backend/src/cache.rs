@@ -93,14 +93,25 @@ impl FigmaCache {
 /// Python version uses: Path(CFG.BASE_DIR) / "figma_cache" where BASE_DIR is qrgen/app.
 /// In Rust backend we default to: {PROJECT_ROOT}/app/figma_cache.
 pub fn cache_dir() -> PathBuf {
+    // 1) Explicit override
     if let Ok(p) = std::env::var("FIGMA_CACHE_DIR") {
         return PathBuf::from(p);
     }
 
-    let project_root = std::env::var("PROJECT_ROOT").ok().unwrap_or_else(|| {
-        // rust/backend -> ../.. == qrgen/
-        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-        manifest_dir.join("../..").to_string_lossy().to_string()
-    });
-    PathBuf::from(project_root).join("app").join("figma_cache")
+    // 2) Explicit project root
+    if let Ok(project_root) = std::env::var("PROJECT_ROOT") {
+        return PathBuf::from(project_root).join("app").join("figma_cache");
+    }
+
+    // 3) If running with cwd = repo root (common in prod), prefer ./app/figma_cache.
+    if let Ok(cwd) = std::env::current_dir() {
+        let p = cwd.join("app").join("figma_cache");
+        if p.exists() {
+            return p;
+        }
+    }
+
+    // 4) Fallback to compile-time layout: rust/backend -> ../.. == qrgen/
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    manifest_dir.join("../..").join("app").join("figma_cache")
 }
