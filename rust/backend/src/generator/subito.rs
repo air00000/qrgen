@@ -683,6 +683,10 @@ async fn generate_subito_it(
         );
     }
 
+    // Match legacy Python output size (Telegram-friendly): downscale to 1304x2838.
+    // Old Python generator resized to this exact size at the end.
+    out = image::imageops::resize(&out, 1304, 2838, image::imageops::FilterType::Lanczos3);
+
     let buf = {
         let _span = perf_scope!("gen.subito_it.png.encode");
         util::png_encode_rgba8(&out).map_err(GenError::Image)?
