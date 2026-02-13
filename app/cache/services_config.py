@@ -73,61 +73,61 @@ SERVICES_CONFIG = {
     "subito_email_request_uk": {
         "display_name": "Subito Mail Request (UK)",
         "page": "Page 2",
-        "frame": "subito6uk",
+        "frame": "subito6_uk",
         "scale": 2
     },
     "subito_email_request_nl": {
         "display_name": "Subito Mail Request (NL)",
         "page": "Page 2",
-        "frame": "subito6nl",
+        "frame": "subito6_nl",
         "scale": 2
     },
     "subito_phone_request_uk": {
         "display_name": "Subito Phone Request (UK)",
         "page": "Page 2",
-        "frame": "subito7uk",
+        "frame": "subito7_uk",
         "scale": 2
     },
     "subito_phone_request_nl": {
         "display_name": "Subito Phone Request (NL)",
         "page": "Page 2",
-        "frame": "subito7nl",
+        "frame": "subito7_nl",
         "scale": 2
     },
     "subito_email_payment_uk": {
         "display_name": "Subito Mail Payment (UK)",
         "page": "Page 2",
-        "frame": "subito8uk",
+        "frame": "subito8_uk",
         "scale": 2
     },
     "subito_email_payment_nl": {
         "display_name": "Subito Mail Payment (NL)",
         "page": "Page 2",
-        "frame": "subito8nl",
+        "frame": "subito8_nl",
         "scale": 2
     },
     "subito_sms_payment_uk": {
         "display_name": "Subito SMS Payment (UK)",
         "page": "Page 2",
-        "frame": "subito9uk",
+        "frame": "subito9_uk",
         "scale": 2
     },
     "subito_sms_payment_nl": {
         "display_name": "Subito SMS Payment (NL)",
         "page": "Page 2",
-        "frame": "subito9nl",
+        "frame": "subito9_nl",
         "scale": 2
     },
     "subito_qr_uk": {
         "display_name": "Subito QR (UK)",
         "page": "Page 2",
-        "frame": "subito10uk",
+        "frame": "subito10_uk",
         "scale": 2
     },
     "subito_qr_nl": {
         "display_name": "Subito QR (NL)",
         "page": "Page 2",
-        "frame": "subito10nl",
+        "frame": "subito10_nl",
         "scale": 2
     },
 

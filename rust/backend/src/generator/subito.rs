@@ -755,16 +755,16 @@ pub async fn generate_subito(
 
         let try_find_frame = |structure: &serde_json::Value| -> Option<(serde_json::Value, String)> {
             // Prefer language-specific frames.
-            // Current naming in Figma: subito6uk / subito6nl (no underscore).
-            let candidate0 = format!("{frame_base}{lang}");
-            if let Some(n) = figma::find_node(structure, PAGE, &candidate0) {
-                return Some((n, candidate0));
-            }
-
-            // Back-compat: older naming could be subito6_uk.
+            // Current naming in Figma: subito6_uk / subito6_nl.
             let candidate1 = format!("{frame_base}_{lang}");
             if let Some(n) = figma::find_node(structure, PAGE, &candidate1) {
                 return Some((n, candidate1));
+            }
+
+            // Back-compat: some experiments used subito6uk / subito6nl.
+            let candidate0 = format!("{frame_base}{lang}");
+            if let Some(n) = figma::find_node(structure, PAGE, &candidate0) {
+                return Some((n, candidate0));
             }
 
             // IMPORTANT: For uk/nl we should NOT silently fall back to the base frame,
