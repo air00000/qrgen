@@ -845,7 +845,6 @@ pub async fn generate_subito(
     let price_node = node_opt(&format!("price_{frame_base}"));
     let oggetto_node = node_opt(&format!("oggetto_{frame_base}"));
     let totalprice_node = node_opt(&format!("totalprice_{frame_base}"));
-    let spedizione_node = node_opt(&format!("spedizione_{frame_base}"));
     let time_node = node_opt(&format!("time_{frame_base}")).ok_or_else(|| {
         GenError::BadRequest(format!("node not found: time_{frame_base}"))
     })?;
@@ -922,28 +921,6 @@ pub async fn generate_subito(
         let letter_spacing = px * (-0.01);
         let total = price + 6.85;
         let text = format_price_2dec(total);
-
-        let (bx, by, bw, _bh) = rel_box(&n, &frame_node)?;
-        let right_x = (bx + bw) as f32;
-        let width = text_width(&*ft_bk, px, &text, letter_spacing);
-        let start_x = (right_x - width).round() as i32;
-        draw_text_with_letter_spacing(
-            &mut out,
-            &*ft_bk,
-            px,
-            start_x,
-            by as i32,
-            hex_color("#3C4858")?,
-            &text,
-            letter_spacing,
-        );
-    }
-
-    // spedizione (shipping): same style as oggetto/totalprice.
-    if let Some(n) = spedizione_node {
-        let px = 50.0 * sf;
-        let letter_spacing = px * (-0.01);
-        let text = format_price_2dec(6.85);
 
         let (bx, by, bw, _bh) = rel_box(&n, &frame_node)?;
         let right_x = (bx + bw) as f32;
