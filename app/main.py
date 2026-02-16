@@ -118,12 +118,12 @@ def warmup_subito_cache():
     subito_services = [
         ("subito_email_request_uk", "Page 2", "subito6"),
         ("subito_email_request_nl", "Page 2", "subito6"),
-        ("subito_phone_request_uk", "Page 2", "subito7"),
-        ("subito_phone_request_nl", "Page 2", "subito7"),
-        ("subito_email_payment_uk", "Page 2", "subito8"),
-        ("subito_email_payment_nl", "Page 2", "subito8"),
-        ("subito_sms_payment_uk",   "Page 2", "subito9"),
-        ("subito_sms_payment_nl",   "Page 2", "subito9"),
+        ("subito_sms_request_uk", "Page 2", "subito7"),
+        ("subito_sms_request_nl", "Page 2", "subito7"),
+        ("subito_email_confirm_uk", "Page 2", "subito8"),
+        ("subito_email_confirm_nl", "Page 2", "subito8"),
+        ("subito_sms_confirm_uk",   "Page 2", "subito9"),
+        ("subito_sms_confirm_nl",   "Page 2", "subito9"),
         ("subito_qr_uk",            "Page 2", "subito10"),
         ("subito_qr_nl",            "Page 2", "subito10"),
     ]

@@ -40,9 +40,9 @@ pub fn geo_config() -> Value {
           "subito": {
             "methods": {
               "email_request": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
-              "phone_request": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
-              "email_payment": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
-              "sms_payment": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
+              "sms_request": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
+              "email_confirm": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
+              "sms_confirm": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
               "qr": {"endpoint": "/generate", "fields": ["title", "price", "url", "photo"]}
             }
           },

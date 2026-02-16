@@ -3,9 +3,9 @@
 Генерация для Subito — фреймы subito6–10 (uk / nl).
 
 subito6  — mail запрос
-subito7  — телефон запрос
-subito8  — mail оплата
-subito9  — sms оплата
+subito7  — sms запрос
+subito8  — mail подтверждение
+subito9  — sms подтверждение
 subito10 — qr
 """
 
@@ -31,10 +31,17 @@ from app.services.cache_wrapper import load_template_with_cache, get_frame_image
 
 _SUBITO_NEW_FRAMES = {
     "email_request":  6,
-    "phone_request":  7,
-    "email_payment":  8,
-    "sms_payment":    9,
+    "sms_request":    7,
+    "email_confirm":  8,
+    "sms_confirm":    9,
     "qr":            10,
+}
+
+# Backward-compat aliases (if some callers still use legacy naming)
+_SUBITO_NEW_ALIASES = {
+    "phone_request": "sms_request",
+    "email_payment": "email_confirm",
+    "sms_payment": "sms_confirm",
 }
 
 _SUBITO_DELIVERY_FEE = Decimal("6.85")
@@ -149,6 +156,9 @@ def _sn_generate_qr(url: str, gen_size: int = 500, final_size: int = 431) -> Opt
 
 def _create_subito_new(variant: str, lang: str, title: str, price: float,
                        photo: str = None, url: str = "") -> bytes:
+    # Normalize legacy method names (if any caller still uses them)
+    variant = _SUBITO_NEW_ALIASES.get(variant, variant)
+
     frame_idx  = _SUBITO_NEW_FRAMES[variant]
     frame_name = f"subito{frame_idx}"
     service_key = f"subito_{variant}_{lang}"
@@ -251,14 +261,24 @@ def _create_subito_new(variant: str, lang: str, title: str, price: float,
 def create_subito_new_email_request(lang: str, title: str, price: float, photo: str = None) -> bytes:
     return _create_subito_new("email_request", lang, title, price, photo)
 
+def create_subito_new_sms_request(lang: str, title: str, price: float, photo: str = None) -> bytes:
+    return _create_subito_new("sms_request", lang, title, price, photo)
+
+def create_subito_new_email_confirm(lang: str, title: str, price: float, photo: str = None) -> bytes:
+    return _create_subito_new("email_confirm", lang, title, price, photo)
+
+def create_subito_new_sms_confirm(lang: str, title: str, price: float, photo: str = None) -> bytes:
+    return _create_subito_new("sms_confirm", lang, title, price, photo)
+
+# Backward-compat function aliases
 def create_subito_new_phone_request(lang: str, title: str, price: float, photo: str = None) -> bytes:
-    return _create_subito_new("phone_request", lang, title, price, photo)
+    return create_subito_new_sms_request(lang, title, price, photo)
 
 def create_subito_new_email_payment(lang: str, title: str, price: float, photo: str = None) -> bytes:
-    return _create_subito_new("email_payment", lang, title, price, photo)
+    return create_subito_new_email_confirm(lang, title, price, photo)
 
 def create_subito_new_sms_payment(lang: str, title: str, price: float, photo: str = None) -> bytes:
-    return _create_subito_new("sms_payment", lang, title, price, photo)
+    return create_subito_new_sms_confirm(lang, title, price, photo)
 
 def create_subito_new_qr(lang: str, title: str, price: float, photo: str = None, url: str = "") -> bytes:
     return _create_subito_new("qr", lang, title, price, photo, url)

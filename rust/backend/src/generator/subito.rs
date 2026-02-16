@@ -14,15 +14,20 @@ const PAGE: &str = "Page 2";
 /// Methods are part of the public API contract:
 /// - qr
 /// - email_request
-/// - phone_request
-/// - email_payment
-/// - sms_payment
+/// - sms_request
+/// - email_confirm
+/// - sms_confirm
+///
+/// Backward-compat aliases are accepted:
+/// - phone_request -> sms_request
+/// - email_payment -> email_confirm
+/// - sms_payment   -> sms_confirm
 #[derive(Clone, Copy, Debug)]
 enum NewVariant {
     EmailRequest,
-    PhoneRequest,
-    EmailPayment,
-    SmsPayment,
+    SmsRequest,
+    EmailConfirm,
+    SmsConfirm,
     Qr,
 }
 
@@ -30,9 +35,9 @@ impl NewVariant {
     fn parse(s: &str) -> Option<Self> {
         Some(match s {
             "email_request" => NewVariant::EmailRequest,
-            "phone_request" => NewVariant::PhoneRequest,
-            "email_payment" => NewVariant::EmailPayment,
-            "sms_payment" => NewVariant::SmsPayment,
+            "sms_request" | "phone_request" => NewVariant::SmsRequest,
+            "email_confirm" | "email_payment" => NewVariant::EmailConfirm,
+            "sms_confirm" | "sms_payment" => NewVariant::SmsConfirm,
             "qr" => NewVariant::Qr,
             _ => return None,
         })
@@ -41,9 +46,9 @@ impl NewVariant {
     fn frame_base(self) -> &'static str {
         match self {
             NewVariant::EmailRequest => "subito6",
-            NewVariant::PhoneRequest => "subito7",
-            NewVariant::EmailPayment => "subito8",
-            NewVariant::SmsPayment => "subito9",
+            NewVariant::SmsRequest => "subito7",
+            NewVariant::EmailConfirm => "subito8",
+            NewVariant::SmsConfirm => "subito9",
             NewVariant::Qr => "subito10",
         }
     }
@@ -52,9 +57,9 @@ impl NewVariant {
         // MUST stay compatible with Python cache layout: app/figma_cache/{service}_*.{json,png}
         match self {
             NewVariant::EmailRequest => format!("subito_email_request_{lang}"),
-            NewVariant::PhoneRequest => format!("subito_phone_request_{lang}"),
-            NewVariant::EmailPayment => format!("subito_email_payment_{lang}"),
-            NewVariant::SmsPayment => format!("subito_sms_payment_{lang}"),
+            NewVariant::SmsRequest => format!("subito_sms_request_{lang}"),
+            NewVariant::EmailConfirm => format!("subito_email_confirm_{lang}"),
+            NewVariant::SmsConfirm => format!("subito_sms_confirm_{lang}"),
             NewVariant::Qr => format!("subito_qr_{lang}"),
         }
     }

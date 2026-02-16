@@ -73,20 +73,20 @@ SERVICES_CONFIG = {
         "frame": "subito6",
         "scale": 2
     },
-    "subito_phone_request": {
-        "display_name": "Subito Phone Request (IT)",
+    "subito_sms_request": {
+        "display_name": "Subito SMS Request (IT)",
         "page": "Page 2",
         "frame": "subito7",
         "scale": 2
     },
-    "subito_email_payment": {
-        "display_name": "Subito Mail Payment (IT)",
+    "subito_email_confirm": {
+        "display_name": "Subito Mail Confirm (IT)",
         "page": "Page 2",
         "frame": "subito8",
         "scale": 2
     },
-    "subito_sms_payment": {
-        "display_name": "Subito SMS Payment (IT)",
+    "subito_sms_confirm": {
+        "display_name": "Subito SMS Confirm (IT)",
         "page": "Page 2",
         "frame": "subito9",
         "scale": 2
@@ -366,9 +366,9 @@ def get_services_by_group():
         ],
         "Subito": [
             "subito_email_request",
-            "subito_phone_request",
-            "subito_email_payment",
-            "subito_sms_payment",
+            "subito_sms_request",
+            "subito_email_confirm",
+            "subito_sms_confirm",
             "subito_qr"
         ],
         "Wallapop": [

@@ -5,7 +5,7 @@ Only Italy is supported for Subito.
 
 Backend contract:
   service = "subito"
-  method  = one of: qr | email_request | phone_request | email_payment | sms_payment
+  method  = one of: qr | email_request | sms_request | email_confirm | sms_confirm
   country = "it"
 
 Thin client MUST call Rust backend (/generate); no local PIL generation.
@@ -76,9 +76,9 @@ def subito_type_kb():
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("📧 Mail запрос", callback_data="SUBITO_TYPE:email_request")],
-            [InlineKeyboardButton("📞 Телефон запрос", callback_data="SUBITO_TYPE:phone_request")],
-            [InlineKeyboardButton("💳 Mail оплата", callback_data="SUBITO_TYPE:email_payment")],
-            [InlineKeyboardButton("📱 SMS оплата", callback_data="SUBITO_TYPE:sms_payment")],
+            [InlineKeyboardButton("📩 SMS запрос", callback_data="SUBITO_TYPE:sms_request")],
+            [InlineKeyboardButton("✅ Mail подтверждение", callback_data="SUBITO_TYPE:email_confirm")],
+            [InlineKeyboardButton("✅ SMS подтверждение", callback_data="SUBITO_TYPE:sms_confirm")],
             [InlineKeyboardButton("🔳 QR", callback_data="SUBITO_TYPE:qr")],
             _nav_row("QR:MENU"),
         ]
