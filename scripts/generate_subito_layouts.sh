@@ -18,6 +18,7 @@ API_KEY="${API_KEY:-}"
 OUT_DIR="${OUT_DIR:-out/layouts_check_$(date +%Y%m%d_%H%M%S)}"
 TG_CHAT_ID="${TG_CHAT_ID:--5237507458}"
 TG_BOT_TOKEN="${TG_BOT_TOKEN:-${TELEGRAM_BOT_TOKEN:-}}"
+TG_SEND_DELAY_SEC="${TG_SEND_DELAY_SEC:-1.2}"
 
 if [[ -z "$API_KEY" ]]; then
   echo "❌ API_KEY is required"
@@ -48,6 +49,9 @@ send_to_telegram() {
     -F "chat_id=${TG_CHAT_ID}" \
     -F "caption=${caption}" \
     -F "photo=@${file_path}" >/dev/null || true
+
+  # Avoid Telegram flood/rate-limit drops in groups
+  sleep "$TG_SEND_DELAY_SEC"
 }
 
 post_generate() {
