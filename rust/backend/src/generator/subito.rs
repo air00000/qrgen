@@ -883,7 +883,7 @@ pub async fn generate_subito(
         let text = format_price_main(price);
         draw_text_with_letter_spacing(
             &mut out,
-            &*ft_bk,
+            &*ft_sb,
             price_px,
             x as i32,
             y as i32,
@@ -924,11 +924,11 @@ pub async fn generate_subito(
 
         let (bx, by, bw, _bh) = rel_box(&n, &frame_node)?;
         let right_x = (bx + bw) as f32;
-        let width = text_width(&*ft_bk, px, &text, letter_spacing);
+        let width = text_width(&*ft_sb, px, &text, letter_spacing);
         let start_x = (right_x - width).round() as i32;
         draw_text_with_letter_spacing(
             &mut out,
-            &*ft_bk,
+            &*ft_sb,
             px,
             start_x,
             by as i32,
