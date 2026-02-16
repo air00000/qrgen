@@ -895,7 +895,7 @@ pub async fn generate_subito(
 
     // oggetto (right aligned, -1%)
     if let Some(n) = oggetto_node {
-        let px = 60.0 * sf;
+        let px = 62.0 * sf;
         let letter_spacing = px * (-0.01);
         let text = format_price_2dec(price);
 
@@ -917,7 +917,7 @@ pub async fn generate_subito(
 
     // totalprice = price + 6.85 (right aligned, -1%)
     if let Some(n) = totalprice_node {
-        let px = 60.0 * sf;
+        let px = 62.0 * sf;
         let letter_spacing = px * (-0.01);
         let total = price + 6.85;
         let text = format_price_2dec(total);
