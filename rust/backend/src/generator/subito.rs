@@ -1,5 +1,6 @@
 use chrono::Timelike;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
+use rand::Rng;
 use rusttype::{point, Font, Scale};
 
 use crate::{cache, cache::FigmaCache, figma, qr, util};
@@ -720,6 +721,20 @@ fn format_price_2dec(price: f64) -> String {
     format!("{},{} €", euros, format!("{:02}", cents)).replace('.', ",")
 }
 
+fn random_card_4digits() -> String {
+    // Keep it realistic: skip ultra-common/demo patterns.
+    const BANNED: [u16; 15] = [
+        0, 1, 1111, 1234, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999, 4321, 1212, 1010,
+    ];
+    let mut rng = rand::thread_rng();
+    loop {
+        let n: u16 = rng.gen_range(1..=9999);
+        if !BANNED.contains(&n) {
+            return format!("{:04}", n);
+        }
+    }
+}
+
 // legacy cache purge removed: we support subito1..5 again
 
 pub async fn generate_subito(
@@ -834,6 +849,8 @@ pub async fn generate_subito(
         GenError::BadRequest(format!("node not found: time_{frame_base}"))
     })?;
     let pic_node = node_opt(&format!("pic_{frame_base}"));
+    let name_node = node_opt(&format!("name_{frame_base}"));
+    let card_node = node_opt(&format!("card_{frame_base}"));
     let qr_node = if variant.has_qr() {
         Some(node(&format!("qr_{frame_base}"))?)
     } else {
@@ -843,6 +860,7 @@ pub async fn generate_subito(
     // Fonts & styles from TЗ
     let ft_sb = load_font("LFTEticaSb.ttf")?;
     let ft_bk = load_font("LFTEticaBk.ttf")?;
+    let ft_regular = load_font("LFTEtica.ttf")?;
     let sfpro = load_font("SFProText-Semibold.ttf")?;
 
     let sf = scale_factor();
@@ -917,6 +935,45 @@ pub async fn generate_subito(
             hex_color("#3C4858")?,
             &text,
             letter_spacing,
+        );
+    }
+
+    // Buyer name: only for frames where name_subito8 / name_subito9 exist.
+    if let Some(n) = name_node {
+        if let Some(name) = name {
+            let text = name.trim();
+            if !text.is_empty() {
+                let px = 42.0 * sf;
+                let letter_spacing = px * (-0.005);
+                let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
+                draw_text_with_letter_spacing(
+                    &mut out,
+                    &*ft_regular,
+                    px,
+                    x as i32,
+                    y as i32,
+                    hex_color("#3C4858")?,
+                    text,
+                    letter_spacing,
+                );
+            }
+        }
+    }
+
+    // Card number: card_subito8 / card_subito9 (random 4 digits, trust-safe filtering).
+    if let Some(n) = card_node {
+        let px = 46.0 * sf;
+        let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
+        let card = random_card_4digits();
+        draw_text_with_letter_spacing(
+            &mut out,
+            &*ft_regular,
+            px,
+            x as i32,
+            y as i32,
+            hex_color("#3C4858")?,
+            &card,
+            0.0,
         );
     }
 
