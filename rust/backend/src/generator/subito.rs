@@ -924,11 +924,11 @@ pub async fn generate_subito(
 
         let (bx, by, bw, _bh) = rel_box(&n, &frame_node)?;
         let right_x = (bx + bw) as f32;
-        let width = text_width(&*ft_sb, px, &text, letter_spacing);
+        let width = text_width(&*ft_bk, px, &text, letter_spacing);
         let start_x = (right_x - width).round() as i32;
         draw_text_with_letter_spacing(
             &mut out,
-            &*ft_sb,
+            &*ft_bk,
             px,
             start_x,
             by as i32,
