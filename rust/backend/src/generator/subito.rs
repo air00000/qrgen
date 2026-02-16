@@ -895,7 +895,7 @@ pub async fn generate_subito(
 
     // oggetto (right aligned, -1%)
     if let Some(n) = oggetto_node {
-        let px = 53.0 * sf;
+        let px = 55.0 * sf;
         let letter_spacing = px * (-0.01);
         let text = format_price_2dec(price);
 
@@ -917,18 +917,18 @@ pub async fn generate_subito(
 
     // totalprice = price + 6.85 (right aligned, -1%)
     if let Some(n) = totalprice_node {
-        let px = 53.0 * sf;
+        let px = 55.0 * sf;
         let letter_spacing = px * (-0.01);
         let total = price + 6.85;
         let text = format_price_2dec(total);
 
         let (bx, by, bw, _bh) = rel_box(&n, &frame_node)?;
         let right_x = (bx + bw) as f32;
-        let width = text_width(&*ft_bk, px, &text, letter_spacing);
+        let width = text_width(&*ft_sb, px, &text, letter_spacing);
         let start_x = (right_x - width).round() as i32;
         draw_text_with_letter_spacing(
             &mut out,
-            &*ft_bk,
+            &*ft_sb,
             px,
             start_x,
             by as i32,
@@ -1018,7 +1018,7 @@ pub async fn generate_subito(
         let now = chrono::Utc::now().with_timezone(&rome_tz);
         let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
 
-        let px = 53.0 * sf;
+        let px = 55.0 * sf;
         let letter_spacing = px * (-0.02);
 
         let (bx, by, bw, _bh) = rel_box(&time_node, &frame_node)?;
