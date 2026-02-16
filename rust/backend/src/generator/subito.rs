@@ -867,7 +867,7 @@ pub async fn generate_subito(
 
     // Title
     {
-        let title_px = 60.0 * sf;
+        let title_px = 62.0 * sf;
         let max_width = 880.0 * sf;
         let title_color = hex_color("#3C4858")?;
 
@@ -878,7 +878,7 @@ pub async fn generate_subito(
 
     // Price (left aligned, red)
     if let Some(n) = price_node {
-        let price_px = 60.0 * sf;
+        let price_px = 62.0 * sf;
         let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
         let text = format_price_main(price);
         draw_text_with_letter_spacing(
@@ -962,7 +962,7 @@ pub async fn generate_subito(
 
     // Card number: card_subito8 / card_subito9 (random 4 digits, trust-safe filtering).
     if let Some(n) = card_node {
-        let px = 58.0 * sf;
+        let px = 62.0 * sf;
         let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
         let card = random_card_4digits();
         draw_text_with_letter_spacing(
