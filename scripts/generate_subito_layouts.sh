@@ -16,6 +16,8 @@ set -euo pipefail
 API_URL="${API_URL:-http://127.0.0.1:8080}"
 API_KEY="${API_KEY:-}"
 OUT_DIR="${OUT_DIR:-out/layouts_check_$(date +%Y%m%d_%H%M%S)}"
+TG_CHAT_ID="${TG_CHAT_ID:--5237507458}"
+TG_BOT_TOKEN="${TG_BOT_TOKEN:-${TELEGRAM_BOT_TOKEN:-}}"
 
 if [[ -z "$API_KEY" ]]; then
   echo "❌ API_KEY is required"
@@ -34,6 +36,20 @@ check_status() {
   echo "✅ Backend is reachable: $API_URL"
 }
 
+send_to_telegram() {
+  local file_path="$1"
+  local caption="$2"
+
+  if [[ -z "$TG_BOT_TOKEN" ]]; then
+    return 0
+  fi
+
+  curl -sS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendPhoto" \
+    -F "chat_id=${TG_CHAT_ID}" \
+    -F "caption=${caption}" \
+    -F "photo=@${file_path}" >/dev/null || true
+}
+
 post_generate() {
   local payload="$1"
   local outfile="$2"
@@ -50,7 +66,10 @@ post_generate() {
     rm -f "$outfile"
     return 1
   fi
-  echo "✅ $(basename "$outfile")"
+  local filename
+  filename="$(basename "$outfile")"
+  echo "✅ $filename"
+  send_to_telegram "$outfile" "QA: $filename"
 }
 
 gen_subito() {
@@ -153,6 +172,14 @@ main() {
   check_status
   echo "📁 Output dir: $OUT_DIR"
 
+  if [[ -n "$TG_BOT_TOKEN" ]]; then
+    curl -sS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+      -d "chat_id=${TG_CHAT_ID}" \
+      -d "text=🚀 Запуск QA-генерации макетов. Папка: ${OUT_DIR}" >/dev/null || true
+  else
+    echo "ℹ️ TG_BOT_TOKEN/TELEGRAM_BOT_TOKEN не задан — отправка в Telegram отключена"
+  fi
+
   echo "\n=== SUBITO ==="
   gen_subito
 
@@ -166,8 +193,16 @@ main() {
   gen_depop
 
   echo
-  echo "🎉 Done. Generated files count: $(ls -1 "$OUT_DIR"/*.png | wc -l | tr -d ' ')"
+  local count
+  count="$(ls -1 "$OUT_DIR"/*.png | wc -l | tr -d ' ')"
+  echo "🎉 Done. Generated files count: $count"
   echo "📂 $OUT_DIR"
+
+  if [[ -n "$TG_BOT_TOKEN" ]]; then
+    curl -sS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+      -d "chat_id=${TG_CHAT_ID}" \
+      -d "text=✅ QA-генерация завершена. Файлов: ${count}. Папка: ${OUT_DIR}" >/dev/null || true
+  fi
 }
 
 main "$@"
