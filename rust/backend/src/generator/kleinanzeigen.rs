@@ -22,10 +22,8 @@ const FIXED_PHOTO_W: f32 = 240.0;
 const FIXED_PHOTO_H: f32 = 240.0;
 
 fn scale_factor() -> f32 {
-    std::env::var("SCALE_FACTOR")
-        .ok()
-        .and_then(|s| s.parse::<f32>().ok())
-        .unwrap_or(2.0)
+    // Keep rendering scale fixed to match the historical Python output.
+    2.0
 }
 
 fn fonts_dir() -> std::path::PathBuf {

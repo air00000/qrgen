@@ -76,10 +76,8 @@ fn tz_for_lang(lang: &str) -> Tz {
 }
 
 fn scale_factor() -> f32 {
-    std::env::var("SCALE_FACTOR")
-        .ok()
-        .and_then(|s| s.parse::<f32>().ok())
-        .unwrap_or(2.0)
+    // Keep rendering scale fixed to match the historical Python output.
+    2.0
 }
 
 fn fonts_dir() -> std::path::PathBuf {

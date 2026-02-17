@@ -124,9 +124,8 @@ pub async fn export_frame_as_png_with(
     node_id: &str,
     scale: Option<u32>,
 ) -> Result<Vec<u8>, FigmaError> {
-    let scale = scale.unwrap_or_else(|| {
-        std::env::var("SCALE_FACTOR").ok().and_then(|s| s.parse().ok()).unwrap_or(2)
-    });
+    // Keep export scale fixed to match the historical Python output.
+    let scale = scale.unwrap_or(2);
 
     let url = format!(
         "{}/images/{}?ids={}&format=png&scale={}",

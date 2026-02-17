@@ -18,10 +18,8 @@ const QR_COLOR: &str = "#11223E";
 // logo is resolved locally by qr::build_qr_png via LOGO_DIR/LOGO_PATH_*
 
 fn scale_factor() -> f32 {
-    std::env::var("SCALE_FACTOR")
-        .ok()
-        .and_then(|s| s.parse::<f32>().ok())
-        .unwrap_or(2.0)
+    // Keep rendering scale fixed to match the historical Python output.
+    2.0
 }
 
 fn fonts_dir() -> std::path::PathBuf {
