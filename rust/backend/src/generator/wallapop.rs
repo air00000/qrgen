@@ -88,15 +88,6 @@ fn scale_factor() -> f32 {
     2.0
 }
 
-fn text_metric_compensation() -> f32 {
-    // rusttype typically renders numerals a bit smaller than Pillow/FreeType.
-    // Allow fine-tuning, defaulting to a mild compensation.
-    std::env::var("TEXT_METRIC_COMPENSATION")
-        .ok()
-        .and_then(|s| s.parse::<f32>().ok())
-        .unwrap_or(1.08)
-}
-
 fn fonts_dir() -> std::path::PathBuf {
     let project_root = std::env::var("PROJECT_ROOT").ok().unwrap_or_else(|| {
         let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -521,15 +512,14 @@ pub async fn generate_wallapop(
     let big_price_small_font = load_font("Montserrat-SemiBold.ttf")?;
 
     let sf = scale_factor();
-    let tc = text_metric_compensation();
 
     // sizes from python
     let title_px = 46.0 * sf;
-    let price_px = 64.0 * sf * tc;
+    let price_px = 64.0 * sf;
     let name_px = 48.0 * sf;
-    let time_px = 53.0 * sf * tc;
-    let big_px = 230.0 * sf * tc;
-    let big_small_px = 137.0 * sf * tc;
+    let time_px = 53.0 * sf;
+    let big_px = 230.0 * sf;
+    let big_small_px = 137.0 * sf;
 
     let title_spacing = (46.0 * sf * 0.01).round();
     let price_spacing = (64.0 * sf * -0.02).round();
@@ -639,12 +629,13 @@ pub async fn generate_wallapop(
             0.0,
         );
 
+        let cents_y = by as i32 - (18.0 * sf).round() as i32;
         draw_text_with_letter_spacing(
             &mut out,
             &big_price_small_font,
             big_small_px,
             (start_x + big_w).round() as i32,
-            by as i32,
+            cents_y,
             hex_color("#172E36")?,
             &cents,
             0.0,
@@ -655,10 +646,12 @@ pub async fn generate_wallapop(
     if let Some(qr_node) = qr_node {
         let url = url_trunc.as_deref().unwrap_or("");
         let (qx, qy, qw, qh) = rel_box(&qr_node, &frame_node)?;
+        let gen_size = (800.0 * sf).round() as u32;
         let target = (738.0 * sf).round() as u32;
-        let qr_img = generate_wallapop_qr_png(http, url, target).await?;
+        let qr_img = generate_wallapop_qr_png(http, url, gen_size).await?;
+        let qr_scaled = image::imageops::resize(&qr_img.to_rgba8(), target, target, image::imageops::FilterType::Lanczos3);
         let radius = (16.0 * sf).round() as u32;
-        let qr_rgba = apply_round_corners_alpha(qr_img.to_rgba8(), radius);
+        let qr_rgba = apply_round_corners_alpha(qr_scaled, radius);
 
         let px = qx + (qw.saturating_sub(target)) / 2;
         let py = qy + (qh.saturating_sub(target)) / 2;
