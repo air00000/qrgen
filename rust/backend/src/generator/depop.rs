@@ -584,33 +584,7 @@ pub async fn generate_depop_variant(
     let time_n = figma::find_node(&template_json, PAGE, &format!("time_{frame_name}"));
     let photo_n = figma::find_node(&template_json, PAGE, &format!("pic_{frame_name}"));
 
-    // clear template areas (except time)
-    let mut clear_boxes = vec![
-        ("nazvanie", nazv_n.clone()),
-        ("price", price_n.clone()),
-        ("subtotal", subtotal_n.clone()),
-        ("total", total_n.clone()),
-        ("photo", photo_n.clone()),
-    ];
-
-    for (k, node_opt) in clear_boxes.drain(..) {
-        let _ = k;
-        if let Some(n) = node_opt {
-            let (x, y, w, h) = rel_box(&n, &frame_node)?;
-            let pad = 5u32;
-            let x0 = x.saturating_sub(pad);
-            let y0 = y.saturating_sub(pad);
-            let x1 = (x + w + pad).min(out.width());
-            let y1 = (y + h + pad).min(out.height());
-            for yy in y0..y1 {
-                for xx in x0..x1 {
-                    out.put_pixel(xx, yy, Rgba([255, 255, 255, 255]));
-                }
-            }
-        }
-    }
-
-    // fonts
+    // fonts (same metrics as depop1_au "qr" variant)
     let outer_light = load_font("MADE Outer Sans Light.ttf")?;
     let outer_light_48 = load_font("MADE Outer Sans Light.ttf")?;
     let outer_medium = load_font("MADE Outer Sans Medium.ttf")?;
@@ -622,13 +596,13 @@ pub async fn generate_depop_variant(
     let total_price = price + SHIPPING_COST;
     let total_str = format!("${:.2}", total_price);
 
-    // title (max width 452)
+    // title: same as depop1_au (max width 564, line-height 1.45)
     if let Some(n) = nazv_n {
         let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
         let px_font = 42.0 * sf;
-        let max_w = 452.0 * sf;
+        let max_w = 564.0 * sf;
         let lines = truncate_2_lines(&*outer_light, px_font, title, max_w);
-        let line_h = (42.0 * sf * 1.472).round() as i32;
+        let line_h = (42.0 * sf * 1.45).round() as i32;
         for (i, line) in lines.iter().enumerate() {
             draw_text_with_letter_spacing(
                 &mut out,
@@ -643,7 +617,7 @@ pub async fn generate_depop_variant(
         }
     }
 
-    // prices right aligned
+    // prices right aligned (same as depop1_au)
     let price_offset_y = (14.0 * sf / 2.0).round() as i32;
     let price_offset_x = (2.0 * sf / 2.0).round() as i32;
     let price_px = 48.0 * sf * tc;
@@ -663,22 +637,22 @@ pub async fn generate_depop_variant(
     draw_right(&mut out, subtotal_n, &total_str, &*outer_light_48)?;
     draw_right(&mut out, total_n, &total_str, &*outer_medium)?;
 
-    // time center (python uses Rome)
+    // time center (same as depop1_au)
     if let Some(n) = time_n {
         let (x, y, w, h) = rel_box(&n, &frame_node)?;
-        let now = chrono::Utc::now().with_timezone(&chrono_tz::Europe::Rome);
+        let now = chrono::Utc::now().with_timezone(&chrono_tz::Australia::Sydney);
         let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
         let cx = x as f32 + w as f32 / 2.0 - 3.0;
         let cy = (y as f32 + offset_base as f32 + 64.0 * sf / 2.0) + (h as f32 / 2.0);
         draw_text_center(&mut out, &*sfpro, 50.0 * sf * tc, cx, cy, hex_color("#000000")?, &time_text);
     }
 
-    // photo y -5 (python rel_y includes BASE_TEXT_OFFSET)
+    // photo (same y-offset behavior as depop1_au)
     if let (Some(photo_b64), Some(n)) = (photo_b64, photo_n) {
         let (x, y, w, h) = rel_box(&n, &frame_node)?;
         let corner = (12.0 * sf).round() as u32;
         if let Some(photo) = process_square_photo(photo_b64, w, h, corner)? {
-            let y = (y + offset_base as u32).saturating_sub(5);
+            let y = (y + offset_base as u32).saturating_sub(1);
             overlay_alpha(&mut out, &photo.to_rgba8(), x, y);
         }
     }
