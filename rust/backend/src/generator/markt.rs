@@ -386,7 +386,7 @@ pub async fn generate_markt(
     // Title
     let title_node = node(&format!("nazv{frame_name}"))?;
     let (tx, ty, _tw, _th) = rel_box(&title_node, &frame_node)?;
-    let title_px = 48.0 * sf;
+    let title_px = 60.0 * sf;
     let title_spacing = title_px * -0.03;
     let max_title_width = 666.0 * sf;
     let truncated = truncate_title(&title_font, title_px, title, title_spacing, max_title_width);
@@ -395,7 +395,7 @@ pub async fn generate_markt(
     // Price
     let price_node = node(&format!("price{frame_name}"))?;
     let (px, py, pw, _ph) = rel_box(&price_node, &frame_node)?;
-    let price_px = 42.0 * sf * tc;
+    let price_px = 54.0 * sf * tc;
     let price_spacing = price_px * 0.02;
     let price_text = format_price_eur(price);
     let width = text_width(&price_font, price_px, &price_text, price_spacing);
@@ -405,7 +405,7 @@ pub async fn generate_markt(
     // askprice
     if let Some(n) = node_opt(&format!("askprice{frame_name}")) {
         let (ax, ay, aw, _) = rel_box(&n, &frame_node)?;
-        let detail_px = 42.0 * sf * tc;
+        let detail_px = 54.0 * sf * tc;
         let detail_spacing = detail_px * 0.01;
         let width = text_width(&detail_font, detail_px, &price_text, detail_spacing);
         let start_x = (ax + aw) as f32 - width;
@@ -415,7 +415,7 @@ pub async fn generate_markt(
     // protect
     if let Some(n) = node_opt(&format!("protect{frame_name}")) {
         let (ax, ay, aw, _) = rel_box(&n, &frame_node)?;
-        let detail_px = 42.0 * sf * tc;
+        let detail_px = 54.0 * sf * tc;
         let detail_spacing = detail_px * 0.01;
         let protect = calc_protection_fee(price);
         let protect_text = format!("€ {:.2}", protect).replace('.', ",");
@@ -427,7 +427,7 @@ pub async fn generate_markt(
     // total
     if let Some(n) = node_opt(&format!("totalprice{frame_name}")) {
         let (ax, ay, aw, _) = rel_box(&n, &frame_node)?;
-        let detail_px = 42.0 * sf * tc;
+        let detail_px = 54.0 * sf * tc;
         let detail_spacing = detail_px * 0.01;
         let total = calc_total_price(price);
         let total_text = format!("€ {:.2}", total).replace('.', ",");

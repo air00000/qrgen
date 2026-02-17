@@ -301,17 +301,17 @@ def create_markt_image(
         return x, y, w, h
     
     # ========== FONTS ==========
-    # Title: SFProText-Regular, size 48, letter-spacing -3%
-    title_font = _get_font("SFProText-Regular.ttf", int(48 * CFG.SCALE_FACTOR))
-    title_spacing = int(48 * CFG.SCALE_FACTOR * -0.03)
+    # Title: SFProText-Regular, size 60 (+12), letter-spacing -3%
+    title_font = _get_font("SFProText-Regular.ttf", int(60 * CFG.SCALE_FACTOR))
+    title_spacing = int(60 * CFG.SCALE_FACTOR * -0.03)
     
-    # Price: SFProText-Medium, size 42, letter-spacing 2%
-    price_font = _get_font("SFPROTEXT-MEDIUM.TTF", int(42 * CFG.SCALE_FACTOR))
-    price_spacing = int(42 * CFG.SCALE_FACTOR * 0.02)
+    # Price: SFProText-Medium, size 54 (+12), letter-spacing 2%
+    price_font = _get_font("SFPROTEXT-MEDIUM.TTF", int(54 * CFG.SCALE_FACTOR))
+    price_spacing = int(54 * CFG.SCALE_FACTOR * 0.02)
     
-    # Askprice/Protect/Total: SFProText-Regular, size 42, letter-spacing 1%
-    detail_font = _get_font("SFProText-Regular.ttf", int(42 * CFG.SCALE_FACTOR))
-    detail_spacing = int(42 * CFG.SCALE_FACTOR * 0.01)
+    # Askprice/Protect/Total: SFProText-Regular, size 54 (+12), letter-spacing 1%
+    detail_font = _get_font("SFProText-Regular.ttf", int(54 * CFG.SCALE_FACTOR))
+    detail_spacing = int(54 * CFG.SCALE_FACTOR * 0.01)
     
     # Time: SFProText-Semibold, size 53, letter-spacing -2%
     time_font = _get_font("SFProText-Semibold.ttf", int(53 * CFG.SCALE_FACTOR))
