@@ -568,9 +568,9 @@ pub async fn generate_wallapop(
     );
 
     // Seller name
-    let (nx, ny, nw, _nh) = rel_box(&name_node, &frame_node)?;
-    // Prevent overlap in tighter layouts (e.g. it + sms request).
-    let seller_text = truncate_to_width(&name_font, name_px, &seller_name, 0.0, nw as f32);
+    let (nx, ny, _nw, _nh) = rel_box(&name_node, &frame_node)?;
+    // Keep at least readable length; avoid over-aggressive width clipping.
+    let seller_text = util::truncate_with_ellipsis(seller_name.clone(), 20);
     draw_text_with_letter_spacing(
         &mut out,
         &name_font,
@@ -626,7 +626,7 @@ pub async fn generate_wallapop(
 
     // Big price (centered in node)
     if let Some(big_node) = big_price_node {
-        let (bx, by, bw, _bh) = rel_box(&big_node, &frame_node)?;
+        let (bx, by, bw, bh) = rel_box(&big_node, &frame_node)?;
         let (euros, cents) = split_price(price);
 
         let big_w = text_width(&big_price_font, big_px, &euros, 0.0);
@@ -634,18 +634,22 @@ pub async fn generate_wallapop(
         let total = big_w + small_w;
         let start_x = bx as f32 + (bw as f32 - total) / 2.0;
 
+        let big_vm = big_price_font.v_metrics(Scale::uniform(big_px));
+        let big_h = (big_vm.ascent - big_vm.descent).max(1.0);
+        let big_y = by as f32 + (bh as f32 - big_h) / 2.0;
+
         draw_text_with_letter_spacing(
             &mut out,
             &big_price_font,
             big_px,
             start_x.round() as i32,
-            by as i32,
+            big_y.round() as i32,
             hex_color("#172E36")?,
             &euros,
             0.0,
         );
 
-        let cents_y = by as i32 - (10.0 * sf).round() as i32;
+        let cents_y = big_y.round() as i32 - (10.0 * sf).round() as i32;
         draw_text_with_letter_spacing(
             &mut out,
             &big_price_small_font,
