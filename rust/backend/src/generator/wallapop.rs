@@ -626,13 +626,14 @@ pub async fn generate_wallapop(
 
     // Big price (centered in node)
     if let Some(big_node) = big_price_node {
-        let (bx, by, bw, bh) = rel_box(&big_node, &frame_node)?;
+        let (_bx, by, _bw, bh) = rel_box(&big_node, &frame_node)?;
         let (euros, cents) = split_price(price);
 
         let big_w = text_width(&big_price_font, big_px, &euros, 0.0);
         let small_w = text_width(&big_price_small_font, big_small_px, &cents, 0.0);
         let total = big_w + small_w;
-        let start_x = bx as f32 + (bw as f32 - total) / 2.0;
+        // Center horizontally relative to the whole screenshot/canvas.
+        let start_x = (out.width() as f32 - total) / 2.0;
 
         let big_vm = big_price_font.v_metrics(Scale::uniform(big_px));
         let big_h = (big_vm.ascent - big_vm.descent).max(1.0);
