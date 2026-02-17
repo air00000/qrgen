@@ -401,10 +401,10 @@ pub async fn generate_depop(
     // title: two lines, max width 564
     if let Some(n) = nazv_n {
         let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
-        let px_font = 42.0 * sf;
+        let px_font = 54.0 * sf;
         let max_w = 452.0 * sf;
         let lines = truncate_2_lines(&*outer_light, px_font, title, max_w);
-        let line_h = (42.0 * sf * 1.472).round() as i32;
+        let line_h = (54.0 * sf * 1.472).round() as i32;
         for (i, line) in lines.iter().enumerate() {
             draw_text_with_letter_spacing(
                 &mut out,
@@ -600,10 +600,10 @@ pub async fn generate_depop_variant(
     // title: same as depop1_au (max width 564, line-height 1.45)
     if let Some(n) = nazv_n {
         let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
-        let px_font = 42.0 * sf;
+        let px_font = 54.0 * sf;
         let max_w = 452.0 * sf;
         let lines = truncate_2_lines(&*outer_light, px_font, title, max_w);
-        let line_h = (42.0 * sf * 1.472).round() as i32;
+        let line_h = (54.0 * sf * 1.472).round() as i32;
         for (i, line) in lines.iter().enumerate() {
             draw_text_with_letter_spacing(
                 &mut out,
