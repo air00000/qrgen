@@ -378,6 +378,7 @@ pub async fn generate_markt(
     let title_font = load_font("SFProText-Regular.ttf")?;
     let price_font = load_font("SFPROTEXT-MEDIUM.TTF")?;
     let detail_font = load_font("SFProText-Regular.ttf")?;
+    let total_font = load_font("SFPROTEXT-MEDIUM.TTF")?;
     let time_font = load_font("SFProText-Semibold.ttf")?;
 
     let sf = scale_factor();
@@ -405,7 +406,7 @@ pub async fn generate_markt(
     // askprice
     if let Some(n) = node_opt(&format!("askprice{frame_name}")) {
         let (ax, ay, aw, _) = rel_box(&n, &frame_node)?;
-        let detail_px = 54.0 * sf * tc;
+        let detail_px = 49.0 * sf * tc;
         let detail_spacing = detail_px * 0.01;
         let width = text_width(&detail_font, detail_px, &price_text, detail_spacing);
         let start_x = (ax + aw) as f32 - width;
@@ -415,7 +416,7 @@ pub async fn generate_markt(
     // protect
     if let Some(n) = node_opt(&format!("protect{frame_name}")) {
         let (ax, ay, aw, _) = rel_box(&n, &frame_node)?;
-        let detail_px = 54.0 * sf * tc;
+        let detail_px = 49.0 * sf * tc;
         let detail_spacing = detail_px * 0.01;
         let protect = calc_protection_fee(price);
         let protect_text = format!("€ {:.2}", protect).replace('.', ",");
@@ -424,16 +425,16 @@ pub async fn generate_markt(
         draw_text_with_letter_spacing(&mut out, &detail_font, detail_px, start_x.round() as i32, ay as i32, hex_color("#20394C")?, &protect_text, detail_spacing);
     }
 
-    // total
+    // total (bolder)
     if let Some(n) = node_opt(&format!("totalprice{frame_name}")) {
         let (ax, ay, aw, _) = rel_box(&n, &frame_node)?;
-        let detail_px = 54.0 * sf * tc;
-        let detail_spacing = detail_px * 0.01;
+        let total_px = 54.0 * sf * tc;
+        let total_spacing = total_px * 0.01;
         let total = calc_total_price(price);
         let total_text = format!("€ {:.2}", total).replace('.', ",");
-        let width = text_width(&detail_font, detail_px, &total_text, detail_spacing);
+        let width = text_width(&total_font, total_px, &total_text, total_spacing);
         let start_x = (ax + aw) as f32 - width;
-        draw_text_with_letter_spacing(&mut out, &detail_font, detail_px, start_x.round() as i32, ay as i32, hex_color("#20394C")?, &total_text, detail_spacing);
+        draw_text_with_letter_spacing(&mut out, &total_font, total_px, start_x.round() as i32, ay as i32, hex_color("#20394C")?, &total_text, total_spacing);
     }
 
     // product photo

@@ -309,9 +309,13 @@ def create_markt_image(
     price_font = _get_font("SFPROTEXT-MEDIUM.TTF", int(54 * CFG.SCALE_FACTOR))
     price_spacing = int(54 * CFG.SCALE_FACTOR * 0.02)
     
-    # Askprice/Protect/Total: SFProText-Regular, size 54 (+12), letter-spacing 1%
-    detail_font = _get_font("SFProText-Regular.ttf", int(54 * CFG.SCALE_FACTOR))
-    detail_spacing = int(54 * CFG.SCALE_FACTOR * 0.01)
+    # Askprice/Protect: SFProText-Regular, size 49 (-5 from current), letter-spacing 1%
+    detail_font = _get_font("SFProText-Regular.ttf", int(49 * CFG.SCALE_FACTOR))
+    detail_spacing = int(49 * CFG.SCALE_FACTOR * 0.01)
+
+    # Totalprice: SFProText-Medium, size 54, letter-spacing 1% (bolder)
+    total_font = _get_font("SFPROTEXT-MEDIUM.TTF", int(54 * CFG.SCALE_FACTOR))
+    total_spacing = int(54 * CFG.SCALE_FACTOR * 0.01)
     
     # Time: SFProText-Semibold, size 53, letter-spacing -2%
     time_font = _get_font("SFProText-Semibold.ttf", int(53 * CFG.SCALE_FACTOR))
@@ -368,7 +372,7 @@ def create_markt_image(
         total_price = _calculate_total_price(price)
         total_text = _format_price_eur(float(total_price))
         _draw_right_aligned_text(
-            draw, total_text, detail_font, total_x + total_w, total_y, "#20394C", letter_spacing=detail_spacing
+            draw, total_text, total_font, total_x + total_w, total_y, "#20394C", letter_spacing=total_spacing
         )
     
     # ========== DRAW PRODUCT IMAGE ==========
