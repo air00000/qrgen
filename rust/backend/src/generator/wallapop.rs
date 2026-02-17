@@ -257,6 +257,45 @@ fn overlay_alpha(base: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, over: &ImageBuffer<R
     }
 }
 
+fn clear_rect_with_local_bg(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, y: u32, w: u32, h: u32) {
+    if w == 0 || h == 0 || img.width() == 0 || img.height() == 0 {
+        return;
+    }
+    let x0 = x.min(img.width().saturating_sub(1));
+    let y0 = y.min(img.height().saturating_sub(1));
+    let x1 = (x.saturating_add(w).saturating_sub(1)).min(img.width().saturating_sub(1));
+    let y1 = (y.saturating_add(h).saturating_sub(1)).min(img.height().saturating_sub(1));
+
+    // Estimate local background from pixels just outside the node box.
+    let sx = x0.saturating_sub(2);
+    let sy = y0.saturating_sub(2);
+    let ex = (x1 + 2).min(img.width().saturating_sub(1));
+    let ey = (y1 + 2).min(img.height().saturating_sub(1));
+
+    let samples = [
+        *img.get_pixel(sx, sy),
+        *img.get_pixel(ex, sy),
+        *img.get_pixel(sx, ey),
+        *img.get_pixel(ex, ey),
+    ];
+
+    let mut r: u32 = 0;
+    let mut g: u32 = 0;
+    let mut b: u32 = 0;
+    for p in samples {
+        r += p.0[0] as u32;
+        g += p.0[1] as u32;
+        b += p.0[2] as u32;
+    }
+    let fill = Rgba([(r / 4) as u8, (g / 4) as u8, (b / 4) as u8, 255]);
+
+    for yy in y0..=y1 {
+        for xx in x0..=x1 {
+            img.put_pixel(xx, yy, fill);
+        }
+    }
+}
+
 fn apply_round_corners_alpha(mut img: ImageBuffer<Rgba<u8>, Vec<u8>>, radius: u32) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     let (w, h) = (img.width() as i32, img.height() as i32);
     let r = radius as i32;
@@ -568,8 +607,10 @@ pub async fn generate_wallapop(
     );
 
     // Seller name
-    let (nx, ny, _nw, _nh) = rel_box(&name_node, &frame_node)?;
-    // Keep at least readable length; avoid over-aggressive width clipping.
+    let (nx, ny, nw, nh) = rel_box(&name_node, &frame_node)?;
+    // Some templates may still contain pre-rendered placeholder text in this area.
+    // Clear the node rectangle first to avoid visual overlap.
+    clear_rect_with_local_bg(&mut out, nx, ny, nw, nh);
     let seller_text = util::truncate_with_ellipsis(seller_name.clone(), 20);
     draw_text_with_letter_spacing(
         &mut out,
