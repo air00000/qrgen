@@ -80,6 +80,15 @@ fn scale_factor() -> f32 {
     2.0
 }
 
+fn text_metric_compensation() -> f32 {
+    // rusttype typically renders numerals a bit smaller than Pillow/FreeType.
+    // Allow fine-tuning, defaulting to a mild compensation.
+    std::env::var("TEXT_METRIC_COMPENSATION")
+        .ok()
+        .and_then(|s| s.parse::<f32>().ok())
+        .unwrap_or(1.08)
+}
+
 fn fonts_dir() -> std::path::PathBuf {
     let project_root = std::env::var("PROJECT_ROOT").ok().unwrap_or_else(|| {
         let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -372,6 +381,7 @@ pub async fn generate_markt(
     let time_font = load_font("SFProText-Semibold.ttf")?;
 
     let sf = scale_factor();
+    let tc = text_metric_compensation();
 
     // Title
     let title_node = node(&format!("nazv{frame_name}"))?;
@@ -385,7 +395,7 @@ pub async fn generate_markt(
     // Price
     let price_node = node(&format!("price{frame_name}"))?;
     let (px, py, pw, _ph) = rel_box(&price_node, &frame_node)?;
-    let price_px = 42.0 * sf;
+    let price_px = 42.0 * sf * tc;
     let price_spacing = price_px * 0.02;
     let price_text = format_price_eur(price);
     let width = text_width(&price_font, price_px, &price_text, price_spacing);
@@ -395,7 +405,7 @@ pub async fn generate_markt(
     // askprice
     if let Some(n) = node_opt(&format!("askprice{frame_name}")) {
         let (ax, ay, aw, _) = rel_box(&n, &frame_node)?;
-        let detail_px = 42.0 * sf;
+        let detail_px = 42.0 * sf * tc;
         let detail_spacing = detail_px * 0.01;
         let width = text_width(&detail_font, detail_px, &price_text, detail_spacing);
         let start_x = (ax + aw) as f32 - width;
@@ -405,7 +415,7 @@ pub async fn generate_markt(
     // protect
     if let Some(n) = node_opt(&format!("protect{frame_name}")) {
         let (ax, ay, aw, _) = rel_box(&n, &frame_node)?;
-        let detail_px = 42.0 * sf;
+        let detail_px = 42.0 * sf * tc;
         let detail_spacing = detail_px * 0.01;
         let protect = calc_protection_fee(price);
         let protect_text = format!("€ {:.2}", protect).replace('.', ",");
@@ -417,7 +427,7 @@ pub async fn generate_markt(
     // total
     if let Some(n) = node_opt(&format!("totalprice{frame_name}")) {
         let (ax, ay, aw, _) = rel_box(&n, &frame_node)?;
-        let detail_px = 42.0 * sf;
+        let detail_px = 42.0 * sf * tc;
         let detail_spacing = detail_px * 0.01;
         let total = calc_total_price(price);
         let total_text = format!("€ {:.2}", total).replace('.', ",");
@@ -441,7 +451,7 @@ pub async fn generate_markt(
         let tz = tz_for_lang(lang);
         let now = chrono::Utc::now().with_timezone(&tz);
         let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
-        let time_px = 53.0 * sf;
+        let time_px = 53.0 * sf * tc;
         let time_spacing = time_px * -0.02;
         let width = text_width(&time_font, time_px, &time_text, time_spacing);
         let center_x = ix as f32 + (iw as f32 / 2.0);

@@ -20,6 +20,15 @@ fn scale_factor() -> f32 {
     2.0
 }
 
+fn text_metric_compensation() -> f32 {
+    // rusttype typically renders numerals a bit smaller than Pillow/FreeType.
+    // Allow fine-tuning, defaulting to a mild compensation.
+    std::env::var("TEXT_METRIC_COMPENSATION")
+        .ok()
+        .and_then(|s| s.parse::<f32>().ok())
+        .unwrap_or(1.08)
+}
+
 fn load_font(name: &str) -> Result<std::sync::Arc<Font<'static>>, GenError> {
     super::font_cache::load_font_cached(name)
 }
@@ -312,6 +321,7 @@ pub async fn generate_depop(
     url: &str,
 ) -> Result<Vec<u8>, GenError> {
     let sf = scale_factor();
+    let tc = text_metric_compensation();
 
     let frame_name = "depop1_au";
     let service_name = "depop_au";
@@ -413,7 +423,7 @@ pub async fn generate_depop(
     // price right aligned
     let price_offset_y = (14.0 * sf / 2.0).round() as i32; // scale offset a bit
     let price_offset_x = (2.0 * sf / 2.0).round() as i32;
-    let price_px = 48.0 * sf;
+    let price_px = 48.0 * sf * tc;
 
     let draw_right = |img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, node_opt: Option<serde_json::Value>, text: &str, font: &Font<'static>, bold: bool| -> Result<(), GenError> {
         if let Some(n) = node_opt {
@@ -453,7 +463,7 @@ pub async fn generate_depop(
         let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
         let cx = x as f32 + w as f32 / 2.0 - 3.0;
         let cy = (y as f32 + offset_base as f32 + 64.0 * sf / 2.0) + (h as f32 / 2.0);
-        draw_text_center(&mut out, &*sfpro, 50.0 * sf, cx, cy, hex_color("#000000")?, &time_text);
+        draw_text_center(&mut out, &*sfpro, 50.0 * sf * tc, cx, cy, hex_color("#000000")?, &time_text);
     }
 
     // product photo (python rel_y includes BASE_TEXT_OFFSET)
@@ -519,6 +529,7 @@ pub async fn generate_depop_variant(
     };
 
     let sf = scale_factor();
+    let tc = text_metric_compensation();
 
     let cache = FigmaCache::new(service_name);
     let (template_json, frame_png, frame_node, used_cache) = if cache.exists() {
@@ -635,7 +646,7 @@ pub async fn generate_depop_variant(
     // prices right aligned
     let price_offset_y = (14.0 * sf / 2.0).round() as i32;
     let price_offset_x = (2.0 * sf / 2.0).round() as i32;
-    let price_px = 48.0 * sf;
+    let price_px = 48.0 * sf * tc;
 
     let draw_right = |img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, node_opt: Option<serde_json::Value>, text: &str, font: &Font<'static>| -> Result<(), GenError> {
         if let Some(n) = node_opt {
@@ -659,7 +670,7 @@ pub async fn generate_depop_variant(
         let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
         let cx = x as f32 + w as f32 / 2.0 - 3.0;
         let cy = (y as f32 + offset_base as f32 + 64.0 * sf / 2.0) + (h as f32 / 2.0);
-        draw_text_center(&mut out, &*sfpro, 50.0 * sf, cx, cy, hex_color("#000000")?, &time_text);
+        draw_text_center(&mut out, &*sfpro, 50.0 * sf * tc, cx, cy, hex_color("#000000")?, &time_text);
     }
 
     // photo y -5 (python rel_y includes BASE_TEXT_OFFSET)

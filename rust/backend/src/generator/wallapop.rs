@@ -88,6 +88,15 @@ fn scale_factor() -> f32 {
     2.0
 }
 
+fn text_metric_compensation() -> f32 {
+    // rusttype typically renders numerals a bit smaller than Pillow/FreeType.
+    // Allow fine-tuning, defaulting to a mild compensation.
+    std::env::var("TEXT_METRIC_COMPENSATION")
+        .ok()
+        .and_then(|s| s.parse::<f32>().ok())
+        .unwrap_or(1.08)
+}
+
 fn fonts_dir() -> std::path::PathBuf {
     let project_root = std::env::var("PROJECT_ROOT").ok().unwrap_or_else(|| {
         let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -512,14 +521,15 @@ pub async fn generate_wallapop(
     let big_price_small_font = load_font("Montserrat-SemiBold.ttf")?;
 
     let sf = scale_factor();
+    let tc = text_metric_compensation();
 
     // sizes from python
     let title_px = 46.0 * sf;
-    let price_px = 64.0 * sf;
+    let price_px = 64.0 * sf * tc;
     let name_px = 48.0 * sf;
-    let time_px = 53.0 * sf;
-    let big_px = 230.0 * sf;
-    let big_small_px = 137.0 * sf;
+    let time_px = 53.0 * sf * tc;
+    let big_px = 230.0 * sf * tc;
+    let big_small_px = 137.0 * sf * tc;
 
     let title_spacing = (46.0 * sf * 0.01).round();
     let price_spacing = (64.0 * sf * -0.02).round();
