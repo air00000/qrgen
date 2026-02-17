@@ -422,7 +422,7 @@ pub async fn generate_depop(
     // price right aligned
     let price_offset_y = (14.0 * sf / 2.0).round() as i32; // scale offset a bit
     let price_offset_x = (2.0 * sf / 2.0).round() as i32;
-    let price_px = 48.0 * sf;
+    let price_px = 60.0 * sf;
 
     let draw_right = |img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, node_opt: Option<serde_json::Value>, text: &str, font: &Font<'static>, bold: bool| -> Result<(), GenError> {
         if let Some(n) = node_opt {
@@ -463,7 +463,7 @@ pub async fn generate_depop(
         // Strict center placement inside time layer bbox (no empirical offsets).
         let cx = x as f32 + w as f32 / 2.0;
         let cy = y as f32 + h as f32 / 2.0;
-        let time_px = 50.0 * sf;
+        let time_px = 62.0 * sf;
         let time_spacing = (-0.03 * time_px).round();
         draw_text_center_with_spacing(&mut out, &*sfpro, time_px, cx, cy, hex_color("#000000")?, &time_text, time_spacing);
     }
@@ -621,7 +621,7 @@ pub async fn generate_depop_variant(
     // prices right aligned (same as depop1_au)
     let price_offset_y = (14.0 * sf / 2.0).round() as i32;
     let price_offset_x = (2.0 * sf / 2.0).round() as i32;
-    let price_px = 48.0 * sf;
+    let price_px = 60.0 * sf;
 
     let draw_right = |img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, node_opt: Option<serde_json::Value>, text: &str, font: &Font<'static>| -> Result<(), GenError> {
         if let Some(n) = node_opt {
@@ -646,7 +646,7 @@ pub async fn generate_depop_variant(
         // Strict center placement inside time layer bbox (no empirical offsets).
         let cx = x as f32 + w as f32 / 2.0;
         let cy = y as f32 + h as f32 / 2.0;
-        let time_px = 50.0 * sf;
+        let time_px = 62.0 * sf;
         let time_spacing = (-0.03 * time_px).round();
         draw_text_center_with_spacing(&mut out, &*sfpro, time_px, cx, cy, hex_color("#000000")?, &time_text, time_spacing);
     }
