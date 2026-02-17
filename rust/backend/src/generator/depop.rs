@@ -460,10 +460,11 @@ pub async fn generate_depop(
         let (x, y, w, h) = rel_box(&n, &frame_node)?;
         let now = chrono::Utc::now().with_timezone(&chrono_tz::Europe::Rome);
         let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
-        let cx = x as f32 + w as f32 / 2.0 - 3.0;
-        let cy = (y as f32 + offset_base as f32 + 64.0 * sf / 2.0) + (h as f32 / 2.0);
+        // Strict center placement inside time layer bbox (no empirical offsets).
+        let cx = x as f32 + w as f32 / 2.0;
+        let cy = y as f32 + h as f32 / 2.0;
         let time_px = 50.0 * sf;
-        let time_spacing = (-0.03 * 50.0 * sf).round();
+        let time_spacing = (-0.03 * time_px).round();
         draw_text_center_with_spacing(&mut out, &*sfpro, time_px, cx, cy, hex_color("#000000")?, &time_text, time_spacing);
     }
 
@@ -642,10 +643,11 @@ pub async fn generate_depop_variant(
         let (x, y, w, h) = rel_box(&n, &frame_node)?;
         let now = chrono::Utc::now().with_timezone(&chrono_tz::Europe::Rome);
         let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
-        let cx = x as f32 + w as f32 / 2.0 - 3.0;
-        let cy = (y as f32 + offset_base as f32 + 64.0 * sf / 2.0) + (h as f32 / 2.0);
+        // Strict center placement inside time layer bbox (no empirical offsets).
+        let cx = x as f32 + w as f32 / 2.0;
+        let cy = y as f32 + h as f32 / 2.0;
         let time_px = 50.0 * sf;
-        let time_spacing = (-0.03 * 50.0 * sf).round();
+        let time_spacing = (-0.03 * time_px).round();
         draw_text_center_with_spacing(&mut out, &*sfpro, time_px, cx, cy, hex_color("#000000")?, &time_text, time_spacing);
     }
 
