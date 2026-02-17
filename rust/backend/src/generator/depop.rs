@@ -20,15 +20,6 @@ fn scale_factor() -> f32 {
     2.0
 }
 
-fn text_metric_compensation() -> f32 {
-    // rusttype typically renders numerals a bit smaller than Pillow/FreeType.
-    // Allow fine-tuning, defaulting to a mild compensation.
-    std::env::var("TEXT_METRIC_COMPENSATION")
-        .ok()
-        .and_then(|s| s.parse::<f32>().ok())
-        .unwrap_or(1.08)
-}
-
 fn load_font(name: &str) -> Result<std::sync::Arc<Font<'static>>, GenError> {
     super::font_cache::load_font_cached(name)
 }
@@ -301,14 +292,23 @@ fn truncate_2_lines(font: &Font<'static>, px: f32, text: &str, max_width: f32) -
     lines
 }
 
-fn draw_text_center(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, font: &Font<'static>, px: f32, cx: f32, cy: f32, color: Rgba<u8>, text: &str) {
-    let w = text_width(font, px, text, 0.0);
+fn draw_text_center_with_spacing(
+    img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>,
+    font: &Font<'static>,
+    px: f32,
+    cx: f32,
+    cy: f32,
+    color: Rgba<u8>,
+    text: &str,
+    letter_spacing: f32,
+) {
+    let w = text_width(font, px, text, letter_spacing);
     let scale = Scale::uniform(px);
     let vm = font.v_metrics(scale);
     let height = (vm.ascent - vm.descent).max(1.0);
     let x = (cx - w / 2.0).round() as i32;
     let y = (cy - height / 2.0).round() as i32;
-    draw_text_with_letter_spacing(img, font, px, x, y, color, text, 0.0);
+    draw_text_with_letter_spacing(img, font, px, x, y, color, text, letter_spacing);
 }
 
 pub async fn generate_depop(
@@ -321,7 +321,6 @@ pub async fn generate_depop(
     url: &str,
 ) -> Result<Vec<u8>, GenError> {
     let sf = scale_factor();
-    let tc = text_metric_compensation();
 
     let frame_name = "depop1_au";
     let service_name = "depop_au";
@@ -403,9 +402,9 @@ pub async fn generate_depop(
     if let Some(n) = nazv_n {
         let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
         let px_font = 42.0 * sf;
-        let max_w = 564.0 * sf;
+        let max_w = 452.0 * sf;
         let lines = truncate_2_lines(&*outer_light, px_font, title, max_w);
-        let line_h = (42.0 * sf * 1.45).round() as i32;
+        let line_h = (42.0 * sf * 1.472).round() as i32;
         for (i, line) in lines.iter().enumerate() {
             draw_text_with_letter_spacing(
                 &mut out,
@@ -423,7 +422,7 @@ pub async fn generate_depop(
     // price right aligned
     let price_offset_y = (14.0 * sf / 2.0).round() as i32; // scale offset a bit
     let price_offset_x = (2.0 * sf / 2.0).round() as i32;
-    let price_px = 48.0 * sf * tc;
+    let price_px = 48.0 * sf;
 
     let draw_right = |img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, node_opt: Option<serde_json::Value>, text: &str, font: &Font<'static>, bold: bool| -> Result<(), GenError> {
         if let Some(n) = node_opt {
@@ -459,11 +458,13 @@ pub async fn generate_depop(
     // time center (Sydney)
     if let Some(n) = time_n {
         let (x, y, w, h) = rel_box(&n, &frame_node)?;
-        let now = chrono::Utc::now().with_timezone(&chrono_tz::Australia::Sydney);
+        let now = chrono::Utc::now().with_timezone(&chrono_tz::Europe::Rome);
         let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
         let cx = x as f32 + w as f32 / 2.0 - 3.0;
         let cy = (y as f32 + offset_base as f32 + 64.0 * sf / 2.0) + (h as f32 / 2.0);
-        draw_text_center(&mut out, &*sfpro, 50.0 * sf * tc, cx, cy, hex_color("#000000")?, &time_text);
+        let time_px = 50.0 * sf;
+        let time_spacing = (-0.03 * 50.0 * sf).round();
+        draw_text_center_with_spacing(&mut out, &*sfpro, time_px, cx, cy, hex_color("#000000")?, &time_text, time_spacing);
     }
 
     // product photo (python rel_y includes BASE_TEXT_OFFSET)
@@ -529,7 +530,6 @@ pub async fn generate_depop_variant(
     };
 
     let sf = scale_factor();
-    let tc = text_metric_compensation();
 
     let cache = FigmaCache::new(service_name);
     let (template_json, frame_png, frame_node, used_cache) = if cache.exists() {
@@ -600,9 +600,9 @@ pub async fn generate_depop_variant(
     if let Some(n) = nazv_n {
         let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
         let px_font = 42.0 * sf;
-        let max_w = 564.0 * sf;
+        let max_w = 452.0 * sf;
         let lines = truncate_2_lines(&*outer_light, px_font, title, max_w);
-        let line_h = (42.0 * sf * 1.45).round() as i32;
+        let line_h = (42.0 * sf * 1.472).round() as i32;
         for (i, line) in lines.iter().enumerate() {
             draw_text_with_letter_spacing(
                 &mut out,
@@ -620,7 +620,7 @@ pub async fn generate_depop_variant(
     // prices right aligned (same as depop1_au)
     let price_offset_y = (14.0 * sf / 2.0).round() as i32;
     let price_offset_x = (2.0 * sf / 2.0).round() as i32;
-    let price_px = 48.0 * sf * tc;
+    let price_px = 48.0 * sf;
 
     let draw_right = |img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, node_opt: Option<serde_json::Value>, text: &str, font: &Font<'static>| -> Result<(), GenError> {
         if let Some(n) = node_opt {
@@ -640,11 +640,13 @@ pub async fn generate_depop_variant(
     // time center (same as depop1_au)
     if let Some(n) = time_n {
         let (x, y, w, h) = rel_box(&n, &frame_node)?;
-        let now = chrono::Utc::now().with_timezone(&chrono_tz::Australia::Sydney);
+        let now = chrono::Utc::now().with_timezone(&chrono_tz::Europe::Rome);
         let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
         let cx = x as f32 + w as f32 / 2.0 - 3.0;
         let cy = (y as f32 + offset_base as f32 + 64.0 * sf / 2.0) + (h as f32 / 2.0);
-        draw_text_center(&mut out, &*sfpro, 50.0 * sf * tc, cx, cy, hex_color("#000000")?, &time_text);
+        let time_px = 50.0 * sf;
+        let time_spacing = (-0.03 * 50.0 * sf).round();
+        draw_text_center_with_spacing(&mut out, &*sfpro, time_px, cx, cy, hex_color("#000000")?, &time_text, time_spacing);
     }
 
     // photo (same y-offset behavior as depop1_au)
