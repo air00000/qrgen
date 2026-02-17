@@ -173,6 +173,20 @@ fn truncate_title_by_width(font: &Font<'static>, px: f32, text: &str, letter_spa
     trimmed + ellipsis
 }
 
+fn truncate_to_width(font: &Font<'static>, px: f32, text: &str, letter_spacing: f32, max_width: f32) -> String {
+    if text_width(font, px, text, letter_spacing) <= max_width {
+        return text.to_string();
+    }
+    let ellipsis = "...";
+    let mut trimmed = text.to_string();
+    while !trimmed.is_empty()
+        && text_width(font, px, &(trimmed.clone() + ellipsis), letter_spacing) > max_width
+    {
+        trimmed.pop();
+    }
+    if trimmed.is_empty() { ellipsis.to_string() } else { trimmed + ellipsis }
+}
+
 fn draw_text_with_letter_spacing(
     img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>,
     font: &Font<'static>,
@@ -517,13 +531,13 @@ pub async fn generate_wallapop(
     let title_px = 46.0 * sf;
     let price_px = 64.0 * sf;
     let name_px = 48.0 * sf;
-    let time_px = 53.0 * sf;
+    let time_px = 65.0 * sf;
     let big_px = 230.0 * sf;
     let big_small_px = 137.0 * sf;
 
     let title_spacing = (46.0 * sf * 0.01).round();
     let price_spacing = (64.0 * sf * -0.02).round();
-    let time_spacing = (53.0 * sf * -0.02).round();
+    let time_spacing = (time_px * -0.02).round();
 
     // Title
     let title = truncate_title_by_width(&title_font, title_px, &title, title_spacing);
@@ -554,7 +568,9 @@ pub async fn generate_wallapop(
     );
 
     // Seller name
-    let (nx, ny, _nw, _nh) = rel_box(&name_node, &frame_node)?;
+    let (nx, ny, nw, _nh) = rel_box(&name_node, &frame_node)?;
+    // Prevent overlap in tighter layouts (e.g. it + sms request).
+    let seller_text = truncate_to_width(&name_font, name_px, &seller_name, 0.0, nw as f32);
     draw_text_with_letter_spacing(
         &mut out,
         &name_font,
@@ -562,7 +578,7 @@ pub async fn generate_wallapop(
         nx as i32,
         ny as i32,
         hex_color("#5C7A89")?,
-        &seller_name,
+        &seller_text,
         0.0,
     );
 
@@ -629,7 +645,7 @@ pub async fn generate_wallapop(
             0.0,
         );
 
-        let cents_y = by as i32 - (18.0 * sf).round() as i32;
+        let cents_y = by as i32 - (10.0 * sf).round() as i32;
         draw_text_with_letter_spacing(
             &mut out,
             &big_price_small_font,
