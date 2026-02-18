@@ -91,44 +91,33 @@ impl FigmaCache {
 /// Legacy-compatible cache directory.
 ///
 /// Python version uses: Path(CFG.BASE_DIR) / "figma_cache" where BASE_DIR is qrgen/app.
-/// In Rust backend we default to: {PROJECT_ROOT}/app/figma_cache.
+/// Rust backend is now deterministic and uses the same root.
 pub fn cache_dir() -> PathBuf {
-    // 1) Explicit override (kept for emergencies)
+    // 1) Explicit override (highest priority)
     if let Ok(p) = std::env::var("FIGMA_CACHE_DIR") {
         return PathBuf::from(p);
     }
 
-    // Helper: search upwards for an app/figma_cache directory.
-    fn find_up(mut base: PathBuf) -> Option<PathBuf> {
-        for _ in 0..6 {
-            let candidate = base.join("app").join("figma_cache");
-            if candidate.exists() {
-                return Some(candidate);
-            }
-            if !base.pop() {
-                break;
-            }
-        }
-        None
+    // 2) Project root override (recommended for services)
+    if let Ok(project_root) = std::env::var("PROJECT_ROOT") {
+        return PathBuf::from(project_root).join("app").join("figma_cache");
     }
 
-    // 2) Prefer CWD-based repo discovery: if you run from /root/qrgen it will resolve to /root/qrgen/app/figma_cache.
-    if let Ok(cwd) = std::env::current_dir() {
-        if let Some(p) = find_up(cwd) {
-            return p;
+    // 3) If env file path is explicitly provided, derive project root from it
+    if let Ok(env_file) = std::env::var("QRGEN_ENV_FILE") {
+        let p = PathBuf::from(env_file);
+        if let Some(root) = p.parent() {
+            return root.join("app").join("figma_cache");
         }
     }
 
-    // 3) If launched from elsewhere (systemd, etc.), try resolving relative to the executable location.
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent().map(|p| p.to_path_buf()) {
-            if let Some(p) = find_up(dir) {
-                return p;
-            }
-        }
+    // 4) Default deployment path
+    let default_root = Path::new("/root/qrgen");
+    if default_root.exists() {
+        return default_root.join("app").join("figma_cache");
     }
 
-    // 4) Fallback to compile-time layout: rust/backend -> ../.. == qrgen/
+    // 5) Build-time fallback: rust/backend -> ../.. == qrgen/
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     manifest_dir.join("../..").join("app").join("figma_cache")
 }
