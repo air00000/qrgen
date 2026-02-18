@@ -54,14 +54,14 @@ impl NewVariant {
         }
     }
 
-    fn cache_service_name(self, lang: &str) -> String {
-        // MUST stay compatible with Python cache layout: app/figma_cache/{service}_*.{json,png}
+    fn cache_service_name(self, _lang: &str) -> String {
+        // MUST match Python cache keys used by bot cache commands (without lang suffix for Subito IT).
         match self {
-            NewVariant::EmailRequest => format!("subito_email_request_{lang}"),
-            NewVariant::SmsRequest => format!("subito_sms_request_{lang}"),
-            NewVariant::EmailConfirm => format!("subito_email_confirm_{lang}"),
-            NewVariant::SmsConfirm => format!("subito_sms_confirm_{lang}"),
-            NewVariant::Qr => format!("subito_qr_{lang}"),
+            NewVariant::EmailRequest => "subito_email_request".to_string(),
+            NewVariant::SmsRequest => "subito_sms_request".to_string(),
+            NewVariant::EmailConfirm => "subito_email_confirm".to_string(),
+            NewVariant::SmsConfirm => "subito_sms_confirm".to_string(),
+            NewVariant::Qr => "subito_qr".to_string(),
         }
     }
 
