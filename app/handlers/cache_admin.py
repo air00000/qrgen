@@ -368,12 +368,21 @@ def _cache_menu_text() -> tuple[str, InlineKeyboardMarkup]:
     return text, InlineKeyboardMarkup(keyboard)
 
 
-def _services_keyboard(prefix: str) -> InlineKeyboardMarkup:
+def _service_group(service_name: str) -> str:
+    if service_name.startswith("2dehands"):
+        return "2dehands"
+    if service_name.startswith("2ememain"):
+        return "2ememain"
+    if "_" in service_name:
+        return service_name.split("_", 1)[0]
+    return service_name
+
+
+def _service_groups_keyboard(prefix: str) -> InlineKeyboardMarkup:
+    groups = sorted({_service_group(s) for s in get_all_services()})
     rows = []
-    for service_name in get_all_services():
-        cfg = SERVICES_CONFIG.get(service_name, {})
-        label = cfg.get("display_name", service_name)
-        rows.append([InlineKeyboardButton(label, callback_data=f"CACHE:{prefix}:{service_name}")])
+    for grp in groups:
+        rows.append([InlineKeyboardButton(grp, callback_data=f"CACHE:{prefix}:{grp}")])
 
     rows.append([
         InlineKeyboardButton("⬅️ Назад", callback_data="CACHE:MENU"),
@@ -411,36 +420,86 @@ async def cache_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     elif action == "CACHE_LIST":
         await query.edit_message_text(
-            "🔄 Выберите сервис для кэширования:",
-            reply_markup=_services_keyboard("CACHE_ONE"),
+            "🔄 Выберите ГРУППУ сервиса для кэширования:",
+            reply_markup=_service_groups_keyboard("CACHE_GROUP"),
         )
 
     elif action == "CLEAR_LIST":
         await query.edit_message_text(
-            "🗑️ Выберите сервис для очистки кэша:",
-            reply_markup=_services_keyboard("CLEAR_ONE"),
+            "🗑️ Выберите ГРУППУ сервиса для очистки кэша:",
+            reply_markup=_service_groups_keyboard("CLEAR_GROUP"),
         )
 
-    elif action == "CACHE_ONE" and len(parts) >= 3:
-        service_name = parts[2]
-        cfg = SERVICES_CONFIG.get(service_name, {})
-        await query.edit_message_text(f"🔄 Кэширование {cfg.get('display_name', service_name)}...")
-        ok, message = await refresh_service_cache(service_name)
+    elif action == "CACHE_GROUP" and len(parts) >= 3:
+        group = parts[2]
+        service_names = [s for s in get_all_services() if _service_group(s) == group]
+        if not service_names:
+            text, markup = _cache_menu_text()
+            await query.edit_message_text(
+                f"❌ Группа не найдена: {group}\n\n{text}",
+                reply_markup=markup,
+                parse_mode="HTML",
+            )
+            return
+
+        await query.edit_message_text(f"🔄 Кэширование группы: {group}...")
+
+        failed: list[str] = []
+        success_count = 0
+        total = len(service_names)
+
+        for i, service_name in enumerate(service_names, 1):
+            cfg = SERVICES_CONFIG.get(service_name, {})
+            await query.edit_message_text(
+                f"🔄 Кэширование группы {group} ({i}/{total})...\n\n"
+                f"Текущий: {cfg.get('display_name', service_name)}"
+            )
+            ok, message = await refresh_service_cache(service_name)
+            if ok:
+                success_count += 1
+            else:
+                failed.append(message)
+            if i < total:
+                await asyncio.sleep(1)
+
+        result = (
+            f"✅ Группа {group}: {success_count}/{total} успешно\n"
+            f"❌ Ошибок: {len(failed)}"
+        )
+        if failed:
+            result += "\n" + "\n".join(failed[:10])
+
         text, markup = _cache_menu_text()
         await query.edit_message_text(
-            f"{message}\n\n{text}",
+            f"{result}\n\n{text}",
             reply_markup=markup,
             parse_mode="HTML",
         )
 
-    elif action == "CLEAR_ONE" and len(parts) >= 3:
-        service_name = parts[2]
-        cfg = SERVICES_CONFIG.get(service_name, {})
-        try:
-            FigmaCache(service_name).clear()
-            result = f"🗑️ Очищен кэш сервиса: {cfg.get('display_name', service_name)}"
-        except Exception as e:
-            result = f"❌ Ошибка очистки {service_name}: {e}"
+    elif action == "CLEAR_GROUP" and len(parts) >= 3:
+        group = parts[2]
+        service_names = [s for s in get_all_services() if _service_group(s) == group]
+        if not service_names:
+            text, markup = _cache_menu_text()
+            await query.edit_message_text(
+                f"❌ Группа не найдена: {group}\n\n{text}",
+                reply_markup=markup,
+                parse_mode="HTML",
+            )
+            return
+
+        cleared = 0
+        errors = []
+        for service_name in service_names:
+            try:
+                FigmaCache(service_name).clear()
+                cleared += 1
+            except Exception as e:
+                errors.append(f"{service_name}: {e}")
+
+        result = f"🗑️ Группа {group}: очищено {cleared}/{len(service_names)}"
+        if errors:
+            result += "\n" + "\n".join(errors[:10])
 
         text, markup = _cache_menu_text()
         await query.edit_message_text(
