@@ -518,30 +518,37 @@ async def on_skip_seller_photo(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def qr_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
-    prev_state = pop_state(context.user_data)
 
-    if prev_state is None:
+    # Стек хранит историю шагов: [..., PREV, CURRENT].
+    # На "Назад" снимаем CURRENT и переходим к PREV.
+    pop_state(context.user_data)
+    target_state = pop_state(context.user_data)
+
+    if target_state is None:
         return await qr_menu_cb(update, context)
 
-    if prev_state == QR_WALLAPOP_TYPE:
+    if target_state == QR_WALLAPOP_TYPE:
         return await ask_wallapop_type(update, context)
-    elif prev_state == QR_DEPOP_TYPE:
+    elif target_state == QR_DEPOP_TYPE:
         return await ask_depop_type(update, context)
-    elif prev_state == QR_LANG:
-        # Возврат к выбору типа Wallapop
-        return await ask_wallapop_type(update, context)
-    elif prev_state == QR_NAZVANIE:
+    elif target_state == QR_LANG:
+        wallapop_type = context.user_data.get("wallapop_type", "email_request")
+        return await ask_wallapop_lang(update, context, wallapop_type)
+    elif target_state == QR_NAZVANIE:
         return await ask_nazvanie(update, context)
-    elif prev_state == QR_PRICE:
+    elif target_state == QR_PRICE:
         return await ask_price(update, context)
-    elif prev_state == QR_SELLER_NAME:
+    elif target_state == QR_SELLER_NAME:
         return await ask_seller_name(update, context)
-    elif prev_state == QR_SELLER_PHOTO:
+    elif target_state == QR_SELLER_PHOTO:
         return await ask_seller_photo(update, context)
-    elif prev_state == QR_PHOTO:
+    elif target_state == QR_PHOTO:
         return await ask_photo(update, context)
-    elif prev_state == QR_URL:
+    elif target_state == QR_URL:
         return await ask_url(update, context)
+
+    # Fallback: если стек в неожиданном состоянии
+    return await qr_menu_cb(update, context)
 
 
 async def wallapop_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):

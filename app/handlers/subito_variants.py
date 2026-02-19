@@ -30,6 +30,7 @@ from telegram.ext import (
 
 from app.config import CFG
 from app.keyboards.qr import main_menu_kb
+from app.handlers.menu import start as show_main_menu
 from app.utils.async_helpers import generate_with_queue
 from app.utils.state_stack import clear_stack, push_state
 
@@ -250,6 +251,14 @@ async def subito_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return await _subito_generate(update.message, context)
 
 
+async def subito_menu_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer("Возврат в главное меню")
+    clear_stack(context.user_data)
+    await show_main_menu(update, context)
+    return ConversationHandler.END
+
+
 async def _subito_generate(message, context: ContextTypes.DEFAULT_TYPE):
     method = context.user_data.get("subito_type", "qr")
     title = context.user_data.get("subito_title", "")
@@ -291,26 +300,31 @@ subito_variants_conv = ConversationHandler(
     states={
         SUBITO_TYPE: [
             CallbackQueryHandler(subito_type_selected, pattern=r"^SUBITO_TYPE:"),
+            CallbackQueryHandler(subito_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
         ],
         SUBITO_TITLE: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, subito_title),
             CallbackQueryHandler(subito_back_to_type, pattern=r"^SUBITO_BACK:TYPE$"),
+            CallbackQueryHandler(subito_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
         ],
         SUBITO_PRICE: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, subito_price),
             CallbackQueryHandler(subito_back_to_title, pattern=r"^SUBITO_BACK:TITLE$"),
+            CallbackQueryHandler(subito_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
         ],
         SUBITO_PHOTO: [
             MessageHandler(filters.PHOTO, subito_photo),
             CallbackQueryHandler(subito_skip_photo, pattern=r"^SUBITO:SKIP_PHOTO$"),
             CallbackQueryHandler(subito_back_to_price, pattern=r"^SUBITO_BACK:PRICE$"),
+            CallbackQueryHandler(subito_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
         ],
         SUBITO_URL: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, subito_url),
             CallbackQueryHandler(subito_back_to_photo, pattern=r"^SUBITO_BACK:PHOTO$"),
+            CallbackQueryHandler(subito_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
         ],
     },
-    fallbacks=[],
+    fallbacks=[CallbackQueryHandler(subito_menu_cb, pattern=r"^(QR:MENU|MENU)$")],
     name="subito_variants_conv",
     persistent=False,
 )
