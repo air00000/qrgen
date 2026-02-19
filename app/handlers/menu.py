@@ -34,6 +34,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if _is_admin(update):
         keyboard.append([InlineKeyboardButton("🔑 Управление API ключами", callback_data="KEYS:START")])
+        keyboard.append([InlineKeyboardButton("💾 Управление кэшем", callback_data="CACHE:MENU")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 

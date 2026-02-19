@@ -16,6 +16,7 @@ from app.cache.figma_cache import (
 )
 from app.cache.services_config import SERVICES_CONFIG, get_all_services, get_services_by_group
 from app.services.figma import get_headers, find_node
+from app.handlers.menu import start as show_main_menu
 
 logger = logging.getLogger(__name__)
 
@@ -342,59 +343,117 @@ async def cache_all_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"✅ Массовое кэширование завершено: {success_count} успешно, {failed_count} ошибок")
 
 
+def _cache_menu_text() -> tuple[str, InlineKeyboardMarkup]:
+    cached_services = get_all_cached_services()
+    cached_names = {s['name'] for s in cached_services}
+    all_services = get_all_services()
+
+    text = (
+        f"💾 <b>Управление кэшем Figma</b>\n\n"
+        f"📊 Закэшировано: {len(cached_names)}/{len(all_services)} сервисов\n\n"
+        f"Выберите действие:"
+    )
+
+    keyboard = [
+        [InlineKeyboardButton("🔄 Кэшировать ВСЕ сервисы", callback_data="CACHE:ALL")],
+        [InlineKeyboardButton("🔄 Кэшировать сервис", callback_data="CACHE:CACHE_LIST")],
+        [InlineKeyboardButton("🗑️ Очистить ВЕСЬ кэш", callback_data="CACHE:CLEAR")],
+        [InlineKeyboardButton("🗑️ Очистить кэш сервиса", callback_data="CACHE:CLEAR_LIST")],
+        [InlineKeyboardButton("📊 Статус кэша", callback_data="CACHE:STATUS")],
+        [
+            InlineKeyboardButton("⬅️ Назад", callback_data="CACHE:BACK"),
+            InlineKeyboardButton("🏠 Главное меню", callback_data="MENU"),
+        ],
+    ]
+    return text, InlineKeyboardMarkup(keyboard)
+
+
+def _services_keyboard(prefix: str) -> InlineKeyboardMarkup:
+    rows = []
+    for service_name in get_all_services():
+        cfg = SERVICES_CONFIG.get(service_name, {})
+        label = cfg.get("display_name", service_name)
+        rows.append([InlineKeyboardButton(label, callback_data=f"CACHE:{prefix}:{service_name}")])
+
+    rows.append([
+        InlineKeyboardButton("⬅️ Назад", callback_data="CACHE:MENU"),
+        InlineKeyboardButton("🏠 Главное меню", callback_data="MENU"),
+    ])
+    return InlineKeyboardMarkup(rows)
+
+
 async def cache_menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Команда /cache_menu - меню управления кэшем
-    """
+    """Команда /cache_menu - меню управления кэшем"""
     if not is_admin(update.effective_user.id):
         await update.message.reply_text("⛔ Доступ запрещен.")
         return
-    
-    # Получаем статус кэша
-    cached_services = get_all_cached_services()
-    cached_names = {s['name'] for s in cached_services}
-    
-    all_services = get_all_services()
-    cached_count = len(cached_names)
-    total_count = len(all_services)
-    
-    keyboard = [
-        [InlineKeyboardButton("🔄 Кэшировать ВСЕ сервисы", callback_data="CACHE:ALL")],
-        [InlineKeyboardButton("📊 Статус кэша", callback_data="CACHE:STATUS")],
-        [InlineKeyboardButton("🗑️ Очистить весь кэш", callback_data="CACHE:CLEAR")],
-    ]
-    
-    text = (
-        f"💾 <b>Управление кэшем Figma</b>\n\n"
-        f"📊 Закэшировано: {cached_count}/{total_count} сервисов\n\n"
-        f"ℹ️ Кэш ускоряет генерацию изображений в 3-5 раз"
-    )
-    
-    await update.message.reply_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="HTML"
-    )
+
+    text, markup = _cache_menu_text()
+    await update.message.reply_text(text, reply_markup=markup, parse_mode="HTML")
 
 
 async def cache_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработка callback от меню кэша"""
     query = update.callback_query
     await query.answer()
-    
+
     if not is_admin(update.effective_user.id):
         await query.edit_message_text("⛔ Доступ запрещен.")
         return
-    
-    action = query.data.split(":")[1]
-    
-    if action == "ALL":
+
+    data = query.data or ""
+    parts = data.split(":")
+    action = parts[1] if len(parts) > 1 else "MENU"
+
+    if action in ("MENU", "BACK"):
+        text, markup = _cache_menu_text()
+        await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+
+    elif action == "CACHE_LIST":
+        await query.edit_message_text(
+            "🔄 Выберите сервис для кэширования:",
+            reply_markup=_services_keyboard("CACHE_ONE"),
+        )
+
+    elif action == "CLEAR_LIST":
+        await query.edit_message_text(
+            "🗑️ Выберите сервис для очистки кэша:",
+            reply_markup=_services_keyboard("CLEAR_ONE"),
+        )
+
+    elif action == "CACHE_ONE" and len(parts) >= 3:
+        service_name = parts[2]
+        cfg = SERVICES_CONFIG.get(service_name, {})
+        await query.edit_message_text(f"🔄 Кэширование {cfg.get('display_name', service_name)}...")
+        ok, message = await refresh_service_cache(service_name)
+        text, markup = _cache_menu_text()
+        await query.edit_message_text(
+            f"{message}\n\n{text}",
+            reply_markup=markup,
+            parse_mode="HTML",
+        )
+
+    elif action == "CLEAR_ONE" and len(parts) >= 3:
+        service_name = parts[2]
+        cfg = SERVICES_CONFIG.get(service_name, {})
+        try:
+            FigmaCache(service_name).clear()
+            result = f"🗑️ Очищен кэш сервиса: {cfg.get('display_name', service_name)}"
+        except Exception as e:
+            result = f"❌ Ошибка очистки {service_name}: {e}"
+
+        text, markup = _cache_menu_text()
+        await query.edit_message_text(
+            f"{result}\n\n{text}",
+            reply_markup=markup,
+            parse_mode="HTML",
+        )
+
+    elif action == "ALL":
         await query.edit_message_text("🔄 Запускаю кэширование всех сервисов...")
-        
-        # Используем функцию cache_all но передаем query вместо message
+
         services = get_all_services()
         total = len(services)
-        
         failed: list[str] = []
         success_count = 0
 
@@ -407,7 +466,6 @@ async def cache_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             )
 
             success, message = await refresh_service_cache(service_name)
-
             if success:
                 success_count += 1
             else:
@@ -417,7 +475,6 @@ async def cache_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await asyncio.sleep(2)
 
         failed_count = len(failed)
-
         report = (
             f"📊 Кэширование завершено!\n\n"
             f"✅ Успешно: {success_count}/{total}\n"
@@ -426,70 +483,82 @@ async def cache_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         if not failed:
             report += "✅ Ошибок нет."
-            await query.edit_message_text(report)
-            return
+        else:
+            report += "❌ Ошибки (показываю только проблемные):\n"
+            limit = 3500
+            out_lines = []
+            used = len(report)
+            remaining = 0
+            for m in failed:
+                line = f"  {m}"
+                if used + len(line) + 1 > limit:
+                    remaining += 1
+                    continue
+                out_lines.append(line)
+                used += len(line) + 1
 
-        report += "❌ Ошибки (показываю только проблемные):\n"
-        limit = 3500
-        out_lines = []
-        used = len(report)
-        remaining = 0
-        for m in failed:
-            line = f"  {m}"
-            if used + len(line) + 1 > limit:
-                remaining += 1
-                continue
-            out_lines.append(line)
-            used += len(line) + 1
+            report += "\n".join(out_lines)
+            if remaining > 0:
+                report += f"\n  ... и еще {remaining} ошибок"
 
-        report += "\n".join(out_lines)
-        if remaining > 0:
-            report += f"\n  ... и еще {remaining} ошибок"
+        text, markup = _cache_menu_text()
+        await query.edit_message_text(
+            f"{report}\n\n{text}",
+            reply_markup=markup,
+            parse_mode="HTML",
+        )
 
-        await query.edit_message_text(report)
-        
     elif action == "STATUS":
         services = get_all_cached_services()
-        
+
         if not services:
             await query.edit_message_text(
-                "📭 Кэш пуст.\n\n"
-                "Используйте кнопку 'Кэшировать ВСЕ' для создания кэша."
+                "📭 Кэш пуст.\n\nИспользуйте кнопки кэширования в этом меню.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("⬅️ Назад", callback_data="CACHE:MENU"),
+                     InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")]
+                ]),
             )
             return
-        
-        # Группируем по типам
+
         groups = get_services_by_group()
-        
         status_text = "📊 <b>Статус кэша:</b>\n\n"
-        
+
         for group_name, service_names in groups.items():
             cached_in_group = [s for s in services if s['name'] in service_names]
-            
             if cached_in_group:
                 status_text += f"<b>{group_name}:</b>\n"
-                
                 for service in cached_in_group:
                     size_kb = service['info']['total_size'] / 1024
                     config = SERVICES_CONFIG[service['name']]
                     status_text += f"  ✅ {config['display_name']} ({size_kb:.1f} KB)\n"
-                
                 status_text += "\n"
-        
+
         total_size = sum(s['info']['total_size'] for s in services) / (1024 * 1024)
         status_text += f"💾 <b>Всего:</b> {len(services)} сервисов, {total_size:.2f} MB"
-        
-        await query.edit_message_text(status_text, parse_mode="HTML")
-        
+
+        await query.edit_message_text(
+            status_text,
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("⬅️ Назад", callback_data="CACHE:MENU"),
+                 InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")]
+            ]),
+        )
+
     elif action == "CLEAR":
         try:
             count = clear_all_cache()
-            await query.edit_message_text(
-                f"🗑️ Кэш очищен!\n\n"
-                f"Удалено сервисов: {count}"
-            )
+            result = f"🗑️ Кэш очищен!\n\nУдалено сервисов: {count}"
         except Exception as e:
-            await query.edit_message_text(f"❌ Ошибка: {e}")
+            result = f"❌ Ошибка: {e}"
+
+        text, markup = _cache_menu_text()
+        await query.edit_message_text(
+            f"{result}\n\n{text}",
+            reply_markup=markup,
+            parse_mode="HTML",
+        )
 
 
 # Регистрация handlers
