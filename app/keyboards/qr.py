@@ -4,7 +4,7 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 def main_menu_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔁 Сгенерировать ещё", callback_data="QR:MENU")],
+        [InlineKeyboardButton("🔁 Сгенерировать ещё", callback_data="MENU")],
     ])
 
 

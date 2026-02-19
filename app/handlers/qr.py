@@ -1,5 +1,4 @@
 # app/handlers/qr.py
-import os
 import io
 import uuid
 import base64
@@ -7,12 +6,10 @@ import logging
 import asyncio
 from app.utils.async_helpers import (
     with_rate_limit,
-    generate_with_queue,
-    usage_stats
 )
 
 
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update
 from telegram.ext import (
     ContextTypes, ConversationHandler, CallbackQueryHandler,
     MessageHandler, CommandHandler, filters
@@ -55,17 +52,7 @@ def _service_country_defaults(service: str, lang: str | None = None) -> tuple[st
     return ("nl", s, "qr")
 
 # Состояния
-QR_NAZVANIE, QR_PRICE, QR_NAME, QR_ADDRESS, QR_PHOTO, QR_URL, QR_LANG, QR_SELLER_NAME, QR_SELLER_PHOTO, QR_WALLAPOP_TYPE, QR_DEPOP_TYPE = range(
-    11)
-
-
-async def qr_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Старт MARKTPLAATS"""
-    context.user_data["service"] = "marktplaats"
-    clear_stack(context.user_data)
-    await update.callback_query.answer()
-    await ask_nazvanie(update, context)
-    return QR_NAZVANIE
+QR_NAZVANIE, QR_PRICE, QR_PHOTO, QR_URL, QR_LANG, QR_SELLER_NAME, QR_SELLER_PHOTO, QR_WALLAPOP_TYPE, QR_DEPOP_TYPE = range(9)
 
 
 async def qr_entry_wallapop_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -105,15 +92,6 @@ async def qr_entry_conto(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def qr_entry_kleize(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Старт KLEIZE"""
     context.user_data["service"] = "kleize"
-    clear_stack(context.user_data)
-    await update.callback_query.answer()
-    return await ask_nazvanie(update, context)
-
-
-async def qr_entry_depop(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Старт DEPOP (AU) QR"""
-    context.user_data["service"] = "depop"
-    context.user_data["depop_type"] = "qr"
     clear_stack(context.user_data)
     await update.callback_query.answer()
     return await ask_nazvanie(update, context)
@@ -178,13 +156,6 @@ async def qr_entry_depop_sms_confirm(update: Update, context: ContextTypes.DEFAU
     context.user_data["depop_type"] = "sms_confirm"
     await update.callback_query.answer()
     return await ask_nazvanie(update, context)
-
-
-async def depop_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Назад в меню выбора типа Depop"""
-    await update.callback_query.answer()
-    pop_state(context.user_data)
-    return await ask_depop_type(update, context)
 
 
 async def ask_wallapop_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -290,18 +261,6 @@ async def ask_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return QR_PRICE
 
 
-async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    push_state(context.user_data, QR_NAME)
-    await _edit_or_send(update, context, "Введи имя продавца (Name):")
-    return QR_NAME
-
-
-async def ask_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    push_state(context.user_data, QR_ADDRESS)
-    await _edit_or_send(update, context, "Введи адрес (Address):")
-    return QR_ADDRESS
-
-
 async def ask_seller_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     push_state(context.user_data, QR_SELLER_NAME)
     await _edit_or_send(update, context, "Введи имя продавца:")
@@ -365,18 +324,6 @@ async def on_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await ask_seller_name(update, context)
     else:
         return await ask_photo(update, context)
-
-
-async def on_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["name"] = (update.message.text or "").strip()
-    return await ask_address(update, context)
-
-
-async def on_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["address"] = (update.message.text or "").strip()
-    return await ask_photo(update, context)
-
-
 
 
 async def on_seller_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -576,8 +523,6 @@ async def qr_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if prev_state is None:
         return await qr_menu_cb(update, context)
 
-    service = context.user_data.get("service", "marktplaats")
-
     if prev_state == QR_WALLAPOP_TYPE:
         return await ask_wallapop_type(update, context)
     elif prev_state == QR_DEPOP_TYPE:
@@ -589,10 +534,6 @@ async def qr_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await ask_nazvanie(update, context)
     elif prev_state == QR_PRICE:
         return await ask_price(update, context)
-    elif prev_state == QR_NAME:
-        return await ask_name(update, context)
-    elif prev_state == QR_ADDRESS:
-        return await ask_address(update, context)
     elif prev_state == QR_SELLER_NAME:
         return await ask_seller_name(update, context)
     elif prev_state == QR_SELLER_PHOTO:
@@ -629,7 +570,7 @@ qr_conv = ConversationHandler(
             CallbackQueryHandler(qr_entry_wallapop_email_payment, pattern=r"^QR:WALLAPOP_EMAIL_PAYMENT$"),
             CallbackQueryHandler(qr_entry_wallapop_sms_payment, pattern=r"^QR:WALLAPOP_SMS_PAYMENT$"),
             CallbackQueryHandler(qr_entry_wallapop_qr, pattern=r"^QR:WALLAPOP_QR$"),
-            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
         ],
         QR_DEPOP_TYPE: [
@@ -638,55 +579,46 @@ qr_conv = ConversationHandler(
             CallbackQueryHandler(qr_entry_depop_email_confirm, pattern=r"^QR:DEPOP_EMAIL_CONFIRM$"),
             CallbackQueryHandler(qr_entry_depop_sms_request, pattern=r"^QR:DEPOP_SMS_REQUEST$"),
             CallbackQueryHandler(qr_entry_depop_sms_confirm, pattern=r"^QR:DEPOP_SMS_CONFIRM$"),
-            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
         ],
         QR_LANG: [
             CallbackQueryHandler(on_wallapop_lang_callback, pattern=r"^WALLAPOP_LANG_"),
-            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
             CallbackQueryHandler(wallapop_back_cb, pattern=r"^QR:WALLAPOP_BACK$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
         ],
         QR_NAZVANIE: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, on_nazvanie),
-            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
         ],
         QR_PRICE: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, on_price),
-            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
         ],
-        QR_NAME: [
-            MessageHandler(filters.TEXT & ~filters.COMMAND, on_name),
-            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
-            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
-        ],
-        QR_ADDRESS: [
-            MessageHandler(filters.TEXT & ~filters.COMMAND, on_address),
-            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
-            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
-        ],
+
         QR_SELLER_NAME: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, on_seller_name),
-            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
         ],
         QR_SELLER_PHOTO: [
             MessageHandler(filters.PHOTO, on_seller_photo),
-            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$"),
             CallbackQueryHandler(on_skip_seller_photo, pattern=r"^QR:SKIP_PHOTO$")
         ],
         QR_PHOTO: [
             MessageHandler(filters.PHOTO, on_photo),
-            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$"),
             CallbackQueryHandler(on_skip_photo, pattern=r"^QR:SKIP_PHOTO$")
         ],
         QR_URL: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, on_url),
-            CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
         ],
     },

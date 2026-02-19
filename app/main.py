@@ -21,7 +21,7 @@ from telegram.ext import (
 
 from app.config import CFG
 from app.handlers.menu import start, menu_cb
-from app.handlers.qr import qr_conv, qr_back_cb, qr_menu_cb
+from app.handlers.qr import qr_conv
 from app.handlers.admin_api_keys import api_keys_conv
 from app.handlers.cache_admin import get_cache_handlers
 from app.handlers.subito_variants import subito_variants_conv
@@ -90,8 +90,6 @@ def start_bot():
     app.add_handler(qr_conv)                    # QR:WALLAPOP_MENU, QR:2DEHANDS, QR:CONTO, ...
     app.add_handler(api_keys_conv)              # KEYS:START → API:*/...
     app.add_handler(CallbackQueryHandler(menu_cb, pattern=r"^MENU$"))
-    app.add_handler(CallbackQueryHandler(qr_menu_cb, pattern=r"^QR:MENU$"))
-    app.add_handler(CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$"))
     
     for handler in get_cache_handlers():
         app.add_handler(handler)

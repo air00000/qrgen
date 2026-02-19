@@ -9,7 +9,7 @@ import base64
 import logging
 import asyncio
 
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update
 from telegram.ext import (
     ContextTypes, ConversationHandler, CallbackQueryHandler,
     MessageHandler, CommandHandler, filters
@@ -18,6 +18,7 @@ from telegram.ext import (
 from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, markt_type_kb, markt_lang_kb
 from app.utils.state_stack import push_state, pop_state, clear_stack
 from app.utils.async_helpers import generate_with_queue
+from app.handlers.menu import start as show_main_menu
 from app.services.markt import (
     create_markt_qr, create_markt_email_request, create_markt_phone_request,
     create_markt_email_payment, create_markt_sms_payment
@@ -386,7 +387,7 @@ markt_conv = ConversationHandler(
         ],
     },
     fallbacks=[
-        CommandHandler("start", markt_menu_cb),
+        CommandHandler("start", show_main_menu),
         CallbackQueryHandler(markt_menu_cb, pattern=r"^MENU$"),
     ],
     allow_reentry=True,
