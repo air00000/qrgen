@@ -280,6 +280,14 @@ async def on_new_name_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ===== Навигация =====
 
+async def api_menu_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Кнопка Главное меню"""
+    await update.callback_query.answer("Возврат в главное меню")
+    clear_stack(context.user_data)
+    await show_main_menu(update, context)
+    return ConversationHandler.END
+
+
 async def api_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Кнопка Назад для API keys flow"""
     await update.callback_query.answer()
