@@ -27,31 +27,7 @@ def photo_step_kb():
     ])
 
 
-def service_select_kb(is_admin: bool = False):
-    """Клавиатура выбора типа скриншота (+ админ-кнопка при наличии прав)."""
-    rows = [
-        [
-            InlineKeyboardButton("🛒 Markt",        callback_data="QR:MARKT_MENU"),
-            InlineKeyboardButton("🇮🇹 Subito",      callback_data="QR:SUBITO"),
-        ],
-        [
-            InlineKeyboardButton("🇪🇺 Wallapop",    callback_data="QR:WALLAPOP_MENU"),
-            InlineKeyboardButton("🇳🇱 2dehands",    callback_data="QR:2DEHANDS"),
-        ],
-        [
-            InlineKeyboardButton("🇫🇷 2ememain",    callback_data="QR:2EMEMAIN"),
-            InlineKeyboardButton("💰 Conto (Subito)", callback_data="QR:CONTO"),
-        ],
-        [
-            InlineKeyboardButton("🔧 Kleize",        callback_data="QR:KLEIZE"),
-            InlineKeyboardButton("🛍️ Depop",         callback_data="QR:DEPOP_MENU"),
-        ],
-    ]
-    if is_admin:
-        rows.append([InlineKeyboardButton("🔑 Управление API ключами", callback_data="KEYS:START")])
-    rows.append([InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")])
-    return InlineKeyboardMarkup(rows)
-
+# removed unused legacy keyboard builder (service_select_kb)
 
 def markt_type_kb():
     """Клавиатура выбора типа Markt"""

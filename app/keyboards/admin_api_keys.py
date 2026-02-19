@@ -9,7 +9,7 @@ def get_admin_api_menu():
         [InlineKeyboardButton("✏️ Редактировать ключ", callback_data="API:EDIT_MENU")],
         [InlineKeyboardButton("🗑️ Удалить ключ", callback_data="API:DELETE_MENU")],
     ]
-    return with_menu_back(rows, back_data="MENU", menu_data="MENU")
+    return with_menu_back(rows, back_data="API:BACK", menu_data="API:MENU")
 
 def get_api_keys_list_keyboard(keys: dict, action_prefix: str = "API:VIEW_"):
     """Клавиатура со списком ключей"""
@@ -19,7 +19,7 @@ def get_api_keys_list_keyboard(keys: dict, action_prefix: str = "API:VIEW_"):
         rows.append([
             InlineKeyboardButton(f"🔑 {name} ({display_key})", callback_data=f"{action_prefix}{key}")
         ])
-    return with_menu_back(rows, back_data="API:BACK", menu_data="MENU")
+    return with_menu_back(rows, back_data="API:BACK", menu_data="API:MENU")
 
 def get_key_actions_keyboard(key: str):
     """Клавиатура действий с конкретным ключом"""
@@ -27,7 +27,7 @@ def get_key_actions_keyboard(key: str):
         [InlineKeyboardButton("✏️ Изменить название", callback_data=f"API:EDIT_NAME_{key}")],
         [InlineKeyboardButton("🗑️ Удалить ключ", callback_data=f"API:DELETE_{key}")],
     ]
-    return with_menu_back(rows, back_data="API:BACK", menu_data="MENU")
+    return with_menu_back(rows, back_data="API:BACK", menu_data="API:MENU")
 
 def get_delete_confirm_keyboard(key: str):
     """Клавиатура подтверждения удаления"""

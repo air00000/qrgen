@@ -353,8 +353,9 @@ api_keys_conv = ConversationHandler(
             CallbackQueryHandler(api_menu_cb, pattern=r"^API:MENU$"),
         ],
         API_DELETE_MENU: [
-            CallbackQueryHandler(on_delete_key_cb, pattern=r"^API:DELETE_.+"),
             CallbackQueryHandler(on_delete_confirm_cb, pattern=r"^API:DELETE_CONFIRM_.+"),
+            CallbackQueryHandler(on_delete_key_cb, pattern=r"^API:DELETE_(?!CONFIRM_).+"),
+            CallbackQueryHandler(on_view_key_cb, pattern=r"^API:VIEW_.+"),
             CallbackQueryHandler(api_back_cb, pattern=r"^API:BACK$"),
             CallbackQueryHandler(api_menu_cb, pattern=r"^API:MENU$"),
         ],
