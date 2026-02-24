@@ -526,7 +526,7 @@ pub async fn generate_gumtree(
     let center_x = bx as f32 + bw as f32 / 2.0;
     let width = text_width(&*time_font, time_px, &time_text, time_spacing);
     let start_x = center_x - width / 2.0;
-    draw_text_with_letter_spacing(&mut out, &*time_font, time_px, start_x.round() as i32, by as i32, hex_color("#FFFFFF")?, &time_text, time_spacing);
+    draw_text_with_letter_spacing(&mut out, &*time_font, time_px, start_x.round() as i32, by as i32, hex_color("#000000")?, &time_text, time_spacing);
 
     if variant.has_qr() {
         let qr_node = node(&format!("qr_{frame_name}"))?;
@@ -534,7 +534,7 @@ pub async fn generate_gumtree(
         let (qx, qy, qw, qh) = rel_box(&qr_node, &frame_node)?;
 
         let mut qr_img = generate_qr_png(http, url).await?;
-        qr_img = qr_img.resize_exact(482, 482, image::imageops::FilterType::Lanczos3);
+        qr_img = qr_img.resize_exact(500, 500, image::imageops::FilterType::Lanczos3);
         let qr = apply_round_corners_alpha(qr_img.to_rgba8(), 16);
 
         let dx = ((qw as i32 - qr.width() as i32) / 2).max(0) as u32;
