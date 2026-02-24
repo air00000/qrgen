@@ -289,7 +289,9 @@ fn draw_text_bold_with_letter_spacing(
     text: &str,
     letter_spacing: f32,
 ) {
+    // Heavier synthetic bold than +1 only: draw center + left/right offsets.
     draw_text_with_letter_spacing(img, font, px, x, y, color, text, letter_spacing);
+    draw_text_with_letter_spacing(img, font, px, x - 1, y, color, text, letter_spacing);
     draw_text_with_letter_spacing(img, font, px, x + 1, y, color, text, letter_spacing);
 }
 
