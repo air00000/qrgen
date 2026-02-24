@@ -242,6 +242,18 @@ pub async fn generate(
                 }
             }
         }
+        "gumtree" => {
+            crate::generator::gumtree::generate_gumtree(
+                &st.http,
+                &req.country,
+                &req.method,
+                title,
+                price,
+                req.photo.as_deref(),
+                req.url.as_deref(),
+            )
+            .await
+        }
         other => Err(crate::generator::GenError::NotImplemented(format!(
             "service not implemented in Rust yet: {other}"
         ))),

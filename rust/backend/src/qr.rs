@@ -32,7 +32,7 @@ pub struct QrRequest {
     pub text: String,
 
     /// Optional style profile name (service-specific defaults).
-    /// Supported: depop, markt, 2dehands, 2ememain, wallapop, subito, kleinanzeigen.
+    /// Supported: depop, markt, gumtree, 2dehands, 2ememain, wallapop, subito, kleinanzeigen.
     pub profile: Option<String>,
 
     pub size: Option<u32>,
@@ -100,6 +100,7 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
     let default_dark = match profile.to_ascii_lowercase().as_str() {
         // Most templates use black; fall back to old default for generic usage.
         "wallapop" | "markt" | "kleinanzeigen" => "#000000",
+        "gumtree" => "#086177",
         "subito" => "#FF6E69",
         "depop" => "#CF2C2D",
         // 2dehands / 2ememain use a dark navy (matches legacy/Python screenshots).
@@ -190,6 +191,7 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
             FinderCornerStyle::InnerSharp
         } else if profile.eq_ignore_ascii_case("subito")
             || profile.eq_ignore_ascii_case("markt")
+            || profile.eq_ignore_ascii_case("gumtree")
             || profile.eq_ignore_ascii_case("depop")
             || profile.eq_ignore_ascii_case("2dehands")
             || profile.eq_ignore_ascii_case("2ememain")
@@ -203,6 +205,8 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
         let finder_inner_boost = if profile.eq_ignore_ascii_case("subito") {
             0.60
         } else if profile.eq_ignore_ascii_case("markt") {
+            0.30
+        } else if profile.eq_ignore_ascii_case("gumtree") {
             0.30
         } else if profile.eq_ignore_ascii_case("depop") {
             0.25
@@ -349,6 +353,7 @@ fn profile_default_logo_url(profile: &str) -> Option<&'static str> {
     match profile.to_ascii_lowercase().as_str() {
         // Restored from original Python services (fixed URLs)
         "markt" => Some("https://i.ibb.co/DfXf3X7x/Frame-40.png"),
+        "gumtree" => Some("https://i.postimg.cc/MZ7TLvhP/gumtree3.png"),
         "wallapop" => Some("https://i.ibb.co/pvwMgd8k/Rectangle-355.png"),
         "2dehands" | "2ememain" | "twodehands" => Some("https://i.ibb.co/6crPXzDJ/2dehlogo.png"),
         "depop" => Some("https://i.ibb.co/v7N8Sbs/Frame-38.png"),

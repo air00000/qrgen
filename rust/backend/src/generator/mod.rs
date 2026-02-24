@@ -5,6 +5,7 @@ pub mod twodehands;
 pub mod kleinanzeigen;
 pub mod conto;
 pub mod depop;
+pub mod gumtree;
 
 mod font_cache;
 

@@ -98,6 +98,15 @@ pub fn geo_config() -> Value {
               "sms_payment": {"endpoint": "/generate", "fields": ["title", "price", "photo"]}
             }
           },
+          "gumtree": {
+            "methods": {
+              "qr": {"endpoint": "/generate", "fields": ["title", "price", "url", "photo"]},
+              "email_request": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
+              "phone_request": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
+              "email_payment": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
+              "sms_payment": {"endpoint": "/generate", "fields": ["title", "price", "photo"]}
+            }
+          },
           "wallapop": {
             "methods": {
               "email_request": {"endpoint": "/generate", "fields": ["title", "price", "photo", "seller_name", "seller_photo"]},
@@ -147,6 +156,15 @@ pub fn geo_config() -> Value {
               "email_confirm": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
               "sms_request": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
               "sms_confirm": {"endpoint": "/generate", "fields": ["title", "price", "photo"]}
+            }
+          },
+          "gumtree": {
+            "methods": {
+              "qr": {"endpoint": "/generate", "fields": ["title", "price", "url", "photo"]},
+              "email_request": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
+              "phone_request": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
+              "email_payment": {"endpoint": "/generate", "fields": ["title", "price", "photo"]},
+              "sms_payment": {"endpoint": "/generate", "fields": ["title", "price", "photo"]}
             }
           }
         }
