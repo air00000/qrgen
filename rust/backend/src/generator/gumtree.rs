@@ -285,12 +285,12 @@ fn draw_text_bold_with_letter_spacing(
     text: &str,
     letter_spacing: f32,
 ) {
-    // 5 passes: center + 4 directions for thicker bold outline
-    draw_text_with_letter_spacing(img, font, px, x, y, color, text, letter_spacing);
-    draw_text_with_letter_spacing(img, font, px, x - 1, y, color, text, letter_spacing);
-    draw_text_with_letter_spacing(img, font, px, x + 1, y, color, text, letter_spacing);
-    draw_text_with_letter_spacing(img, font, px, x, y - 1, color, text, letter_spacing);
-    draw_text_with_letter_spacing(img, font, px, x, y + 1, color, text, letter_spacing);
+    // Full outline 5x5 grid (25 passes) to match Figma template bold weight like delivery
+    for dy in -2..=2 {
+        for dx in -2..=2 {
+            draw_text_with_letter_spacing(img, font, px, x + dx, y + dy, color, text, letter_spacing);
+        }
+    }
 }
 
 fn overlay_alpha(base: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, over: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, y: u32) {
