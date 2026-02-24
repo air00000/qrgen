@@ -96,6 +96,13 @@ impl Geo {
 
 fn scale_factor() -> f32 { 2.0 }
 
+fn text_metric_compensation() -> f32 {
+    std::env::var("TEXT_METRIC_COMPENSATION")
+        .ok()
+        .and_then(|s| s.parse::<f32>().ok())
+        .unwrap_or(1.08)
+}
+
 fn load_font(name: &str) -> Result<std::sync::Arc<Font<'static>>, GenError> {
     super::font_cache::load_font_cached(name)
 }
@@ -440,8 +447,9 @@ pub async fn generate_gumtree(
     let time_font = load_font("SFProText-Semibold.ttf")?;
 
     let sf = scale_factor();
+    let tc = text_metric_compensation();
 
-    let title_px = 45.0 * sf;
+    let title_px = 45.0 * sf * tc;
     let title_spacing = 0.0;
     let max_title_w = 912.0 * sf;
 
@@ -512,7 +520,7 @@ pub async fn generate_gumtree(
     let now = chrono::Utc::now().with_timezone(&geo.timezone());
     let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
 
-    let time_px = 53.0 * sf;
+    let time_px = 53.0 * sf * tc;
     let time_spacing = time_px * -0.02;
     let (bx, by, bw, _bh) = rel_box(&time_node, &frame_node)?;
     let center_x = bx as f32 + bw as f32 / 2.0;
