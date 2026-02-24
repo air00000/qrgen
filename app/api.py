@@ -222,6 +222,30 @@ GEO_CONFIG = {
                     }
                 }
             },
+            "gumtree": {
+                "methods": {
+                    "qr": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "url", "photo"]
+                    },
+                    "email_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    },
+                    "phone_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    },
+                    "email_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    },
+                    "sms_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    }
+                }
+            },
             "wallapop": {
                 "methods": {
                     "email_request": {
@@ -328,6 +352,30 @@ GEO_CONFIG = {
                         "fields": ["title", "price", "photo"]
                     },
                     "sms_confirm": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    }
+                }
+            },
+            "gumtree": {
+                "methods": {
+                    "qr": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "url", "photo"]
+                    },
+                    "email_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    },
+                    "phone_request": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    },
+                    "email_payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo"]
+                    },
+                    "sms_payment": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo"]
                     }
