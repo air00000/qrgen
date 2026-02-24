@@ -558,8 +558,8 @@ pub async fn generate_gumtree(
     let now = chrono::Utc::now().with_timezone(&geo.timezone());
     let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
 
-    // Baseline (first gumtree impl): 53 * sf. Apply same measured visual scale delta.
-    let time_px = 53.0 * sf * PRICE_VISUAL_SCALE_FROM_BASE;
+    // Fixed final rendered size across all gumtree templates.
+    let time_px = 120.0;
     let time_spacing = time_px * -0.02;
     let (bx, by, bw, _bh) = rel_box(&time_node, &frame_node)?;
     let center_x = bx as f32 + bw as f32 / 2.0;
