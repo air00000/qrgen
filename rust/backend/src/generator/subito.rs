@@ -672,7 +672,7 @@ async fn generate_subito_it(
 
         let (bx, by, bw, _bh) = rel_box(&time_node, &frame_node)?;
         let right_x = (bx + bw) as f32;
-        let letter_spacing = (time_px * 0.02).round();
+        let letter_spacing = (time_px * 0.02_f32).round() as f32;
         let width = text_width(&*sfpro, time_px, &time_text, letter_spacing);
         let start_x = (right_x - width).round() as i32;
         draw_text_with_letter_spacing(

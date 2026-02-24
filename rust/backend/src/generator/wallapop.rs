@@ -576,7 +576,7 @@ pub async fn generate_wallapop(
 
     let title_spacing = (46.0 * sf * 0.01).round();
     let price_spacing = (64.0 * sf * -0.02).round();
-    let time_spacing = (time_px * -0.02).round();
+    let time_spacing = (time_px * -0.02_f32).round() as f32;
 
     // Title
     let title = truncate_title_by_width(&title_font, title_px, &title, title_spacing);

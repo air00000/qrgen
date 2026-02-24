@@ -464,7 +464,7 @@ pub async fn generate_depop(
         let cx = x as f32 + w as f32 / 2.0;
         let cy = y as f32 + h as f32 / 2.0;
         let time_px: f32 = 120.0;
-        let time_spacing = (-0.03 * time_px).round();
+        let time_spacing = (-0.03_f32 * time_px).round() as f32;
         draw_text_center_with_spacing(&mut out, &*sfpro, time_px, cx, cy, hex_color("#000000")?, &time_text, time_spacing);
     }
 
@@ -647,7 +647,7 @@ pub async fn generate_depop_variant(
         let cx = x as f32 + w as f32 / 2.0;
         let cy = y as f32 + h as f32 / 2.0;
         let time_px: f32 = 120.0;
-        let time_spacing = (-0.03 * time_px).round();
+        let time_spacing = (-0.03_f32 * time_px).round() as f32;
         draw_text_center_with_spacing(&mut out, &*sfpro, time_px, cx, cy, hex_color("#000000")?, &time_text, time_spacing);
     }
 
