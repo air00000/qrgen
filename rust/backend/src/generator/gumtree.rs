@@ -464,17 +464,19 @@ pub async fn generate_gumtree(
     let title_px = 45.0 * sf * PRICE_VISUAL_SCALE_FROM_BASE;
     let title_spacing = 0.0;
     let max_title_w = 912.0 * sf;
+    // In the same spirit: slightly larger + bold for product title/price under item card.
+    let main_item_px = title_px * 1.08;
 
     let title_l1_node = node(&format!("nazv_str1_{frame_name}"))?;
     let title_l2_node = node(&format!("nazv_str2_{frame_name}"))?;
-    let (line1, line2) = split_title_two_lines(&*title_font, title_px, title, max_title_w, title_spacing);
+    let (line1, line2) = split_title_two_lines(&*title_font, main_item_px, title, max_title_w, title_spacing);
 
     let (x1, y1, _w1, _h1) = rel_box(&title_l1_node, &frame_node)?;
-    draw_text_with_letter_spacing(&mut out, &*title_font, title_px, x1 as i32, y1 as i32, hex_color("#1A303C")?, &line1, title_spacing);
+    draw_text_bold_with_letter_spacing(&mut out, &*title_font, main_item_px, x1 as i32, y1 as i32, hex_color("#1A303C")?, &line1, title_spacing);
 
     if !line2.is_empty() {
         let (x2, y2, _w2, _h2) = rel_box(&title_l2_node, &frame_node)?;
-        draw_text_with_letter_spacing(&mut out, &*title_font, title_px, x2 as i32, y2 as i32, hex_color("#1A303C")?, &line2, title_spacing);
+        draw_text_bold_with_letter_spacing(&mut out, &*title_font, main_item_px, x2 as i32, y2 as i32, hex_color("#1A303C")?, &line2, title_spacing);
     }
 
     let price_dec = Decimal::from_f64_retain(price).unwrap_or(dec!(0)).round_dp_with_strategy(2, rust_decimal::RoundingStrategy::MidpointAwayFromZero);
@@ -487,7 +489,7 @@ pub async fn generate_gumtree(
     };
     let price_node = node(&price_node_name)?;
     let (px, py, _pw, _ph) = rel_box(&price_node, &frame_node)?;
-    draw_text_with_letter_spacing(&mut out, &*title_font, title_px, px as i32, py as i32, hex_color("#00883E")?, &price_text, 0.0);
+    draw_text_bold_with_letter_spacing(&mut out, &*title_font, main_item_px, px as i32, py as i32, hex_color("#00883E")?, &price_text, 0.0);
 
     let subtotal_node = node(&format!("subtotalprice_{frame_name}"))?;
     let (sx, sy, sw, _sh) = rel_box(&subtotal_node, &frame_node)?;
