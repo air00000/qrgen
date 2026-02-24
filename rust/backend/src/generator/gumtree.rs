@@ -454,6 +454,9 @@ pub async fn generate_gumtree(
         figma::find_node(&template_json, PAGE, name)
             .ok_or_else(|| GenError::BadRequest(format!("node not found: {name}")))
     };
+    let node_opt = |name: &str| -> Option<serde_json::Value> {
+        figma::find_node(&template_json, PAGE, name)
+    };
 
     let title_font = load_font("ReadexPro-SemiBold.ttf")?;
     let time_font = load_font("SFProText-Semibold.ttf")?;
@@ -517,6 +520,13 @@ pub async fn generate_gumtree(
     let total_w = text_width(&*title_font, title_px, &total_text, 0.0);
     let total_x = (tx + tw) as f32 - total_w;
     draw_text_with_letter_spacing(&mut out, &*title_font, title_px, total_x.round() as i32, ty as i32, hex_color("#1A303C")?, &total_text, 0.0);
+
+    if let Some(final_total_node) = node_opt(&format!("finaltotalprice_{frame_name}")) {
+        let (fx, fy, fw, _fh) = rel_box(&final_total_node, &frame_node)?;
+        let final_w = text_width(&*title_font, title_px, &total_text, 0.0);
+        let final_x = (fx + fw) as f32 - final_w;
+        draw_text_with_letter_spacing(&mut out, &*title_font, title_px, final_x.round() as i32, fy as i32, hex_color("#1A303C")?, &total_text, 0.0);
+    }
 
     if let Some(photo_b64) = photo_b64 {
         let pic_node = node(&format!("pic_{frame_name}"))?;
