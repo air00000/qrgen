@@ -500,7 +500,7 @@ pub async fn generate_gumtree(
     let (sx, sy, sw, _sh) = rel_box(&subtotal_node, &frame_node)?;
     let subtotal_w = text_width(&*title_font, summary_px, &price_text, 0.0);
     let subtotal_x = (sx + sw) as f32 - subtotal_w;
-    draw_text_with_letter_spacing(&mut out, &*title_font, summary_px, subtotal_x.round() as i32, sy as i32, hex_color("#1A303C")?, &price_text, 0.0);
+    draw_text_bold_with_letter_spacing(&mut out, &*title_font, summary_px, subtotal_x.round() as i32, sy as i32, hex_color("#1A303C")?, &price_text, 0.0);
 
     let mut total = price_dec + geo.shipping();
 
@@ -513,7 +513,7 @@ pub async fn generate_gumtree(
         let (prx, pry, prw, _prh) = rel_box(&protect_node, &frame_node)?;
         let ww = text_width(&*title_font, summary_px, &protect_text, 0.0);
         let start_x = (prx + prw) as f32 - ww;
-        draw_text_with_letter_spacing(&mut out, &*title_font, summary_px, start_x.round() as i32, pry as i32, hex_color("#1A303C")?, &protect_text, 0.0);
+        draw_text_bold_with_letter_spacing(&mut out, &*title_font, summary_px, start_x.round() as i32, pry as i32, hex_color("#1A303C")?, &protect_text, 0.0);
     }
 
     let total_text = format_currency(geo, total);
@@ -521,13 +521,13 @@ pub async fn generate_gumtree(
     let (tx, ty, tw, _th) = rel_box(&total_node, &frame_node)?;
     let total_w = text_width(&*title_font, summary_px, &total_text, 0.0);
     let total_x = (tx + tw) as f32 - total_w;
-    draw_text_with_letter_spacing(&mut out, &*title_font, summary_px, total_x.round() as i32, ty as i32, hex_color("#1A303C")?, &total_text, 0.0);
+    draw_text_bold_with_letter_spacing(&mut out, &*title_font, summary_px, total_x.round() as i32, ty as i32, hex_color("#1A303C")?, &total_text, 0.0);
 
     if let Some(final_total_node) = node_opt(&format!("finaltotalprice_{frame_name}")) {
         let (fx, fy, fw, _fh) = rel_box(&final_total_node, &frame_node)?;
         let final_w = text_width(&*title_font, summary_px, &total_text, 0.0);
         let final_x = (fx + fw) as f32 - final_w;
-        draw_text_with_letter_spacing(&mut out, &*title_font, summary_px, final_x.round() as i32, fy as i32, hex_color("#1A303C")?, &total_text, 0.0);
+        draw_text_bold_with_letter_spacing(&mut out, &*title_font, summary_px, final_x.round() as i32, fy as i32, hex_color("#1A303C")?, &total_text, 0.0);
     }
 
     if let Some(photo_b64) = photo_b64 {
