@@ -514,7 +514,7 @@ pub async fn generate_gumtree(
     let (tx, ty, tw, _th) = rel_box(&total_node, &frame_node)?;
     let total_w = text_width(&*title_font, title_px, &total_text, 0.0);
     let total_x = (tx + tw) as f32 - total_w;
-    draw_text_with_letter_spacing(&mut out, &*title_font, title_px, total_x.round() as i32, ty as i32, hex_color("#1A303C")?, &total_text, 0.0);
+    draw_text_bold_with_letter_spacing(&mut out, &*title_font, title_px, total_x.round() as i32, ty as i32, hex_color("#1A303C")?, &total_text, 0.0);
 
     if let Some(photo_b64) = photo_b64 {
         let pic_node = node(&format!("pic_{frame_name}"))?;
