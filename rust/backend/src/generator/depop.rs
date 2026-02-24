@@ -463,7 +463,7 @@ pub async fn generate_depop(
         // Strict center placement inside time layer bbox (no empirical offsets).
         let cx = x as f32 + w as f32 / 2.0;
         let cy = y as f32 + h as f32 / 2.0;
-        let time_px = 62.0 * sf;
+        let time_px = 120.0;
         let time_spacing = (-0.03 * time_px).round();
         draw_text_center_with_spacing(&mut out, &*sfpro, time_px, cx, cy, hex_color("#000000")?, &time_text, time_spacing);
     }
@@ -646,7 +646,7 @@ pub async fn generate_depop_variant(
         // Strict center placement inside time layer bbox (no empirical offsets).
         let cx = x as f32 + w as f32 / 2.0;
         let cy = y as f32 + h as f32 / 2.0;
-        let time_px = 62.0 * sf;
+        let time_px = 120.0;
         let time_spacing = (-0.03 * time_px).round();
         draw_text_center_with_spacing(&mut out, &*sfpro, time_px, cx, cy, hex_color("#000000")?, &time_text, time_spacing);
     }

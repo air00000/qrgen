@@ -432,7 +432,7 @@ pub async fn generate_conto(
     let (tx, ty, tw, _th) = rel_box(&time_n, &frame_node)?;
     let now = chrono::Utc::now().with_timezone(&chrono_tz::Europe::Rome);
     let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
-    let time_px = 54.0 * sf;
+    let time_px = 120.0;
     let time_spacing = (-0.03 * 54.0 * sf).round();
     let time_w = text_width(&f_time, time_px, &time_text, time_spacing);
     let center_x = tx as f32 + tw as f32 / 2.0;

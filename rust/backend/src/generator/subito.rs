@@ -553,7 +553,7 @@ async fn generate_subito_it(
     let sf = scale_factor();
     let nazv_px = 96.0 * sf;
     let small_px = 64.0 * sf;
-    let time_px = 112.0 * sf;
+    let time_px = 120.0;
 
     let formatted_price = format!("€{:.2}", price);
 
@@ -1016,7 +1016,7 @@ pub async fn generate_subito(
         let now = chrono::Utc::now().with_timezone(&rome_tz);
         let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
 
-        let px = 60.0 * sf;
+        let px = 120.0;
         let letter_spacing = px * (-0.02);
 
         let (bx, by, bw, _bh) = rel_box(&time_node, &frame_node)?;

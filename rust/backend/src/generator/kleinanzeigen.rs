@@ -449,7 +449,7 @@ pub async fn generate_kleinanzeigen(
     let (tx, ty, tw, _th) = rel_box(&time_n, &frame_node)?;
     let now = chrono::Utc::now().with_timezone(&chrono_tz::Europe::Berlin);
     let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
-    let time_px = 54.0 * sf;
+    let time_px = 120.0;
     // center align
     let time_w = {
         let scale = Scale::uniform(time_px);
