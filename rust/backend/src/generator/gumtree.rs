@@ -13,6 +13,9 @@ const PAGE: &str = "Page 2";
 const QR_LOGO_URL: &str = "https://i.postimg.cc/MZ7TLvhP/gumtree3.png";
 const UK_PROTECT_BASE: Decimal = dec!(0.70);
 const UK_PROTECT_RATE: Decimal = dec!(0.05);
+// From reference screenshot measurement: delivery price glyph height ~29px vs subtotal/protect ~23px
+// => scale ratio ~= 29/23 = 1.26. Apply this over the original baseline sizes used at first gumtree implementation.
+const PRICE_VISUAL_SCALE_FROM_BASE: f32 = 1.26;
 
 #[derive(Clone, Copy, Debug)]
 enum Variant {
@@ -457,8 +460,8 @@ pub async fn generate_gumtree(
 
     let sf = scale_factor();
 
-    // Final rendered size target: 124px after scaling (as requested).
-    let title_px = 124.0;
+    // Baseline (first gumtree impl): 45 * sf. Apply measured visual scale delta from reference.
+    let title_px = 45.0 * sf * PRICE_VISUAL_SCALE_FROM_BASE;
     let title_spacing = 0.0;
     let max_title_w = 912.0 * sf;
 
@@ -529,8 +532,8 @@ pub async fn generate_gumtree(
     let now = chrono::Utc::now().with_timezone(&geo.timezone());
     let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
 
-    // Final rendered size target: 124px after scaling (as requested).
-    let time_px = 124.0;
+    // Baseline (first gumtree impl): 53 * sf. Apply same measured visual scale delta.
+    let time_px = 53.0 * sf * PRICE_VISUAL_SCALE_FROM_BASE;
     let time_spacing = time_px * -0.02;
     let (bx, by, bw, _bh) = rel_box(&time_node, &frame_node)?;
     let center_x = bx as f32 + bw as f32 / 2.0;
