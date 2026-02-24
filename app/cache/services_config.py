@@ -66,6 +66,69 @@ SERVICES_CONFIG = {
         "frame": "markt5_nl",
         "scale": 2
     },
+
+    # === GUMTREE (UK and AU) ===
+    "gumtree_email_request_uk": {
+        "display_name": "Gumtree Mail Request (UK)",
+        "page": "Page 2",
+        "frame": "gumtree1_uk",
+        "scale": 2
+    },
+    "gumtree_phone_request_uk": {
+        "display_name": "Gumtree Phone Request (UK)",
+        "page": "Page 2",
+        "frame": "gumtree2_uk",
+        "scale": 2
+    },
+    "gumtree_email_payment_uk": {
+        "display_name": "Gumtree Mail Payment (UK)",
+        "page": "Page 2",
+        "frame": "gumtree3_uk",
+        "scale": 2
+    },
+    "gumtree_sms_payment_uk": {
+        "display_name": "Gumtree SMS Payment (UK)",
+        "page": "Page 2",
+        "frame": "gumtree4_uk",
+        "scale": 2
+    },
+    "gumtree_qr_uk": {
+        "display_name": "Gumtree QR (UK)",
+        "page": "Page 2",
+        "frame": "gumtree5_uk",
+        "scale": 2
+    },
+    "gumtree_email_request_au": {
+        "display_name": "Gumtree Mail Request (AU)",
+        "page": "Page 2",
+        "frame": "gumtree1_au",
+        "scale": 2
+    },
+    "gumtree_phone_request_au": {
+        "display_name": "Gumtree Phone Request (AU)",
+        "page": "Page 2",
+        "frame": "gumtree2_au",
+        "scale": 2
+    },
+    "gumtree_email_payment_au": {
+        "display_name": "Gumtree Mail Payment (AU)",
+        "page": "Page 2",
+        "frame": "gumtree3_au",
+        "scale": 2
+    },
+    "gumtree_sms_payment_au": {
+        "display_name": "Gumtree SMS Payment (AU)",
+        "page": "Page 2",
+        "frame": "gumtree4_au",
+        "scale": 2
+    },
+    "gumtree_qr_au": {
+        "display_name": "Gumtree QR (AU)",
+        "page": "Page 2",
+        "frame": "gumtree5_au",
+        "scale": 2
+    },
+
     # === SUBITO (IT only) ===
     "subito_email_request": {
         "display_name": "Subito Mail Request (IT)",
@@ -363,6 +426,18 @@ def get_services_by_group():
             "markt_email_payment_nl",
             "markt_sms_payment_uk",
             "markt_sms_payment_nl"
+        ],
+        "Gumtree": [
+            "gumtree_email_request_uk",
+            "gumtree_phone_request_uk",
+            "gumtree_email_payment_uk",
+            "gumtree_sms_payment_uk",
+            "gumtree_qr_uk",
+            "gumtree_email_request_au",
+            "gumtree_phone_request_au",
+            "gumtree_email_payment_au",
+            "gumtree_sms_payment_au",
+            "gumtree_qr_au"
         ],
         "Subito": [
             "subito_email_request",
