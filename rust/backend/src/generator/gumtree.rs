@@ -464,8 +464,8 @@ pub async fn generate_gumtree(
     let title_px = 45.0 * sf * PRICE_VISUAL_SCALE_FROM_BASE;
     let title_spacing = 0.0;
     let max_title_w = 912.0 * sf;
-    // In the same spirit: slightly larger + bold for product title/price under item card.
-    let main_item_px = title_px * 1.08;
+    // Use the same measured delta as agreed (+26% from baseline via title_px).
+    let main_item_px = title_px;
 
     let title_l1_node = node(&format!("nazv_str1_{frame_name}"))?;
     let title_l2_node = node(&format!("nazv_str2_{frame_name}"))?;
