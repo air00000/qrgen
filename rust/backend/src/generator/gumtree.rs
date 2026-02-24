@@ -357,15 +357,6 @@ fn product_photo_from_b64(photo_b64: &str, w: u32, h: u32) -> Result<Option<Dyna
     Ok(Some(DynamicImage::ImageRgba8(resized)))
 }
 
-fn find_first_node(template: &serde_json::Value, names: &[String]) -> Option<serde_json::Value> {
-    for name in names {
-        if let Some(n) = figma::find_node(template, PAGE, name) {
-            return Some(n);
-        }
-    }
-    None
-}
-
 async fn generate_qr_png(http: &reqwest::Client, url: &str) -> Result<DynamicImage, GenError> {
     let payload = serde_json::json!({
         "text": url,
@@ -491,17 +482,11 @@ pub async fn generate_gumtree(
         total += protect;
         let protect_text = format_currency(geo, protect);
 
-        let protect_candidates = vec![
-            format!("protect_{frame_name}"),
-            format!("protect_{}_{}", frame_base, geo.suffix()),
-            format!("protect_{}_uk", frame_name),
-        ];
-        if let Some(protect_node) = find_first_node(&template_json, &protect_candidates) {
-            let (prx, pry, prw, _prh) = rel_box(&protect_node, &frame_node)?;
-            let ww = text_width(&*title_font, title_px, &protect_text, 0.0);
-            let start_x = (prx + prw) as f32 - ww;
-            draw_text_with_letter_spacing(&mut out, &*title_font, title_px, start_x.round() as i32, pry as i32, hex_color("#1A303C")?, &protect_text, 0.0);
-        }
+        let protect_node = node(&format!("protect_{frame_name}"))?;
+        let (prx, pry, prw, _prh) = rel_box(&protect_node, &frame_node)?;
+        let ww = text_width(&*title_font, title_px, &protect_text, 0.0);
+        let start_x = (prx + prw) as f32 - ww;
+        draw_text_with_letter_spacing(&mut out, &*title_font, title_px, start_x.round() as i32, pry as i32, hex_color("#1A303C")?, &protect_text, 0.0);
     }
 
     let total_text = format_currency(geo, total);
@@ -523,41 +508,30 @@ pub async fn generate_gumtree(
         }
     }
 
-    let time_candidates = vec![
-        format!("time_{frame_name}"),
-        format!("time_{}", frame_base),
-    ];
-    if let Some(time_node) = find_first_node(&template_json, &time_candidates) {
-        let now = chrono::Utc::now().with_timezone(&geo.timezone());
-        let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
+    let time_node = node(&format!("time_{frame_name}"))?;
+    let now = chrono::Utc::now().with_timezone(&geo.timezone());
+    let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
 
-        let time_px = 53.0 * sf;
-        let time_spacing = time_px * -0.02;
-        let (bx, by, bw, _bh) = rel_box(&time_node, &frame_node)?;
-        let center_x = bx as f32 + bw as f32 / 2.0;
-        let width = text_width(&*time_font, time_px, &time_text, time_spacing);
-        let start_x = center_x - width / 2.0;
-        draw_text_with_letter_spacing(&mut out, &*time_font, time_px, start_x.round() as i32, by as i32, hex_color("#FFFFFF")?, &time_text, time_spacing);
-    }
+    let time_px = 53.0 * sf;
+    let time_spacing = time_px * -0.02;
+    let (bx, by, bw, _bh) = rel_box(&time_node, &frame_node)?;
+    let center_x = bx as f32 + bw as f32 / 2.0;
+    let width = text_width(&*time_font, time_px, &time_text, time_spacing);
+    let start_x = center_x - width / 2.0;
+    draw_text_with_letter_spacing(&mut out, &*time_font, time_px, start_x.round() as i32, by as i32, hex_color("#FFFFFF")?, &time_text, time_spacing);
 
     if variant.has_qr() {
-        let qr_candidates = vec![
-            format!("qr_{frame_name}"),
-            format!("qr_{}", frame_base),
-            "qr_subito10".to_string(),
-        ];
-        if let Some(qr_node) = find_first_node(&template_json, &qr_candidates) {
-            let url = url.unwrap_or_default();
-            let (qx, qy, qw, qh) = rel_box(&qr_node, &frame_node)?;
+        let qr_node = node(&format!("qr_{frame_name}"))?;
+        let url = url.unwrap_or_default();
+        let (qx, qy, qw, qh) = rel_box(&qr_node, &frame_node)?;
 
-            let mut qr_img = generate_qr_png(http, url).await?;
-            qr_img = qr_img.resize_exact(482, 482, image::imageops::FilterType::Lanczos3);
-            let qr = apply_round_corners_alpha(qr_img.to_rgba8(), 16);
+        let mut qr_img = generate_qr_png(http, url).await?;
+        qr_img = qr_img.resize_exact(482, 482, image::imageops::FilterType::Lanczos3);
+        let qr = apply_round_corners_alpha(qr_img.to_rgba8(), 16);
 
-            let dx = ((qw as i32 - qr.width() as i32) / 2).max(0) as u32;
-            let dy = ((qh as i32 - qr.height() as i32) / 2).max(0) as u32;
-            overlay_alpha(&mut out, &qr, qx + dx, qy + dy);
-        }
+        let dx = ((qw as i32 - qr.width() as i32) / 2).max(0) as u32;
+        let dy = ((qh as i32 - qr.height() as i32) / 2).max(0) as u32;
+        overlay_alpha(&mut out, &qr, qx + dx, qy + dy);
     }
 
     util::png_encode_rgba8(&out).map_err(GenError::Image)
