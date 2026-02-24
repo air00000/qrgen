@@ -368,7 +368,7 @@ pub async fn generate_twodehands(
     let tz = tz_for_service(service);
     let now = chrono::Utc::now().with_timezone(&tz);
     let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
-    let time_px = 120.0;
+    let time_px: f32 = 120.0;
     let time_w = text_width(&font_semi, time_px, &time_text, 0.0);
     let center_x = tx as f32 + tw as f32 / 2.0;
     let start_x = center_x - time_w / 2.0;

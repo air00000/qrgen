@@ -570,7 +570,7 @@ pub async fn generate_wallapop(
     let title_px = 46.0 * sf;
     let price_px = 64.0 * sf;
     let name_px = 48.0 * sf;
-    let time_px = 120.0;
+    let time_px: f32 = 120.0;
     let big_px = 230.0 * sf;
     let big_small_px = 137.0 * sf;
 

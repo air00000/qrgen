@@ -452,7 +452,7 @@ pub async fn generate_markt(
         let tz = tz_for_lang(lang);
         let now = chrono::Utc::now().with_timezone(&tz);
         let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
-        let time_px = 120.0;
+        let time_px: f32 = 120.0;
         let time_spacing = time_px * -0.02;
         let width = text_width(&time_font, time_px, &time_text, time_spacing);
         let center_x = ix as f32 + (iw as f32 / 2.0);

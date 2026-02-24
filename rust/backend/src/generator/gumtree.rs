@@ -547,7 +547,7 @@ pub async fn generate_gumtree(
     let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
 
     // Fixed final rendered size across all gumtree templates.
-    let time_px = 120.0;
+    let time_px: f32 = 120.0;
     let time_spacing = time_px * -0.02;
     let (bx, by, bw, _bh) = rel_box(&time_node, &frame_node)?;
     let center_x = bx as f32 + bw as f32 / 2.0;

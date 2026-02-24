@@ -371,7 +371,7 @@ pub async fn generate_conto(
 
     // price with raised decimals
     let (px, py, _pw, _ph) = rel_box(&price_n, &frame_node)?;
-    let mut price_str = format!("-{:.2} €", price).replace('.', ",");
+    let price_str = format!("-{:.2} €", price).replace('.', ",");
     // python had a quirky replace for ",-"; keep simple
     if let Some((int_part, dec_part)) = price_str.split_once(',') {
         let integer_part = int_part.to_string();
@@ -432,7 +432,7 @@ pub async fn generate_conto(
     let (tx, ty, tw, _th) = rel_box(&time_n, &frame_node)?;
     let now = chrono::Utc::now().with_timezone(&chrono_tz::Europe::Rome);
     let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
-    let time_px = 120.0;
+    let time_px: f32 = 120.0;
     let time_spacing = (-0.03 * 54.0 * sf).round();
     let time_w = text_width(&f_time, time_px, &time_text, time_spacing);
     let center_x = tx as f32 + tw as f32 / 2.0;
