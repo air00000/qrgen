@@ -579,7 +579,7 @@ pub async fn generate_gumtree(
         let mut qr_img = generate_qr_png(http, url).await?;
         // Match QR height to its layout block height for better visual parity with the text block.
         // Keep square QR by using the minimum side of the placeholder box.
-        let qr_target = qw.min(qh).max(1);
+        let qr_target = ((qw.min(qh) as f32) * 1.05).round() as u32;
         qr_img = qr_img.resize_exact(qr_target, qr_target, image::imageops::FilterType::Lanczos3);
         let qr = apply_round_corners_alpha(qr_img.to_rgba8(), 16);
 
