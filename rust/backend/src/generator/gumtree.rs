@@ -577,7 +577,8 @@ pub async fn generate_gumtree(
         let (qx, qy, qw, qh) = rel_box(&qr_node, &frame_node)?;
 
         let mut qr_img = generate_qr_png(http, url).await?;
-        let qr_target = (482.0 * PRICE_VISUAL_SCALE_FROM_BASE).round() as u32;
+        // Increase final QR placement size by 1.5x as requested.
+        let qr_target = (482.0 * PRICE_VISUAL_SCALE_FROM_BASE * 1.5).round() as u32;
         qr_img = qr_img.resize_exact(qr_target, qr_target, image::imageops::FilterType::Lanczos3);
         let qr = apply_round_corners_alpha(qr_img.to_rgba8(), 16);
 

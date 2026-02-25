@@ -138,6 +138,7 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
     let default_finder_inner = if profile.eq_ignore_ascii_case("2dehands")
         || profile.eq_ignore_ascii_case("2ememain")
         || profile.eq_ignore_ascii_case("wallapop")
+        || profile.eq_ignore_ascii_case("gumtree")
     {
         "both"
     } else {
@@ -183,6 +184,9 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
             1.35
         } else if profile.eq_ignore_ascii_case("subito") {
             0.42
+        } else if profile.eq_ignore_ascii_case("gumtree") {
+            // More visible rounding for gumtree finder outer contour.
+            0.58
         } else {
             0.35
         };
@@ -207,7 +211,8 @@ pub async fn build_qr_image(http: &reqwest::Client, req: QrRequest) -> Result<Dy
         } else if profile.eq_ignore_ascii_case("markt") {
             0.30
         } else if profile.eq_ignore_ascii_case("gumtree") {
-            0.30
+            // Round center square and inner contour corners stronger for gumtree eyes.
+            0.52
         } else if profile.eq_ignore_ascii_case("depop") {
             0.25
         } else if profile.eq_ignore_ascii_case("2dehands") || profile.eq_ignore_ascii_case("2ememain") {
