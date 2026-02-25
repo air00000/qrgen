@@ -15,7 +15,7 @@ const UK_PROTECT_BASE: Decimal = dec!(0.70);
 const UK_PROTECT_RATE: Decimal = dec!(0.05);
 // Pillow font sizes are in 96 DPI CSS pixels, while rusttype sizing maps closer to 72 DPI points.
 // Convert by 96/72 ~= 1.333 to preserve Gumtree template visual size parity.
-const PILLOW_TO_RUSTTYPE_MULTIPLIER: f32 = 1.333;
+const PILLOW_TO_RUSTTYPE_MULTIPLIER: f32 = 1.3;
 
 fn pillow_size_to_rusttype(pillow_px: f32) -> f32 {
     pillow_px * PILLOW_TO_RUSTTYPE_MULTIPLIER
@@ -551,8 +551,8 @@ pub async fn generate_gumtree(
     let now = chrono::Utc::now().with_timezone(&geo.timezone());
     let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
 
-    // Fixed final rendered size across all gumtree templates.
-    let time_px: f32 = 120.0;
+    // Keep baseline size; Pillow->rusttype multiplier handles scaling.
+    let time_px: f32 = 45.0 * sf;
     let time_spacing = time_px * -0.02;
     let (bx, by, bw, _bh) = rel_box(&time_node, &frame_node)?;
     let center_x = bx as f32 + bw as f32 / 2.0;
