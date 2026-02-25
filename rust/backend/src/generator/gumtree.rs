@@ -16,6 +16,13 @@ const UK_PROTECT_RATE: Decimal = dec!(0.05);
 // From reference screenshot measurement: delivery price glyph height ~29px vs subtotal/protect ~23px
 // => scale ratio ~= 29/23 = 1.26. Apply this over the original baseline sizes used at first gumtree implementation.
 const PRICE_VISUAL_SCALE_FROM_BASE: f32 = 1.26;
+// Pillow font sizes are in 96 DPI CSS pixels, while rusttype sizing maps closer to 72 DPI points.
+// Convert by 96/72 ~= 1.333 to preserve Gumtree template visual size parity.
+const PILLOW_TO_RUSTTYPE_MULTIPLIER: f32 = 1.333;
+
+fn pillow_size_to_rusttype(pillow_px: f32) -> f32 {
+    pillow_px * PILLOW_TO_RUSTTYPE_MULTIPLIER
+}
 
 #[derive(Clone, Copy, Debug)]
 enum Variant {
@@ -138,7 +145,8 @@ fn text_width(font: &Font<'static>, px: f32, text: &str, letter_spacing: f32) ->
     if text.is_empty() {
         return 0.0;
     }
-    let scale = Scale::uniform(px);
+    let rusttype_px = pillow_size_to_rusttype(px);
+    let scale = Scale::uniform(rusttype_px);
     let v_metrics = font.v_metrics(scale);
     let glyphs: Vec<_> = font.layout(text, scale, point(0.0, v_metrics.ascent)).collect();
 
@@ -240,7 +248,8 @@ fn draw_text_with_letter_spacing(
     text: &str,
     letter_spacing: f32,
 ) {
-    let scale = Scale::uniform(px);
+    let rusttype_px = pillow_size_to_rusttype(px);
+    let scale = Scale::uniform(rusttype_px);
     let v_metrics = font.v_metrics(scale);
     let mut caret_x = x as f32;
     let baseline_y = y as f32 + v_metrics.ascent;
