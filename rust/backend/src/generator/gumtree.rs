@@ -465,7 +465,7 @@ pub async fn generate_gumtree(
         figma::find_node(&template_json, PAGE, name)
     };
 
-    let title_font = load_font("ReadexPro-SemiBold.ttf")?;
+    let title_font = load_font("GumtreeCustom.ttf")?;
     let time_font = load_font("SFProText-Semibold.ttf")?;
 
     let sf = scale_factor();
