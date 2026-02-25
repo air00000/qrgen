@@ -23,6 +23,11 @@ base64 = "0.22"
 # text/fonts/time/decimal
 rusttype = "0.9"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+# optional skia+harfbuzz renderer path for gumtree
+skia-safe = { version = "0.78", optional = true, features = ["textlayout", "binary-cache"] }
+rustybuzz = { version = "0.20", optional = true }
+ttf-parser = { version = "0.25", optional = true }
 chrono-tz = "0.10"
 rust_decimal = { version = "1", features = ["serde"] }
 rust_decimal_macros = "1"
@@ -44,6 +49,8 @@ utoipa-swagger-ui = { version = "8", features = ["axum"] }
 [features]
 # Lightweight timing logs (tracing target="perf").
 perf = []
+# Compile optional gumtree renderer built on Skia + HarfBuzz-compatible shaping.
+skia_hb = ["dep:skia-safe", "dep:rustybuzz", "dep:ttf-parser"]
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

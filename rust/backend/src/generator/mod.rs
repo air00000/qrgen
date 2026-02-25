@@ -1,11 +1,13 @@
-pub mod markt;
-pub mod subito;
-pub mod wallapop;
-pub mod twodehands;
-pub mod kleinanzeigen;
 pub mod conto;
 pub mod depop;
 pub mod gumtree;
+#[cfg(feature = "skia_hb")]
+pub mod gumtree_skia_hb;
+pub mod kleinanzeigen;
+pub mod markt;
+pub mod subito;
+pub mod twodehands;
+pub mod wallapop;
 
 mod font_cache;
 

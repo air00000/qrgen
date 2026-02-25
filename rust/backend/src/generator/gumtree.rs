@@ -97,7 +97,9 @@ impl Geo {
     }
 }
 
-fn scale_factor() -> f32 { 2.0 }
+fn scale_factor() -> f32 {
+    2.0
+}
 
 fn load_font(name: &str) -> Result<std::sync::Arc<Font<'static>>, GenError> {
     super::font_cache::load_font_cached(name)
@@ -113,9 +115,14 @@ fn bbox(v: &serde_json::Value) -> Option<(f32, f32, f32, f32)> {
     ))
 }
 
-fn rel_box(node: &serde_json::Value, frame_node: &serde_json::Value) -> Result<(u32, u32, u32, u32), GenError> {
-    let (x, y, w, h) = bbox(node).ok_or_else(|| GenError::Internal("missing absoluteBoundingBox".into()))?;
-    let (fx, fy, _fw, _fh) = bbox(frame_node).ok_or_else(|| GenError::Internal("missing frame absoluteBoundingBox".into()))?;
+fn rel_box(
+    node: &serde_json::Value,
+    frame_node: &serde_json::Value,
+) -> Result<(u32, u32, u32, u32), GenError> {
+    let (x, y, w, h) =
+        bbox(node).ok_or_else(|| GenError::Internal("missing absoluteBoundingBox".into()))?;
+    let (fx, fy, _fw, _fh) = bbox(frame_node)
+        .ok_or_else(|| GenError::Internal("missing frame absoluteBoundingBox".into()))?;
     let sf = scale_factor();
     Ok((
         ((x - fx) * sf).round() as u32,
@@ -140,7 +147,9 @@ fn text_width(font: &Font<'static>, px: f32, text: &str, letter_spacing: f32) ->
     }
     let scale = Scale::uniform(px);
     let v_metrics = font.v_metrics(scale);
-    let glyphs: Vec<_> = font.layout(text, scale, point(0.0, v_metrics.ascent)).collect();
+    let glyphs: Vec<_> = font
+        .layout(text, scale, point(0.0, v_metrics.ascent))
+        .collect();
 
     let mut width: f32 = 0.0;
     for (i, g) in glyphs.iter().enumerate() {
@@ -154,13 +163,21 @@ fn text_width(font: &Font<'static>, px: f32, text: &str, letter_spacing: f32) ->
     width
 }
 
-fn truncate_to_width(font: &Font<'static>, px: f32, text: &str, max_width: f32, letter_spacing: f32) -> String {
+fn truncate_to_width(
+    font: &Font<'static>,
+    px: f32,
+    text: &str,
+    max_width: f32,
+    letter_spacing: f32,
+) -> String {
     if text_width(font, px, text, letter_spacing) <= max_width {
         return text.to_string();
     }
     let ellipsis = "...";
     let mut trimmed = text.to_string();
-    while !trimmed.is_empty() && text_width(font, px, &(trimmed.clone() + ellipsis), letter_spacing) > max_width {
+    while !trimmed.is_empty()
+        && text_width(font, px, &(trimmed.clone() + ellipsis), letter_spacing) > max_width
+    {
         trimmed.pop();
     }
     if trimmed.is_empty() {
@@ -170,7 +187,13 @@ fn truncate_to_width(font: &Font<'static>, px: f32, text: &str, max_width: f32, 
     }
 }
 
-fn split_title_two_lines(font: &Font<'static>, px: f32, text: &str, max_width: f32, letter_spacing: f32) -> (String, String) {
+fn split_title_two_lines(
+    font: &Font<'static>,
+    px: f32,
+    text: &str,
+    max_width: f32,
+    letter_spacing: f32,
+) -> (String, String) {
     let clean = text.trim();
     if clean.is_empty() {
         return (String::new(), String::new());
@@ -181,7 +204,10 @@ fn split_title_two_lines(font: &Font<'static>, px: f32, text: &str, max_width: f
 
     let words: Vec<&str> = clean.split_whitespace().collect();
     if words.is_empty() {
-        return (truncate_to_width(font, px, clean, max_width, letter_spacing), String::new());
+        return (
+            truncate_to_width(font, px, clean, max_width, letter_spacing),
+            String::new(),
+        );
     }
 
     let mut line1 = String::new();
@@ -211,7 +237,11 @@ fn split_title_two_lines(font: &Font<'static>, px: f32, text: &str, max_width: f
                 break;
             }
         }
-        line1 = if chars.is_empty() { first.chars().take(1).collect() } else { chars };
+        line1 = if chars.is_empty() {
+            first.chars().take(1).collect()
+        } else {
+            chars
+        };
         let remainder_first = &first[line1.len()..];
         let mut rem_parts: Vec<String> = Vec::new();
         if !remainder_first.is_empty() {
@@ -246,7 +276,10 @@ fn draw_text_with_letter_spacing(
     let baseline_y = y as f32 + v_metrics.ascent;
 
     for ch in text.chars() {
-        let glyph = font.glyph(ch).scaled(scale).positioned(point(caret_x, baseline_y));
+        let glyph = font
+            .glyph(ch)
+            .scaled(scale)
+            .positioned(point(caret_x, baseline_y));
         if let Some(bb) = glyph.pixel_bounding_box() {
             glyph.draw(|gx, gy, v| {
                 let px = gx as i32 + bb.min.x;
@@ -295,7 +328,16 @@ fn draw_text_bold_with_letter_spacing(
             if dx == 0 && dy == 0 {
                 continue;
             }
-            draw_text_with_letter_spacing(img, font, px, x + dx, y + dy, color, text, letter_spacing);
+            draw_text_with_letter_spacing(
+                img,
+                font,
+                px,
+                x + dx,
+                y + dy,
+                color,
+                text,
+                letter_spacing,
+            );
         }
     }
 
@@ -306,7 +348,12 @@ fn draw_text_bold_with_letter_spacing(
     draw_text_with_letter_spacing(img, font, px, x, y + 2, color, text, letter_spacing);
 }
 
-fn overlay_alpha(base: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, over: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, y: u32) {
+fn overlay_alpha(
+    base: &mut ImageBuffer<Rgba<u8>, Vec<u8>>,
+    over: &ImageBuffer<Rgba<u8>, Vec<u8>>,
+    x: u32,
+    y: u32,
+) {
     for oy in 0..over.height() {
         for ox in 0..over.width() {
             let p = over.get_pixel(ox, oy);
@@ -329,7 +376,10 @@ fn overlay_alpha(base: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, over: &ImageBuffer<R
     }
 }
 
-fn apply_round_corners_alpha(mut img: ImageBuffer<Rgba<u8>, Vec<u8>>, radius: u32) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
+fn apply_round_corners_alpha(
+    mut img: ImageBuffer<Rgba<u8>, Vec<u8>>,
+    radius: u32,
+) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     let (w, h) = (img.width() as i32, img.height() as i32);
     let r = radius as i32;
     for y in 0..h {
@@ -342,9 +392,17 @@ fn apply_round_corners_alpha(mut img: ImageBuffer<Rgba<u8>, Vec<u8>>, radius: u3
                 continue;
             }
             let (cx, cy) = if x < r {
-                if y < r { (r - 1, r - 1) } else { (r - 1, h - r) }
+                if y < r {
+                    (r - 1, r - 1)
+                } else {
+                    (r - 1, h - r)
+                }
             } else {
-                if y < r { (w - r, r - 1) } else { (w - r, h - r) }
+                if y < r {
+                    (w - r, r - 1)
+                } else {
+                    (w - r, h - r)
+                }
             };
             let dx = x - cx;
             let dy = y - cy;
@@ -367,7 +425,11 @@ fn protection_fee_uk(price: Decimal) -> Decimal {
         .round_dp_with_strategy(2, rust_decimal::RoundingStrategy::MidpointAwayFromZero)
 }
 
-fn product_photo_from_b64(photo_b64: &str, w: u32, h: u32) -> Result<Option<DynamicImage>, GenError> {
+fn product_photo_from_b64(
+    photo_b64: &str,
+    w: u32,
+    h: u32,
+) -> Result<Option<DynamicImage>, GenError> {
     let Some(bytes) = util::b64_decode(photo_b64) else {
         return Ok(None);
     };
@@ -378,9 +440,15 @@ fn product_photo_from_b64(photo_b64: &str, w: u32, h: u32) -> Result<Option<Dyna
     let target_ratio = w as f32 / h as f32;
     let src_ratio = img.width() as f32 / img.height() as f32;
     let (crop_w, crop_h) = if src_ratio > target_ratio {
-        ((img.height() as f32 * target_ratio).round() as u32, img.height())
+        (
+            (img.height() as f32 * target_ratio).round() as u32,
+            img.height(),
+        )
     } else {
-        (img.width(), (img.width() as f32 / target_ratio).round() as u32)
+        (
+            img.width(),
+            (img.width() as f32 / target_ratio).round() as u32,
+        )
     };
 
     let left = (img.width().saturating_sub(crop_w)) / 2;
@@ -404,11 +472,29 @@ async fn generate_qr_png(http: &reqwest::Client, url: &str) -> Result<DynamicIma
         "os": 1
     });
 
-    let req: qr::QrRequest = serde_json::from_value(payload).map_err(|e| GenError::Internal(e.to_string()))?;
+    let req: qr::QrRequest =
+        serde_json::from_value(payload).map_err(|e| GenError::Internal(e.to_string()))?;
     let img = qr::build_qr_image(http, req)
         .await
         .map_err(|e| GenError::BadRequest(e.to_string()))?;
     Ok(img)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum GumtreeRenderer {
+    Legacy,
+    SkiaHb,
+}
+
+fn selected_renderer() -> GumtreeRenderer {
+    match std::env::var("GUMTREE_RENDERER")
+        .unwrap_or_else(|_| "legacy".to_string())
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "skia_hb" => GumtreeRenderer::SkiaHb,
+        _ => GumtreeRenderer::Legacy,
+    }
 }
 
 pub async fn generate_gumtree(
@@ -420,8 +506,27 @@ pub async fn generate_gumtree(
     photo_b64: Option<&str>,
     url: Option<&str>,
 ) -> Result<Vec<u8>, GenError> {
-    let variant = Variant::parse(method).ok_or_else(|| GenError::BadRequest(format!("unknown gumtree method: {method}")))?;
-    let geo = Geo::parse(country).ok_or_else(|| GenError::BadRequest(format!("gumtree supports only country=uk|au (got: {country})")))?;
+    if selected_renderer() == GumtreeRenderer::SkiaHb {
+        #[cfg(feature = "skia_hb")]
+        {
+            return super::gumtree_skia_hb::generate_gumtree_skia_hb(
+                http, country, method, title, price, photo_b64, url,
+            )
+            .await;
+        }
+        #[cfg(not(feature = "skia_hb"))]
+        {
+            tracing::warn!("GUMTREE_RENDERER=skia_hb requested but binary was built without feature `skia_hb`; using legacy renderer");
+        }
+    }
+
+    let variant = Variant::parse(method)
+        .ok_or_else(|| GenError::BadRequest(format!("unknown gumtree method: {method}")))?;
+    let geo = Geo::parse(country).ok_or_else(|| {
+        GenError::BadRequest(format!(
+            "gumtree supports only country=uk|au (got: {country})"
+        ))
+    })?;
 
     if variant.has_qr() && url.map(|s| s.trim().is_empty()).unwrap_or(true) {
         return Err(GenError::BadRequest("url is required for qr".into()));
@@ -469,9 +574,8 @@ pub async fn generate_gumtree(
         figma::find_node(&template_json, PAGE, name)
             .ok_or_else(|| GenError::BadRequest(format!("node not found: {name}")))
     };
-    let node_opt = |name: &str| -> Option<serde_json::Value> {
-        figma::find_node(&template_json, PAGE, name)
-    };
+    let node_opt =
+        |name: &str| -> Option<serde_json::Value> { figma::find_node(&template_json, PAGE, name) };
 
     let title_font = load_font("ReadexPro-SemiBold.ttf")?;
     let time_font = load_font("SFProText-Semibold.ttf")?;
@@ -487,17 +591,43 @@ pub async fn generate_gumtree(
 
     let title_l1_node = node(&format!("nazv_str1_{frame_name}"))?;
     let title_l2_node = node(&format!("nazv_str2_{frame_name}"))?;
-    let (line1, line2) = split_title_two_lines(&*title_font, main_item_px, title, max_title_w, title_spacing);
+    let (line1, line2) = split_title_two_lines(
+        &*title_font,
+        main_item_px,
+        title,
+        max_title_w,
+        title_spacing,
+    );
 
     let (x1, y1, _w1, _h1) = rel_box(&title_l1_node, &frame_node)?;
-    draw_text_bold_with_letter_spacing(&mut out, &*title_font, main_item_px, x1 as i32, y1 as i32, hex_color("#1A303C")?, &line1, title_spacing);
+    draw_text_bold_with_letter_spacing(
+        &mut out,
+        &*title_font,
+        main_item_px,
+        x1 as i32,
+        y1 as i32,
+        hex_color("#1A303C")?,
+        &line1,
+        title_spacing,
+    );
 
     if !line2.is_empty() {
         let (x2, y2, _w2, _h2) = rel_box(&title_l2_node, &frame_node)?;
-        draw_text_bold_with_letter_spacing(&mut out, &*title_font, main_item_px, x2 as i32, y2 as i32, hex_color("#1A303C")?, &line2, title_spacing);
+        draw_text_bold_with_letter_spacing(
+            &mut out,
+            &*title_font,
+            main_item_px,
+            x2 as i32,
+            y2 as i32,
+            hex_color("#1A303C")?,
+            &line2,
+            title_spacing,
+        );
     }
 
-    let price_dec = Decimal::from_f64_retain(price).unwrap_or(dec!(0)).round_dp_with_strategy(2, rust_decimal::RoundingStrategy::MidpointAwayFromZero);
+    let price_dec = Decimal::from_f64_retain(price)
+        .unwrap_or(dec!(0))
+        .round_dp_with_strategy(2, rust_decimal::RoundingStrategy::MidpointAwayFromZero);
     let price_text = format_currency(geo, price_dec);
 
     let price_node_name = if line2.is_empty() {
@@ -507,7 +637,16 @@ pub async fn generate_gumtree(
     };
     let price_node = node(&price_node_name)?;
     let (px, py, _pw, _ph) = rel_box(&price_node, &frame_node)?;
-    draw_text_bold_with_letter_spacing(&mut out, &*title_font, main_item_px, px as i32, py as i32, hex_color("#00883E")?, &price_text, 0.0);
+    draw_text_bold_with_letter_spacing(
+        &mut out,
+        &*title_font,
+        main_item_px,
+        px as i32,
+        py as i32,
+        hex_color("#00883E")?,
+        &price_text,
+        0.0,
+    );
 
     // Summary price block (subtotal/protect/total/finaltotal): single-pass, no synthetic bold.
     let summary_px = title_px;
@@ -516,7 +655,16 @@ pub async fn generate_gumtree(
     let (sx, sy, sw, _sh) = rel_box(&subtotal_node, &frame_node)?;
     let subtotal_w = text_width(&*title_font, summary_px, &price_text, 0.0);
     let subtotal_x = (sx + sw) as f32 - subtotal_w;
-    draw_text_bold_with_letter_spacing(&mut out, &*title_font, summary_px, subtotal_x.round() as i32, sy as i32, hex_color("#1A303C")?, &price_text, 0.0);
+    draw_text_bold_with_letter_spacing(
+        &mut out,
+        &*title_font,
+        summary_px,
+        subtotal_x.round() as i32,
+        sy as i32,
+        hex_color("#1A303C")?,
+        &price_text,
+        0.0,
+    );
 
     let mut total = price_dec + geo.shipping();
 
@@ -529,7 +677,16 @@ pub async fn generate_gumtree(
         let (prx, pry, prw, _prh) = rel_box(&protect_node, &frame_node)?;
         let ww = text_width(&*title_font, summary_px, &protect_text, 0.0);
         let start_x = (prx + prw) as f32 - ww;
-        draw_text_bold_with_letter_spacing(&mut out, &*title_font, summary_px, start_x.round() as i32, pry as i32, hex_color("#1A303C")?, &protect_text, 0.0);
+        draw_text_bold_with_letter_spacing(
+            &mut out,
+            &*title_font,
+            summary_px,
+            start_x.round() as i32,
+            pry as i32,
+            hex_color("#1A303C")?,
+            &protect_text,
+            0.0,
+        );
     }
 
     let total_text = format_currency(geo, total);
@@ -537,13 +694,31 @@ pub async fn generate_gumtree(
     let (tx, ty, tw, _th) = rel_box(&total_node, &frame_node)?;
     let total_w = text_width(&*title_font, summary_px, &total_text, 0.0);
     let total_x = (tx + tw) as f32 - total_w;
-    draw_text_bold_with_letter_spacing(&mut out, &*title_font, summary_px, total_x.round() as i32, ty as i32, hex_color("#1A303C")?, &total_text, 0.0);
+    draw_text_bold_with_letter_spacing(
+        &mut out,
+        &*title_font,
+        summary_px,
+        total_x.round() as i32,
+        ty as i32,
+        hex_color("#1A303C")?,
+        &total_text,
+        0.0,
+    );
 
     if let Some(final_total_node) = node_opt(&format!("finaltotalprice_{frame_name}")) {
         let (fx, fy, fw, _fh) = rel_box(&final_total_node, &frame_node)?;
         let final_w = text_width(&*title_font, summary_px, &total_text, 0.0);
         let final_x = (fx + fw) as f32 - final_w;
-        draw_text_bold_with_letter_spacing(&mut out, &*title_font, summary_px, final_x.round() as i32, fy as i32, hex_color("#1A303C")?, &total_text, 0.0);
+        draw_text_bold_with_letter_spacing(
+            &mut out,
+            &*title_font,
+            summary_px,
+            final_x.round() as i32,
+            fy as i32,
+            hex_color("#1A303C")?,
+            &total_text,
+            0.0,
+        );
     }
 
     if let Some(photo_b64) = photo_b64 {
@@ -569,7 +744,16 @@ pub async fn generate_gumtree(
     let center_x = bx as f32 + bw as f32 / 2.0;
     let width = text_width(&*time_font, time_px, &time_text, time_spacing);
     let start_x = center_x - width / 2.0;
-    draw_text_with_letter_spacing(&mut out, &*time_font, time_px, start_x.round() as i32, by as i32, hex_color("#000000")?, &time_text, time_spacing);
+    draw_text_with_letter_spacing(
+        &mut out,
+        &*time_font,
+        time_px,
+        start_x.round() as i32,
+        by as i32,
+        hex_color("#000000")?,
+        &time_text,
+        time_spacing,
+    );
 
     if variant.has_qr() {
         let qr_node = node(&format!("qr_{frame_name}"))?;
