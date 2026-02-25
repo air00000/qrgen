@@ -584,8 +584,11 @@ pub async fn generate_gumtree(
         let qr = apply_round_corners_alpha(qr_img.to_rgba8(), 16);
 
         let dx = ((qw as i32 - qr.width() as i32) / 2).max(0) as u32;
-        let dy = ((qh as i32 - qr.height() as i32) / 2).max(0) as u32;
-        overlay_alpha(&mut out, &qr, qx + dx, qy + dy);
+        // Nudge QR slightly upward to align better with the adjacent text block.
+        let base_dy = ((qh as i32 - qr.height() as i32) / 2).max(0);
+        let up_shift = ((qh as f32) * 0.06).round() as i32;
+        let draw_y = (qy as i32 + base_dy - up_shift).max(0) as u32;
+        overlay_alpha(&mut out, &qr, qx + dx, draw_y);
     }
 
     util::png_encode_rgba8(&out).map_err(GenError::Image)
