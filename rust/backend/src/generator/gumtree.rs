@@ -294,8 +294,6 @@ fn draw_text_bold_with_letter_spacing(
     draw_text_with_letter_spacing(img, font, px, x, y, color, text, letter_spacing);
     draw_text_with_letter_spacing(img, font, px, x - 1, y, color, text, letter_spacing);
     draw_text_with_letter_spacing(img, font, px, x + 1, y, color, text, letter_spacing);
-    // tiny extra weight
-    draw_text_with_letter_spacing(img, font, px, x, y + 1, color, text, letter_spacing);
 }
 
 fn overlay_alpha(base: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, over: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, y: u32) {
