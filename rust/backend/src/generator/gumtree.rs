@@ -586,7 +586,7 @@ pub async fn generate_gumtree(
         let dx = ((qw as i32 - qr.width() as i32) / 2).max(0) as u32;
         // Nudge QR slightly upward to align better with the adjacent text block.
         let base_dy = ((qh as i32 - qr.height() as i32) / 2).max(0);
-        let up_shift = ((qh as f32) * 0.06).round() as i32;
+        let up_shift = ((qh as f32) * 0.04).round() as i32;
         let draw_y = (qy as i32 + base_dy - up_shift).max(0) as u32;
         overlay_alpha(&mut out, &qr, qx + dx, draw_y);
     }
