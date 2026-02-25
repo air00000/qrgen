@@ -13,9 +13,6 @@ const PAGE: &str = "Page 2";
 const QR_LOGO_URL: &str = "https://i.postimg.cc/MZ7TLvhP/gumtree3.png";
 const UK_PROTECT_BASE: Decimal = dec!(0.70);
 const UK_PROTECT_RATE: Decimal = dec!(0.05);
-// From reference screenshot measurement: delivery price glyph height ~29px vs subtotal/protect ~23px
-// => scale ratio ~= 29/23 = 1.26. Apply this over the original baseline sizes used at first gumtree implementation.
-const PRICE_VISUAL_SCALE_FROM_BASE: f32 = 1.26;
 // Pillow font sizes are in 96 DPI CSS pixels, while rusttype sizing maps closer to 72 DPI points.
 // Convert by 96/72 ~= 1.333 to preserve Gumtree template visual size parity.
 const PILLOW_TO_RUSTTYPE_MULTIPLIER: f32 = 1.333;
@@ -294,25 +291,9 @@ fn draw_text_bold_with_letter_spacing(
     text: &str,
     letter_spacing: f32,
 ) {
-    // Medium-thick outline (13 passes):
-    // center + 8-neighborhood at radius 1 + cross at radius 2
     draw_text_with_letter_spacing(img, font, px, x, y, color, text, letter_spacing);
-
-    // radius 1
-    for dy in -1..=1 {
-        for dx in -1..=1 {
-            if dx == 0 && dy == 0 {
-                continue;
-            }
-            draw_text_with_letter_spacing(img, font, px, x + dx, y + dy, color, text, letter_spacing);
-        }
-    }
-
-    // radius 2 cross
-    draw_text_with_letter_spacing(img, font, px, x - 2, y, color, text, letter_spacing);
-    draw_text_with_letter_spacing(img, font, px, x + 2, y, color, text, letter_spacing);
-    draw_text_with_letter_spacing(img, font, px, x, y - 2, color, text, letter_spacing);
-    draw_text_with_letter_spacing(img, font, px, x, y + 2, color, text, letter_spacing);
+    draw_text_with_letter_spacing(img, font, px, x - 1, y, color, text, letter_spacing);
+    draw_text_with_letter_spacing(img, font, px, x + 1, y, color, text, letter_spacing);
 }
 
 fn overlay_alpha(base: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, over: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, y: u32) {
@@ -487,11 +468,10 @@ pub async fn generate_gumtree(
 
     let sf = scale_factor();
 
-    // Baseline (first gumtree impl): 45 * sf. Apply measured visual scale delta from reference.
-    let title_px = 45.0 * sf * PRICE_VISUAL_SCALE_FROM_BASE;
+    // Keep baseline sizing; only Pillow->rusttype conversion is applied inside text renderer.
+    let title_px = 45.0 * sf;
     let title_spacing = 0.0;
     let max_title_w = 912.0 * sf;
-    // Use the same measured delta as agreed (+26% from baseline via title_px).
     let main_item_px = title_px;
 
     let title_l1_node = node(&format!("nazv_str1_{frame_name}"))?;
