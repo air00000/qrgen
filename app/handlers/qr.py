@@ -19,6 +19,8 @@ from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, wallapop
 from app.utils.state_stack import push_state, pop_state, clear_stack
 from app.services.wallapop_variants import WALLAPOP_VARIANTS
 from app.config import CFG
+from app.handlers.subscription_access import ensure_generation_access
+from app.services.watermark import apply_enclave_watermark
 import requests
 
 logger = logging.getLogger(__name__)
@@ -392,6 +394,10 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await message.reply_text(f"Обрабатываю данные для {service}…", reply_markup=menu_back_kb())
 
     try:
+        if not await ensure_generation_access(update, context):
+            clear_stack(context.user_data)
+            return ConversationHandler.END
+
         photo_b64 = base64.b64encode(photo_bytes).decode('utf-8') if photo_bytes else None
         logger.info(f"📸 Генерация для {service}: фото={'есть (' + str(len(photo_b64)) + ' символов)' if photo_b64 else 'нет'}, название={nazvanie}, цена={price}")
 
@@ -430,6 +436,7 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
 
         image_data = await asyncio.to_thread(_backend_generate, payload)
+        image_data = await asyncio.to_thread(apply_enclave_watermark, image_data)
 
         await context.bot.send_document(
             chat_id=message.chat_id,

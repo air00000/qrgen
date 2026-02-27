@@ -13,22 +13,17 @@ def is_admin(update: Update) -> bool:
 
 
 async def enforce_admin_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Глобальный guard для любых входящих сообщений.
-
-    Пускает только пользователей из CFG.ADMIN_IDS.
-    """
-    if is_admin(update):
-        return
-
-    if update.message:
-        await update.message.reply_text(DENY_TEXT)
-
-    raise ApplicationHandlerStop
+    """Legacy hook: no global restrictions for regular users."""
+    return
 
 
 async def enforce_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Глобальный guard для callback_query (нажатия кнопок)."""
+    """Restrict only explicit admin sections."""
     if is_admin(update):
+        return
+
+    data = update.callback_query.data if update.callback_query else ""
+    if not data.startswith(("KEYS:", "API:", "CACHE:")):
         return
 
     if update.callback_query:
