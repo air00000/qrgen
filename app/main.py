@@ -27,6 +27,7 @@ from app.handlers.cache_admin import get_cache_handlers
 from app.handlers.subito_variants import subito_variants_conv
 from app.handlers.markt_variants import markt_conv
 from app.handlers.gumtree_variants import gumtree_variants_conv
+from app.handlers.access import enforce_admin_message, enforce_admin_callback
 from app.utils.notifications import set_bot_instance
 
 logging.basicConfig(
@@ -83,6 +84,11 @@ def start_bot():
     else:
         logger.info("📨 Уведомления: ВЫКЛ")
     
+    # Глобальный access-control: только user_id из ADMINS в .env
+    # group=-1: срабатывает раньше остальных handlers
+    app.add_handler(MessageHandler(filters.ALL, enforce_admin_message), group=-1)
+    app.add_handler(CallbackQueryHandler(enforce_admin_callback), group=-1)
+
     # Регистрация handlers
     # Порядок важен: ConversationHandler'ы регистрируются раньше глобальных CallbackQueryHandler
     app.add_handler(CommandHandler("start", start))
