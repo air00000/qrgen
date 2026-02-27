@@ -35,6 +35,7 @@
 ```env
 # Telegram
 TELEGRAM_BOT_TOKEN=xxx
+ADMINS=123456789   # через запятую; админы обходят подписки
 
 # Figma (нужно для генерации шаблонов)
 FIGMA_PAT=xxx
@@ -58,6 +59,21 @@ QR_BACKEND_URL=http://127.0.0.1:8080
 # Если очень нужно разрешить remote http(s) logoUrl (не рекомендуется):
 #   ALLOW_REMOTE_LOGO=1
 LOGO_DIR=app/assets/logos
+
+# DB / subscriptions
+APP_DB_PATH=app/data/app.db
+SUBSCRIPTION_DAY_PRICE_USDT=5
+SUBSCRIPTION_WEEK_PRICE_USDT=20
+
+# CryptoBot
+CRYPTOBOT_API_TOKEN=xxx
+CRYPTOBOT_API_BASE=https://pay.crypt.bot/api
+CRYPTOBOT_WEBHOOK_SECRET=change-me
+
+# Watermark (программный логотип ENCLAVE)
+WATERMARK_ENABLED=true
+WATERMARK_TEXT=ENCLAVE
+WATERMARK_OPACITY=64
 
 TZ=Europe/Amsterdam
 ```
@@ -122,6 +138,33 @@ curl -s -H 'X-API-Key: api_...' http://127.0.0.1:8080/api/status
 ```bash
 pip install -r app/requirements.txt
 python app/main.py
+```
+
+## Подписки и оплата (CryptoBot)
+
+- Команды бота: `/subscribe`, `/subscription`
+- В меню добавлена кнопка **💳 Подписка**
+- Тарифы: `day` и `week`
+- Стратегия повторной покупки: **продление** (если активная подписка уже есть, новый оплаченный период добавляется к её окончанию)
+- Идемпотентность: оплата обрабатывается по `payment_id` ровно один раз
+
+### Webhook для CryptoBot
+
+Подними API:
+
+```bash
+uvicorn app.api:app --host 0.0.0.0 --port 8081
+```
+
+Webhook endpoint:
+
+- `POST /payments/cryptobot/webhook`
+- Header: `X-CryptoBot-Secret: <CRYPTOBOT_WEBHOOK_SECRET>` (если секрет задан)
+
+В CryptoBot укажи URL вида:
+
+```text
+https://your-domain/payments/cryptobot/webhook
 ```
 
 ---
