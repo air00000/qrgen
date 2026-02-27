@@ -46,3 +46,15 @@ class CFG:
     # Уведомления о генерациях через API
     NOTIFICATIONS_CHAT_ID = os.getenv("NOTIFICATIONS_CHAT_ID")  # ID чата для уведомлений
     NOTIFY_API_GENERATIONS = os.getenv("NOTIFY_API_GENERATIONS", "true").lower() == "true"
+
+    # Payments / subscriptions
+    APP_DB_PATH = os.getenv("APP_DB_PATH", os.path.join(BASE_DIR, "data", "app.db"))
+    SUBSCRIPTION_DAY_PRICE_USDT = float(os.getenv("SUBSCRIPTION_DAY_PRICE_USDT", "5"))
+    SUBSCRIPTION_WEEK_PRICE_USDT = float(os.getenv("SUBSCRIPTION_WEEK_PRICE_USDT", "20"))
+    CRYPTOBOT_API_TOKEN = os.getenv("CRYPTOBOT_API_TOKEN")
+    CRYPTOBOT_API_BASE = os.getenv("CRYPTOBOT_API_BASE", "https://pay.crypt.bot/api")
+    CRYPTOBOT_WEBHOOK_SECRET = os.getenv("CRYPTOBOT_WEBHOOK_SECRET", "")
+
+    WATERMARK_ENABLED = os.getenv("WATERMARK_ENABLED", "true").lower() == "true"
+    WATERMARK_TEXT = os.getenv("WATERMARK_TEXT", "ENCLAVE")
+    WATERMARK_OPACITY = int(os.getenv("WATERMARK_OPACITY", "64"))

@@ -1,5 +1,5 @@
 # app/api.py
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Extra
 from typing import Optional, Any, List
@@ -36,6 +36,8 @@ from app.services.markt import (
 )
 from app.services.apikey import validate_key, get_key_name
 from app.utils.notifications import send_api_notification_sync
+from app.config import CFG
+from app.services.subscriptions import activate_payment
 
 app = FastAPI(title="QR Generator API")
 
@@ -554,7 +556,8 @@ async def generate(
             # Preserve backend message to the client.
             raise HTTPException(status_code=r.status_code, detail=r.text)
 
-        image_data = r.content
+        from app.services.watermark import apply_enclave_watermark
+        image_data = apply_enclave_watermark(r.content)
 
         service_name = f"{service}_{method}" if method not in ("qr", "payment") else service
         send_api_notification_sync(
@@ -794,3 +797,23 @@ async def api_status(key_name: str = Depends(verify_api_key)):
         "key_name": key_name,
         "message": "API key is valid"
     }
+
+
+@app.post("/payments/cryptobot/webhook")
+async def cryptobot_webhook(request: Request, x_cryptobot_secret: str = Header(default=None)):
+    if CFG.CRYPTOBOT_WEBHOOK_SECRET and x_cryptobot_secret != CFG.CRYPTOBOT_WEBHOOK_SECRET:
+        raise HTTPException(status_code=401, detail="invalid webhook secret")
+
+    payload = await request.json()
+    update_type = (payload.get("update_type") or "").lower()
+    if update_type not in ("invoice_paid", "invoice"):
+        return {"ok": True, "ignored": True}
+
+    invoice = payload.get("payload") or payload.get("invoice") or payload
+    payment_id = invoice.get("payload")
+    status = (invoice.get("status") or "").lower()
+    if not payment_id or status != "paid":
+        return {"ok": True, "ignored": True}
+
+    activated = activate_payment(payment_id, payload)
+    return {"ok": True, "activated": activated}

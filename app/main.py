@@ -28,6 +28,13 @@ from app.handlers.subito_variants import subito_variants_conv
 from app.handlers.markt_variants import markt_conv
 from app.handlers.gumtree_variants import gumtree_variants_conv
 from app.handlers.access import enforce_admin_message, enforce_admin_callback
+from app.handlers.subscriptions import (
+    subscription_entry,
+    subscription_status,
+    subscription_buy,
+    subscription_check,
+)
+from app.services.db import run_migrations
 from app.utils.notifications import set_bot_instance
 
 logging.basicConfig(
@@ -92,6 +99,12 @@ def start_bot():
     # Регистрация handlers
     # Порядок важен: ConversationHandler'ы регистрируются раньше глобальных CallbackQueryHandler
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("subscribe", subscription_entry))
+    app.add_handler(CommandHandler("subscription", subscription_status))
+    app.add_handler(CallbackQueryHandler(subscription_entry, pattern=r"^SUB:MENU$"))
+    app.add_handler(CallbackQueryHandler(subscription_status, pattern=r"^SUB:STATUS$"))
+    app.add_handler(CallbackQueryHandler(subscription_buy, pattern=r"^SUB:BUY:(day|week)$"))
+    app.add_handler(CallbackQueryHandler(subscription_check, pattern=r"^SUB:CHECK:"))
     app.add_handler(subito_variants_conv)       # QR:SUBITO → SN_TYPE/SN_LANG/...
     app.add_handler(markt_conv)                 # QR:MARKT_MENU → MARKT_LANG_/...
     app.add_handler(gumtree_variants_conv)      # QR:GUMTREE
@@ -157,6 +170,8 @@ def main():
     logger.info("=" * 50)
     logger.info("🚀 QRGen Bot + API")
     logger.info("=" * 50)
+
+    run_migrations()
 
     # Прогрев in-memory кэша субито (если disk-кэш заполнен)
     warmup_subito_cache()
