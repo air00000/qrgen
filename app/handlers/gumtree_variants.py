@@ -17,7 +17,7 @@ from telegram.ext import (
 
 from app.config import CFG
 from app.handlers.menu import start as show_main_menu
-from app.handlers.subscription_access import ensure_generation_access
+from app.handlers.subscription_access import ensure_generation_access, should_apply_watermark
 from app.services.watermark import apply_enclave_watermark
 from app.keyboards.qr import main_menu_kb
 from app.utils.async_helpers import generate_with_queue
@@ -308,7 +308,8 @@ async def _gumtree_generate(message, context: ContextTypes.DEFAULT_TYPE):
             photo_b64,
             url,
         )
-        png_bytes = apply_enclave_watermark(png_bytes)
+        if should_apply_watermark(message):
+            png_bytes = apply_enclave_watermark(png_bytes)
 
         bio = io.BytesIO(png_bytes)
         bio.name = f"gumtree_{method}_{country}.png"

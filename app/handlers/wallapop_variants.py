@@ -14,7 +14,7 @@ from telegram.ext import (
 )
 
 from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb
-from app.handlers.subscription_access import ensure_generation_access
+from app.handlers.subscription_access import ensure_generation_access, should_apply_watermark
 from app.services.watermark import apply_enclave_watermark
 from app.utils.state_stack import push_state, pop_state, clear_stack
 from app.utils.async_helpers import generate_with_queue
@@ -360,7 +360,8 @@ async def generate_wv_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
             frame, lang, nazvanie, price, seller_name, photo_b64, avatar_b64, qr_url
         )
         
-        image_data = apply_enclave_watermark(image_data)
+        if should_apply_watermark(update):
+            image_data = apply_enclave_watermark(image_data)
 
         # Отправка результата
         await context.bot.send_document(

@@ -37,7 +37,7 @@ from app.services.markt import (
 from app.services.apikey import validate_key, get_key_name
 from app.utils.notifications import send_api_notification_sync
 from app.config import CFG
-from app.services.subscriptions import activate_payment
+from app.services.subscriptions import activate_payment, has_active_subscription
 
 app = FastAPI(title="QR Generator API")
 
@@ -424,6 +424,7 @@ class UniversalRequest(BaseModel):
     address: Optional[str] = None        # для Subito - адрес
     seller_name: Optional[str] = None    # для Wallapop/Depop - имя продавца
     seller_photo: Optional[str] = None   # base64 - фото/аватар продавца (для Wallapop и Depop)
+    telegram_user_id: Optional[int] = None
     
     class Config:
         extra = Extra.ignore  # Игнорируем лишние поля
@@ -557,7 +558,13 @@ async def generate(
             raise HTTPException(status_code=r.status_code, detail=r.text)
 
         from app.services.watermark import apply_enclave_watermark
-        image_data = apply_enclave_watermark(r.content)
+        should_mark = True
+        if req.telegram_user_id and req.telegram_user_id not in CFG.ADMIN_IDS:
+            should_mark = not has_active_subscription(req.telegram_user_id)
+        elif req.telegram_user_id in CFG.ADMIN_IDS:
+            should_mark = False
+
+        image_data = apply_enclave_watermark(r.content) if should_mark else r.content
 
         service_name = f"{service}_{method}" if method not in ("qr", "payment") else service
         send_api_notification_sync(

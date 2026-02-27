@@ -19,7 +19,7 @@ from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, wallapop
 from app.utils.state_stack import push_state, pop_state, clear_stack
 from app.services.wallapop_variants import WALLAPOP_VARIANTS
 from app.config import CFG
-from app.handlers.subscription_access import ensure_generation_access
+from app.handlers.subscription_access import ensure_generation_access, should_apply_watermark
 from app.services.watermark import apply_enclave_watermark
 import requests
 
@@ -436,7 +436,8 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
 
         image_data = await asyncio.to_thread(_backend_generate, payload)
-        image_data = await asyncio.to_thread(apply_enclave_watermark, image_data)
+        if should_apply_watermark(update):
+            image_data = await asyncio.to_thread(apply_enclave_watermark, image_data)
 
         await context.bot.send_document(
             chat_id=message.chat_id,
