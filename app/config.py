@@ -58,3 +58,5 @@ class CFG:
     WATERMARK_ENABLED = os.getenv("WATERMARK_ENABLED", "true").lower() == "true"
     WATERMARK_TEXT = os.getenv("WATERMARK_TEXT", "ENCLAVE")
     WATERMARK_OPACITY = int(os.getenv("WATERMARK_OPACITY", "64"))
+    WATERMARK_IMAGE_PATH = os.getenv("WATERMARK_IMAGE_PATH", os.path.join(BASE_DIR, "assets", "logos", "enclave-watermark.jpg"))
+    WATERMARK_IMAGE_OPACITY = float(os.getenv("WATERMARK_IMAGE_OPACITY", "0.2"))
