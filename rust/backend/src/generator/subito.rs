@@ -976,12 +976,38 @@ pub async fn generate_subito(
     }
 
     // Photo: 186x138, radius 8
-    if let (Some(n), Some(photo_b64)) = (pic_node, photo_b64) {
+    if let Some(n) = pic_node {
         let (x, y, w, h) = rel_box(&n, &frame_node)?;
         // Spec says 186x138, but we respect the node box size (should match).
         let radius = (8.0 * sf).round() as u32;
-        if let Some(img) = rect_photo_from_b64(photo_b64, w, h, radius)? {
-            overlay_alpha(&mut out, &img.to_rgba8(), x, y);
+        if let Some(photo_b64) = photo_b64 {
+            if let Some(img) = rect_photo_from_b64(photo_b64, w, h, radius)? {
+                overlay_alpha(&mut out, &img.to_rgba8(), x, y);
+            }
+        } else if matches!(variant, NewVariant::EmailConfirm | NewVariant::SmsConfirm) {
+            // In payment-confirm variants, remove empty white placeholder when photo is missing.
+            // Fill with surrounding background tone to keep layout clean.
+            let sx = x.saturating_sub(2).min(out.width().saturating_sub(1));
+            let sy = y.saturating_sub(2).min(out.height().saturating_sub(1));
+            let ex = (x + w + 2).min(out.width().saturating_sub(1));
+            let ey = (y + h + 2).min(out.height().saturating_sub(1));
+
+            let c1 = *out.get_pixel(sx, sy);
+            let c2 = *out.get_pixel(ex, sy);
+            let c3 = *out.get_pixel(sx, ey);
+            let c4 = *out.get_pixel(ex, ey);
+            let fill = Rgba([
+                ((c1.0[0] as u16 + c2.0[0] as u16 + c3.0[0] as u16 + c4.0[0] as u16) / 4) as u8,
+                ((c1.0[1] as u16 + c2.0[1] as u16 + c3.0[1] as u16 + c4.0[1] as u16) / 4) as u8,
+                ((c1.0[2] as u16 + c2.0[2] as u16 + c3.0[2] as u16 + c4.0[2] as u16) / 4) as u8,
+                255,
+            ]);
+
+            for yy in y..(y + h).min(out.height()) {
+                for xx in x..(x + w).min(out.width()) {
+                    out.put_pixel(xx, yy, fill);
+                }
+            }
         }
     }
 
