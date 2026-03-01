@@ -262,7 +262,10 @@ async def subito_menu_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def _subito_generate(update_or_message, context: ContextTypes.DEFAULT_TYPE):
-    message = update_or_message.message if hasattr(update_or_message, "message") and update_or_message.message else update_or_message
+    if isinstance(update_or_message, Update):
+        message = update_or_message.message or (update_or_message.callback_query.message if update_or_message.callback_query else None)
+    else:
+        message = update_or_message
     method = context.user_data.get("subito_type", "qr")
     title = context.user_data.get("subito_title", "")
     price = float(context.user_data.get("subito_price", 0.0))
