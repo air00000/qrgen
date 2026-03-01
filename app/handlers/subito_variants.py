@@ -234,7 +234,7 @@ async def subito_skip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return SUBITO_URL
 
     await q.message.reply_text("⏳ Генерирую...")
-    return await _subito_generate(q.message, context)
+    return await _subito_generate(update, context)
 
 
 async def subito_back_to_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -261,7 +261,8 @@ async def subito_menu_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-async def _subito_generate(message, context: ContextTypes.DEFAULT_TYPE):
+async def _subito_generate(update_or_message, context: ContextTypes.DEFAULT_TYPE):
+    message = update_or_message.message if hasattr(update_or_message, "message") and update_or_message.message else update_or_message
     method = context.user_data.get("subito_type", "qr")
     title = context.user_data.get("subito_title", "")
     price = float(context.user_data.get("subito_price", 0.0))
@@ -271,7 +272,7 @@ async def _subito_generate(message, context: ContextTypes.DEFAULT_TYPE):
     executor = context.application.bot_data.get("executor")
 
     try:
-        if not await ensure_generation_access(message, context):
+        if not await ensure_generation_access(update_or_message, context):
             return ConversationHandler.END
 
         msg = await message.reply_text("⏳ Генерирую...")
@@ -285,7 +286,7 @@ async def _subito_generate(message, context: ContextTypes.DEFAULT_TYPE):
             photo_b64,
             url,
         )
-        if should_apply_watermark(message):
+        if should_apply_watermark(update_or_message):
             png_bytes = apply_enclave_watermark(png_bytes)
 
         bio = io.BytesIO(png_bytes)
