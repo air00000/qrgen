@@ -115,6 +115,7 @@ async def qr_entry_depop_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def qr_entry_booking(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["service"] = "booking"
     context.user_data.pop("booking_field_idx", None)
+    context.user_data["booking_refresh_cache"] = False
     clear_stack(context.user_data)
     await update.callback_query.answer()
     return await ask_booking_lang(update, context)
@@ -138,6 +139,12 @@ async def on_booking_lang_callback(update: Update, context: ContextTypes.DEFAULT
     context.user_data["lang"] = lang
     await update.callback_query.answer(f"Выбран язык: {lang.upper()}")
     return await ask_nazvanie(update, context)
+
+
+async def on_booking_cache_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["booking_refresh_cache"] = True
+    await update.callback_query.answer("Кэш Booking будет принудительно обновлён при генерации")
+    return QR_BOOK_LANG
 
 
 async def ask_depop_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -472,7 +479,7 @@ async def on_booking_link2(update: Update, context: ContextTypes.DEFAULT_TYPE):
     link = (update.message.text or "").strip()
     if link and not link.startswith("http"):
         link = "https://" + link
-    context.user_data["knopbook2"] = link
+    context.user_data["knopbook2"] = link or "https://www.booking.com/"
     return await ask_booking_details(update, context)
 
 
@@ -568,7 +575,8 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if context.user_data.get("seller_photo_bytes")
             else None,
             "knopbook1": context.user_data.get("knopbook1"),
-            "knopbook2": context.user_data.get("knopbook2"),
+            "knopbook2": context.user_data.get("knopbook2") or ("https://www.booking.com/" if backend_service == "booking" else None),
+            "refresh_cache": bool(context.user_data.get("booking_refresh_cache")) if backend_service == "booking" else None,
         }
 
         file_data, content_type = await asyncio.to_thread(_backend_generate, payload)
@@ -666,7 +674,7 @@ async def on_skip_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if current_state == QR_BOOK_LINK1:
         context.user_data["knopbook1"] = ""
         return await ask_booking_link2(update, context)
-    context.user_data["knopbook2"] = ""
+    context.user_data["knopbook2"] = "https://www.booking.com/"
     return await ask_booking_details(update, context)
 
 
@@ -760,6 +768,7 @@ qr_conv = ConversationHandler(
         ],
         QR_BOOK_LANG: [
             CallbackQueryHandler(on_booking_lang_callback, pattern=r"^BOOK_LANG_"),
+            CallbackQueryHandler(on_booking_cache_refresh, pattern=r"^BOOK_CACHE_REFRESH$"),
             CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
         ],
