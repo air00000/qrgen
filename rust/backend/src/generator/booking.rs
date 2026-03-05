@@ -1,9 +1,9 @@
 use chrono::{Datelike, Timelike};
 use chrono_tz::Tz;
-use image::{codecs::png::PngDecoder, ImageBuffer, Rgba};
+use image::{DynamicImage, ImageBuffer, Rgba};
 use printpdf::{
-    Actions, BorderArray, BuiltinFont, ColorArray, HighlightingMode, Image as PdfImage,
-    ImageTransform, LinkAnnotation, Mm, PdfDocument, Rect,
+    Actions, BorderArray, BuiltinFont, ColorArray, ColorBits, ColorSpace, HighlightingMode,
+    Image as PdfImage, ImageTransform, ImageXObject, LinkAnnotation, Mm, PdfDocument, Px, Rect,
 };
 
 use crate::{cache::FigmaCache, figma};
@@ -165,20 +165,23 @@ pub async fn generate_booking(
         }
     }
 
-    let mut png_buf = Vec::new();
-    {
-        let mut cur = std::io::Cursor::new(&mut png_buf);
-        image::DynamicImage::ImageRgba8(img)
-            .write_to(&mut cur, image::ImageFormat::Png)
-            .map_err(|e| GenError::Image(e.to_string()))?;
-    }
+    let dynimg = DynamicImage::ImageRgba8(img);
+    let rgb = dynimg.to_rgb8();
+    let (iw, ih) = rgb.dimensions();
+    let pdf_img = PdfImage::from(ImageXObject {
+        width: Px(iw as usize),
+        height: Px(ih as usize),
+        color_space: ColorSpace::Rgb,
+        bits_per_component: ColorBits::Bit8,
+        interpolate: true,
+        image_data: rgb.into_raw(),
+        image_filter: None,
+        smask: None,
+        clipping_bbox: None,
+    });
 
     let (doc, page1, layer1) = PdfDocument::new("booking", Mm(mm_from_px(fw)), Mm(mm_from_px(fh)), "Layer 1");
     let current_layer = doc.get_page(page1).get_layer(layer1);
-
-    let mut png_reader = std::io::Cursor::new(png_buf);
-    let decoder = PngDecoder::new(&mut png_reader).map_err(|e| GenError::Image(e.to_string()))?;
-    let pdf_img = PdfImage::try_from(decoder).map_err(|e| GenError::Image(e.to_string()))?;
     pdf_img.add_to_layer(
         current_layer.clone(),
         ImageTransform {
