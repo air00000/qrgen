@@ -289,7 +289,6 @@ pub async fn generate_booking(
     knopbook1: Option<&str>,
     knopbook2: Option<&str>,
     input: BookingInput<'_>,
-    refresh_cache: bool,
 ) -> Result<Vec<u8>, GenError> {
     if !matches!(lang, "en" | "it" | "fr" | "es" | "pr" | "de" | "nl") {
         return Err(GenError::BadRequest(format!("unknown booking language: {lang}")));
@@ -299,7 +298,7 @@ pub async fn generate_booking(
     let file_key = std::env::var("TEMPLATE_FILE_KEY").unwrap_or_else(|_| "default".to_string());
     let cache = FigmaCache::new(format!("figma_{}_{}_{}", file_key, PAGE.replace(' ', "_"), frame_name));
 
-    let (template_json, frame_png, frame_node, used_cache) = if !refresh_cache && cache.exists() {
+    let (template_json, frame_png, frame_node, used_cache) = if cache.exists() {
         let (structure, png) = cache.load()?;
         let frame_node = figma::find_node(&structure, PAGE, &frame_name);
         if let Some(node) = frame_node {

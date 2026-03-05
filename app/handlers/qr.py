@@ -115,7 +115,6 @@ async def qr_entry_depop_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def qr_entry_booking(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["service"] = "booking"
     context.user_data.pop("booking_field_idx", None)
-    context.user_data["booking_refresh_cache"] = False
     clear_stack(context.user_data)
     await update.callback_query.answer()
     return await ask_booking_lang(update, context)
@@ -139,12 +138,6 @@ async def on_booking_lang_callback(update: Update, context: ContextTypes.DEFAULT
     context.user_data["lang"] = lang
     await update.callback_query.answer(f"Выбран язык: {lang.upper()}")
     return await ask_nazvanie(update, context)
-
-
-async def on_booking_cache_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["booking_refresh_cache"] = True
-    await update.callback_query.answer("Кэш Booking будет принудительно обновлён при генерации")
-    return QR_BOOK_LANG
 
 
 async def ask_depop_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -576,7 +569,6 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else None,
             "knopbook1": context.user_data.get("knopbook1"),
             "knopbook2": context.user_data.get("knopbook2") or ("https://www.booking.com/" if backend_service == "booking" else None),
-            "refresh_cache": bool(context.user_data.get("booking_refresh_cache")) if backend_service == "booking" else None,
         }
 
         file_data, content_type = await asyncio.to_thread(_backend_generate, payload)
@@ -768,7 +760,6 @@ qr_conv = ConversationHandler(
         ],
         QR_BOOK_LANG: [
             CallbackQueryHandler(on_booking_lang_callback, pattern=r"^BOOK_LANG_"),
-            CallbackQueryHandler(on_booking_cache_refresh, pattern=r"^BOOK_CACHE_REFRESH$"),
             CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
         ],

@@ -129,9 +129,6 @@ def booking_lang_kb():
             InlineKeyboardButton("🇳🇱 NL", callback_data=f"{callback_prefix}nl"),
         ],
         [
-            InlineKeyboardButton("♻️ Обновить кэш Booking", callback_data="BOOK_CACHE_REFRESH")
-        ],
-        [
             InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK"),
             InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")
         ],

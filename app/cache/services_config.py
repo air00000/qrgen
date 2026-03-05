@@ -3,6 +3,10 @@
 Конфигурация всех сервисов для кеширования
 """
 
+from app.config import CFG
+
+FILE_KEY = getattr(CFG, "TEMPLATE_FILE_KEY", "default")
+
 # Конфигурация всех сервисов с Figma фреймами
 SERVICES_CONFIG = {
     # === MARKT (UK and NL) ===
@@ -379,6 +383,16 @@ SERVICES_CONFIG = {
         "frame": "depop5_au",
         "scale": 2
     },
+
+    # === BOOKING (cache keys aligned with Rust booking generator) ===
+    f"figma_{FILE_KEY}_Page_2_book_en": {"display_name": "Booking EN", "page": "Page 2", "frame": "book_en", "scale": 1},
+    f"figma_{FILE_KEY}_Page_2_book_it": {"display_name": "Booking IT", "page": "Page 2", "frame": "book_it", "scale": 1},
+    f"figma_{FILE_KEY}_Page_2_book_fr": {"display_name": "Booking FR", "page": "Page 2", "frame": "book_fr", "scale": 1},
+    f"figma_{FILE_KEY}_Page_2_book_es": {"display_name": "Booking ES", "page": "Page 2", "frame": "book_es", "scale": 1},
+    f"figma_{FILE_KEY}_Page_2_book_pr": {"display_name": "Booking PT", "page": "Page 2", "frame": "book_pr", "scale": 1},
+    f"figma_{FILE_KEY}_Page_2_book_de": {"display_name": "Booking DE", "page": "Page 2", "frame": "book_de", "scale": 1},
+    f"figma_{FILE_KEY}_Page_2_book_nl": {"display_name": "Booking NL", "page": "Page 2", "frame": "book_nl", "scale": 1},
+
     # NOTE: These frames are not present in the current Figma template.
     # Keep them out of cache_all to avoid errors.
     # "depop_uk": {
@@ -485,5 +499,14 @@ def get_services_by_group():
             "depop_au_email_confirm",
             "depop_au_sms_request",
             "depop_au_sms_confirm"
+        ],
+        "Booking": [
+            f"figma_{FILE_KEY}_Page_2_book_en",
+            f"figma_{FILE_KEY}_Page_2_book_it",
+            f"figma_{FILE_KEY}_Page_2_book_fr",
+            f"figma_{FILE_KEY}_Page_2_book_es",
+            f"figma_{FILE_KEY}_Page_2_book_pr",
+            f"figma_{FILE_KEY}_Page_2_book_de",
+            f"figma_{FILE_KEY}_Page_2_book_nl"
         ]
     }

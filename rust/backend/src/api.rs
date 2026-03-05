@@ -40,7 +40,6 @@ pub struct UniversalRequest {
     pub beds: Option<i32>,
     pub confirmation_number: Option<String>,
     pub pin_code: Option<String>,
-    pub refresh_cache: Option<bool>,
 
     // QR-only params are not part of /generate schema.
 }
@@ -293,7 +292,6 @@ pub async fn generate(
                     confirmation_number: req.confirmation_number.as_deref(),
                     pin_code: req.pin_code.as_deref(),
                 },
-                req.refresh_cache.unwrap_or(false),
             ).await
         }
         other => Err(crate::generator::GenError::NotImplemented(format!(
