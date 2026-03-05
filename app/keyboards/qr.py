@@ -112,6 +112,39 @@ def wallapop_lang_kb(wallapop_type: str = "link"):
     return InlineKeyboardMarkup(keyboard)
 
 
+def booking_lang_kb():
+    callback_prefix = "BOOK_LANG_"
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🇬🇧 EN", callback_data=f"{callback_prefix}en"),
+            InlineKeyboardButton("🇮🇹 IT", callback_data=f"{callback_prefix}it"),
+            InlineKeyboardButton("🇫🇷 FR", callback_data=f"{callback_prefix}fr"),
+        ],
+        [
+            InlineKeyboardButton("🇪🇸 ES", callback_data=f"{callback_prefix}es"),
+            InlineKeyboardButton("🇵🇹 PT", callback_data=f"{callback_prefix}pr"),
+            InlineKeyboardButton("🇩🇪 DE", callback_data=f"{callback_prefix}de"),
+        ],
+        [
+            InlineKeyboardButton("🇳🇱 NL", callback_data=f"{callback_prefix}nl"),
+        ],
+        [
+            InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK"),
+            InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")
+        ],
+    ])
+
+
+def skip_link_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("⏭ Пропустить", callback_data="QR:SKIP_LINK")],
+        [
+            InlineKeyboardButton("⬅️ Назад", callback_data="QR:BACK"),
+            InlineKeyboardButton("🏠 Главное меню", callback_data="MENU")
+        ],
+    ])
+
+
 def depop_type_kb():
     """Клавиатура выбора типа Depop"""
     return InlineKeyboardMarkup([

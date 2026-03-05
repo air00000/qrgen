@@ -15,7 +15,7 @@ from telegram.ext import (
     MessageHandler, CommandHandler, filters
 )
 
-from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, wallapop_type_kb, wallapop_lang_kb, depop_type_kb
+from app.keyboards.qr import main_menu_kb, menu_back_kb, photo_step_kb, wallapop_type_kb, wallapop_lang_kb, depop_type_kb, booking_lang_kb, skip_link_kb
 from app.utils.state_stack import push_state, pop_state, clear_stack
 from app.services.wallapop_variants import WALLAPOP_VARIANTS
 from app.config import CFG
@@ -24,13 +24,13 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-def _backend_generate(payload: dict) -> bytes:
-    """Call Rust backend /generate and return PNG bytes."""
+def _backend_generate(payload: dict) -> tuple[bytes, str]:
+    """Call Rust backend /generate and return (bytes, content_type)."""
     url = f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate"
     headers = {"X-API-Key": CFG.BACKEND_API_KEY or ""}
     r = requests.post(url, json=payload, headers=headers, timeout=60)
     r.raise_for_status()
-    return r.content
+    return r.content, r.headers.get("content-type", "image/png")
 
 
 def _service_country_defaults(service: str, lang: str | None = None) -> tuple[str, str, str]:
@@ -49,10 +49,12 @@ def _service_country_defaults(service: str, lang: str | None = None) -> tuple[st
         return ("it", "conto", "qr")
     if s.startswith("depop"):
         return ("au", "depop", "qr")
+    if s == "booking":
+        return ((lang or "en"), "booking", "pdf")
     return ("nl", s, "qr")
 
 # Состояния
-QR_NAZVANIE, QR_PRICE, QR_PHOTO, QR_URL, QR_LANG, QR_SELLER_NAME, QR_SELLER_PHOTO, QR_WALLAPOP_TYPE, QR_DEPOP_TYPE = range(9)
+QR_NAZVANIE, QR_PRICE, QR_PHOTO, QR_URL, QR_LANG, QR_SELLER_NAME, QR_SELLER_PHOTO, QR_WALLAPOP_TYPE, QR_DEPOP_TYPE, QR_BOOK_LANG, QR_BOOK_LINK1, QR_BOOK_LINK2 = range(12)
 
 
 async def qr_entry_wallapop_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -103,6 +105,33 @@ async def qr_entry_depop_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
     clear_stack(context.user_data)
     await update.callback_query.answer()
     return await ask_depop_type(update, context)
+
+
+async def qr_entry_booking(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["service"] = "booking"
+    clear_stack(context.user_data)
+    await update.callback_query.answer()
+    return await ask_booking_lang(update, context)
+
+
+async def ask_booking_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    push_state(context.user_data, QR_BOOK_LANG)
+    text = "Выбери язык Booking:"
+    if update.callback_query:
+        await update.callback_query.message.edit_text(text, reply_markup=booking_lang_kb())
+    else:
+        await update.message.reply_text(text, reply_markup=booking_lang_kb())
+    return QR_BOOK_LANG
+
+
+async def on_booking_lang_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lang = update.callback_query.data.replace("BOOK_LANG_", "")
+    if lang not in ["en", "it", "fr", "es", "pr", "de", "nl"]:
+        await update.callback_query.answer("❌ Неправильный язык")
+        return QR_BOOK_LANG
+    context.user_data["lang"] = lang
+    await update.callback_query.answer(f"Выбран язык: {lang.upper()}")
+    return await ask_nazvanie(update, context)
 
 
 async def ask_depop_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -293,6 +322,26 @@ async def ask_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return QR_URL
 
 
+async def ask_booking_link1(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    push_state(context.user_data, QR_BOOK_LINK1)
+    txt = "Ссылка для кнопки подтверждения (knopbook1), или Пропустить:"
+    if update.callback_query:
+        await update.callback_query.message.edit_text(txt, reply_markup=skip_link_kb())
+    else:
+        await update.message.reply_text(txt, reply_markup=skip_link_kb())
+    return QR_BOOK_LINK1
+
+
+async def ask_booking_link2(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    push_state(context.user_data, QR_BOOK_LINK2)
+    txt = "Ссылка для кнопки отмены (knopbook2), или Пропустить:"
+    if update.callback_query:
+        await update.callback_query.message.edit_text(txt, reply_markup=skip_link_kb())
+    else:
+        await update.message.reply_text(txt, reply_markup=skip_link_kb())
+    return QR_BOOK_LINK2
+
+
 async def _edit_or_send(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
     kb = menu_back_kb()
     if getattr(update, "callback_query", None):
@@ -322,6 +371,8 @@ async def on_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await ask_photo(update, context)
     elif service == "wallapop":
         return await ask_seller_name(update, context)
+    elif service == "booking":
+        return await ask_booking_link1(update, context)
     else:
         return await ask_photo(update, context)
 
@@ -370,6 +421,22 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("Пожалуйста, отправь фото или нажми «Пропустить».")
     return QR_PHOTO
+
+
+async def on_booking_link1(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    link = (update.message.text or "").strip()
+    if link and not link.startswith("http"):
+        link = "https://" + link
+    context.user_data["knopbook1"] = link
+    return await ask_booking_link2(update, context)
+
+
+async def on_booking_link2(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    link = (update.message.text or "").strip()
+    if link and not link.startswith("http"):
+        link = "https://" + link
+    context.user_data["knopbook2"] = link
+    return await on_url(update, context)
 
 
 @with_rate_limit
@@ -427,14 +494,17 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "seller_photo": base64.b64encode(context.user_data.get("seller_photo_bytes") or b"").decode("utf-8")
             if context.user_data.get("seller_photo_bytes")
             else None,
+            "knopbook1": context.user_data.get("knopbook1"),
+            "knopbook2": context.user_data.get("knopbook2"),
         }
 
-        image_data = await asyncio.to_thread(_backend_generate, payload)
+        file_data, content_type = await asyncio.to_thread(_backend_generate, payload)
+        ext = "pdf" if "pdf" in (content_type or "").lower() else "png"
 
         await context.bot.send_document(
             chat_id=message.chat_id,
-            document=io.BytesIO(image_data),
-            filename=f"{service}_{uuid.uuid4()}.png"
+            document=io.BytesIO(file_data),
+            filename=f"{service}_{uuid.uuid4()}.{ext}"
         )
 
         await message.reply_text("Готово!", reply_markup=main_menu_kb())
@@ -516,6 +586,17 @@ async def on_skip_seller_photo(update: Update, context: ContextTypes.DEFAULT_TYP
     return await ask_photo(update, context)
 
 
+async def on_skip_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+    stack = context.user_data.get("state_stack", [])
+    current_state = stack[-1] if stack else None
+    if current_state == QR_BOOK_LINK1:
+        context.user_data["knopbook1"] = ""
+        return await ask_booking_link2(update, context)
+    context.user_data["knopbook2"] = ""
+    return await on_url(update, context)
+
+
 async def qr_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
@@ -531,6 +612,8 @@ async def qr_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await ask_wallapop_type(update, context)
     elif target_state == QR_DEPOP_TYPE:
         return await ask_depop_type(update, context)
+    elif target_state == QR_BOOK_LANG:
+        return await ask_booking_lang(update, context)
     elif target_state == QR_LANG:
         wallapop_type = context.user_data.get("wallapop_type", "email_request")
         return await ask_wallapop_lang(update, context, wallapop_type)
@@ -544,6 +627,10 @@ async def qr_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await ask_seller_photo(update, context)
     elif target_state == QR_PHOTO:
         return await ask_photo(update, context)
+    elif target_state == QR_BOOK_LINK1:
+        return await ask_booking_link1(update, context)
+    elif target_state == QR_BOOK_LINK2:
+        return await ask_booking_link2(update, context)
     elif target_state == QR_URL:
         return await ask_url(update, context)
 
@@ -569,6 +656,7 @@ qr_conv = ConversationHandler(
         CallbackQueryHandler(qr_entry_conto, pattern=r"^QR:CONTO$"),
         CallbackQueryHandler(qr_entry_kleize, pattern=r"^QR:KLEIZE$"),
         CallbackQueryHandler(qr_entry_depop_menu, pattern=r"^QR:DEPOP_MENU$"),
+        CallbackQueryHandler(qr_entry_booking, pattern=r"^QR:BOOKING$"),
     ],
     states={
         QR_WALLAPOP_TYPE: [
@@ -593,6 +681,11 @@ qr_conv = ConversationHandler(
             CallbackQueryHandler(on_wallapop_lang_callback, pattern=r"^WALLAPOP_LANG_"),
             CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
             CallbackQueryHandler(wallapop_back_cb, pattern=r"^QR:WALLAPOP_BACK$"),
+            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
+        ],
+        QR_BOOK_LANG: [
+            CallbackQueryHandler(on_booking_lang_callback, pattern=r"^BOOK_LANG_"),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
         ],
         QR_NAZVANIE: [
@@ -622,6 +715,18 @@ qr_conv = ConversationHandler(
             CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$"),
             CallbackQueryHandler(on_skip_photo, pattern=r"^QR:SKIP_PHOTO$")
+        ],
+        QR_BOOK_LINK1: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, on_booking_link1),
+            CallbackQueryHandler(on_skip_link, pattern=r"^QR:SKIP_LINK$"),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
+            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
+        ],
+        QR_BOOK_LINK2: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, on_booking_link2),
+            CallbackQueryHandler(on_skip_link, pattern=r"^QR:SKIP_LINK$"),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
+            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
         ],
         QR_URL: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, on_url),

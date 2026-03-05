@@ -33,6 +33,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("🔧 Kleize",          callback_data="QR:KLEIZE"),
             InlineKeyboardButton("🛍️ Depop",           callback_data="QR:DEPOP_MENU"),
         ],
+        [
+            InlineKeyboardButton("🏨 Booking",         callback_data="QR:BOOKING"),
+        ],
     ]
 
     if _is_admin(update):
