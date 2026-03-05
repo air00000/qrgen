@@ -54,7 +54,7 @@ def _service_country_defaults(service: str, lang: str | None = None) -> tuple[st
     return ("nl", s, "qr")
 
 # Состояния
-QR_NAZVANIE, QR_PRICE, QR_PHOTO, QR_URL, QR_LANG, QR_SELLER_NAME, QR_SELLER_PHOTO, QR_WALLAPOP_TYPE, QR_DEPOP_TYPE, QR_BOOK_LANG, QR_BOOK_LINK1, QR_BOOK_LINK2 = range(12)
+QR_NAZVANIE, QR_PRICE, QR_PHOTO, QR_URL, QR_LANG, QR_SELLER_NAME, QR_SELLER_PHOTO, QR_WALLAPOP_TYPE, QR_DEPOP_TYPE, QR_BOOK_LANG, QR_BOOK_LINK1, QR_BOOK_LINK2, QR_BOOK_DETAILS = range(13)
 
 
 async def qr_entry_wallapop_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -342,6 +342,28 @@ async def ask_booking_link2(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return QR_BOOK_LINK2
 
 
+async def ask_booking_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    push_state(context.user_data, QR_BOOK_DETAILS)
+    txt = (
+        "Введи данные Booking построчно в формате key: value\n\n"
+        "name: Ivan Ivanov\n"
+        "city: Paris\n"
+        "hotel_name: Hotel de Paris\n"
+        "address: 1 Rue de Rivoli, Paris\n"
+        "phone: +33 1 23 45 67 89\n"
+        "nights: 2\n"
+        "beds: 1\n"
+        "checkin_date: 2026-03-10\n"
+        "checkout_date: 2026-03-12\n"
+        "checkin_time: 13:00\n"
+        "checkout_time: 11:00\n"
+        "confirmation_number: 3860071234   # optional\n"
+        "pin_code: 1234                   # optional"
+    )
+    await _edit_or_send(update, context, txt)
+    return QR_BOOK_DETAILS
+
+
 async def _edit_or_send(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
     kb = menu_back_kb()
     if getattr(update, "callback_query", None):
@@ -436,6 +458,31 @@ async def on_booking_link2(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if link and not link.startswith("http"):
         link = "https://" + link
     context.user_data["knopbook2"] = link
+    return await ask_booking_details(update, context)
+
+
+async def on_booking_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = (update.message.text or "").strip()
+    parsed = {}
+    for line in text.splitlines():
+        if ":" not in line:
+            continue
+        k, v = line.split(":", 1)
+        parsed[k.strip().lower()] = v.strip().split("#", 1)[0].strip()
+
+    def _int_or_none(v):
+        try:
+            return int(v) if v not in (None, "") else None
+        except Exception:
+            return None
+
+    for key in ["name", "city", "hotel_name", "address", "phone", "checkin_date", "checkout_date", "checkin_time", "checkout_time", "confirmation_number", "pin_code"]:
+        if parsed.get(key):
+            context.user_data[key] = parsed.get(key)
+
+    context.user_data["nights"] = _int_or_none(parsed.get("nights"))
+    context.user_data["beds"] = _int_or_none(parsed.get("beds"))
+
     return await on_url(update, context)
 
 
@@ -447,6 +494,7 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     price = context.user_data.get("price", "")
     name = context.user_data.get("name")
     address = context.user_data.get("address")
+    phone = context.user_data.get("phone")
     photo_bytes = context.user_data.get("photo_bytes")
 
     # URL can come from a text message step OR be prefilled in context (variants flow).
@@ -490,6 +538,17 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "photo": photo_b64,
             "name": name,
             "address": address,
+            "phone": phone,
+            "city": context.user_data.get("city"),
+            "hotel_name": context.user_data.get("hotel_name"),
+            "checkin_date": context.user_data.get("checkin_date"),
+            "checkout_date": context.user_data.get("checkout_date"),
+            "checkin_time": context.user_data.get("checkin_time"),
+            "checkout_time": context.user_data.get("checkout_time"),
+            "nights": context.user_data.get("nights"),
+            "beds": context.user_data.get("beds"),
+            "confirmation_number": context.user_data.get("confirmation_number"),
+            "pin_code": context.user_data.get("pin_code"),
             "seller_name": context.user_data.get("seller_name"),
             "seller_photo": base64.b64encode(context.user_data.get("seller_photo_bytes") or b"").decode("utf-8")
             if context.user_data.get("seller_photo_bytes")
@@ -594,7 +653,7 @@ async def on_skip_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["knopbook1"] = ""
         return await ask_booking_link2(update, context)
     context.user_data["knopbook2"] = ""
-    return await on_url(update, context)
+    return await ask_booking_details(update, context)
 
 
 async def qr_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -631,6 +690,8 @@ async def qr_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await ask_booking_link1(update, context)
     elif target_state == QR_BOOK_LINK2:
         return await ask_booking_link2(update, context)
+    elif target_state == QR_BOOK_DETAILS:
+        return await ask_booking_details(update, context)
     elif target_state == QR_URL:
         return await ask_url(update, context)
 
@@ -725,6 +786,11 @@ qr_conv = ConversationHandler(
         QR_BOOK_LINK2: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, on_booking_link2),
             CallbackQueryHandler(on_skip_link, pattern=r"^QR:SKIP_LINK$"),
+            CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
+            CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
+        ],
+        QR_BOOK_DETAILS: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, on_booking_details),
             CallbackQueryHandler(qr_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
             CallbackQueryHandler(qr_back_cb, pattern=r"^QR:BACK$")
         ],
