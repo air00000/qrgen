@@ -109,6 +109,7 @@ async def qr_entry_depop_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def qr_entry_booking(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["service"] = "booking"
+    context.user_data.pop("booking_field_idx", None)
     clear_stack(context.user_data)
     await update.callback_query.answer()
     return await ask_booking_lang(update, context)
@@ -342,25 +343,34 @@ async def ask_booking_link2(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return QR_BOOK_LINK2
 
 
+BOOKING_FIELDS = [
+    ("name", "Имя гостя (name):"),
+    ("city", "Город (city):"),
+    ("hotel_name", "Название отеля (hotel_name):"),
+    ("address", "Адрес (address):"),
+    ("phone", "Телефон (phone):"),
+    ("nights", "Количество ночей (nights), число:"),
+    ("beds", "Количество кроватей (beds), число:"),
+    ("checkin_date", "Дата заезда (checkin_date) в формате YYYY-MM-DD:"),
+    ("checkout_date", "Дата выезда (checkout_date) в формате YYYY-MM-DD:"),
+    ("checkin_time", "Время заезда (checkin_time) в формате HH:MM:"),
+    ("checkout_time", "Время выезда (checkout_time) в формате HH:MM:"),
+    ("confirmation_number", "Номер подтверждения (confirmation_number) или '-' для автогенерации:"),
+    ("pin_code", "PIN (pin_code) или '-' для автогенерации:"),
+]
+
+
 async def ask_booking_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    push_state(context.user_data, QR_BOOK_DETAILS)
-    txt = (
-        "Введи данные Booking построчно в формате key: value\n\n"
-        "name: Ivan Ivanov\n"
-        "city: Paris\n"
-        "hotel_name: Hotel de Paris\n"
-        "address: 1 Rue de Rivoli, Paris\n"
-        "phone: +33 1 23 45 67 89\n"
-        "nights: 2\n"
-        "beds: 1\n"
-        "checkin_date: 2026-03-10\n"
-        "checkout_date: 2026-03-12\n"
-        "checkin_time: 13:00\n"
-        "checkout_time: 11:00\n"
-        "confirmation_number: 3860071234   # optional\n"
-        "pin_code: 1234                   # optional"
-    )
-    await _edit_or_send(update, context, txt)
+    if context.user_data.get("booking_field_idx") is None:
+        push_state(context.user_data, QR_BOOK_DETAILS)
+        context.user_data["booking_field_idx"] = 0
+
+    idx = int(context.user_data.get("booking_field_idx", 0))
+    if idx >= len(BOOKING_FIELDS):
+        return await on_url(update, context)
+
+    key, prompt = BOOKING_FIELDS[idx]
+    await _edit_or_send(update, context, f"Booking шаг {idx + 1}/{len(BOOKING_FIELDS)}\n{prompt}")
     return QR_BOOK_DETAILS
 
 
@@ -463,27 +473,26 @@ async def on_booking_link2(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def on_booking_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
-    parsed = {}
-    for line in text.splitlines():
-        if ":" not in line:
-            continue
-        k, v = line.split(":", 1)
-        parsed[k.strip().lower()] = v.strip().split("#", 1)[0].strip()
+    idx = int(context.user_data.get("booking_field_idx", 0))
+    if idx >= len(BOOKING_FIELDS):
+        return await on_url(update, context)
 
-    def _int_or_none(v):
+    key, _prompt = BOOKING_FIELDS[idx]
+
+    if key in ["nights", "beds"]:
         try:
-            return int(v) if v not in (None, "") else None
+            context.user_data[key] = int(text)
         except Exception:
-            return None
+            await update.message.reply_text("Нужно ввести число. Попробуй ещё раз.")
+            return QR_BOOK_DETAILS
+    else:
+        if text not in ("", "-"):
+            context.user_data[key] = text
+        else:
+            context.user_data.pop(key, None)
 
-    for key in ["name", "city", "hotel_name", "address", "phone", "checkin_date", "checkout_date", "checkin_time", "checkout_time", "confirmation_number", "pin_code"]:
-        if parsed.get(key):
-            context.user_data[key] = parsed.get(key)
-
-    context.user_data["nights"] = _int_or_none(parsed.get("nights"))
-    context.user_data["beds"] = _int_or_none(parsed.get("beds"))
-
-    return await on_url(update, context)
+    context.user_data["booking_field_idx"] = idx + 1
+    return await ask_booking_details(update, context)
 
 
 @with_rate_limit
