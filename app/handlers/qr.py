@@ -29,7 +29,12 @@ def _backend_generate(payload: dict) -> tuple[bytes, str]:
     url = f"{CFG.QR_BACKEND_URL.rstrip('/')}/generate"
     headers = {"X-API-Key": CFG.BACKEND_API_KEY or ""}
     r = requests.post(url, json=payload, headers=headers, timeout=60)
-    r.raise_for_status()
+    if not r.ok:
+        body = (r.text or "")[:2000]
+        raise requests.HTTPError(
+            f"{r.status_code} {r.reason} for {url}; backend body: {body}",
+            response=r,
+        )
     return r.content, r.headers.get("content-type", "image/png")
 
 
