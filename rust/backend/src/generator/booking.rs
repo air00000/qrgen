@@ -13,6 +13,12 @@ use crate::{cache::FigmaCache, figma};
 use super::{font_cache::load_font_cached, GenError};
 
 const PAGE: &str = "Page 2";
+// Pillow-like font px to rusttype size conversion (same idea as in gumtree).
+const PILLOW_TO_RUSTTYPE_MULTIPLIER: f32 = 1.3;
+
+fn pillow_size_to_rusttype(pillow_px: f32) -> f32 {
+    pillow_px * PILLOW_TO_RUSTTYPE_MULTIPLIER
+}
 
 #[derive(Debug, Clone)]
 pub struct BookingInput<'a> {
@@ -376,62 +382,67 @@ pub async fn generate_booking(
     let checkin_line = human_check_date(lang, checkin_date, true, checkin_time);
     let checkout_line = human_check_date(lang, checkout_date, false, checkout_time);
 
-    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("NAME_{lang}"), &hello, &roboto_bold, 51.0, hex_color("#3B3637")?, 0.04)?;
-    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("BOOKCONFIRM_{lang}"), &confirm_city, &roboto_bold, 63.0, hex_color("#3B3637")?, 0.04)?;
-    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("BOOKDATE_{lang}"), &book_date, &roboto_regular, 47.0, hex_color("#3B3637")?, 0.017)?;
+    let name_px = pillow_size_to_rusttype(51.0);
+    let confirm_px = pillow_size_to_rusttype(63.0);
+    let common_px = pillow_size_to_rusttype(47.0);
+    let confirm_small_px = pillow_size_to_rusttype(42.5);
+
+    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("NAME_{lang}"), &hello, &roboto_bold, name_px, hex_color("#3B3637")?, 0.04)?;
+    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("BOOKCONFIRM_{lang}"), &confirm_city, &roboto_bold, confirm_px, hex_color("#3B3637")?, 0.04)?;
+    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("BOOKDATE_{lang}"), &book_date, &roboto_regular, common_px, hex_color("#3B3637")?, 0.017)?;
 
     // BOOKPAY with bold word between *...*
     if let Some(n) = figma::find_node(&template_json, PAGE, &format!("BOOKPAY_{lang}")) {
         let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
         let mut cursor = x as i32;
-        let spacing = 47.0 * 0.017;
+        let spacing = common_px * 0.017;
         for seg in book_pay.split('*').enumerate() {
             let (i, part) = seg;
             let f = if i % 2 == 1 { &*roboto_bold } else { &*roboto_regular };
-            draw_text(&mut img, f, 47.0, cursor, y as i32, hex_color("#3B3637")?, part, spacing);
-            cursor += text_width(f, 47.0, part, spacing).round() as i32;
+            draw_text(&mut img, f, common_px, cursor, y as i32, hex_color("#3B3637")?, part, spacing);
+            cursor += text_width(f, common_px, part, spacing).round() as i32;
         }
     }
 
-    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("HOTELNAME_{lang}"), hotel, &roboto_bold, 63.0, hex_color("#0278CD")?, 0.04)?;
-    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("ADRESS_{lang}"), address, &roboto_regular, 47.0, hex_color("#3B3637")?, 0.01)?;
+    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("HOTELNAME_{lang}"), hotel, &roboto_bold, confirm_px, hex_color("#0278CD")?, 0.04)?;
+    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("ADRESS_{lang}"), address, &roboto_regular, common_px, hex_color("#3B3637")?, 0.01)?;
 
     // Phone: label bold + number regular
     if let Some(n) = figma::find_node(&template_json, PAGE, &format!("PHONENUM_{lang}")) {
         let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
         let label = text_for(lang, "phone");
-        let spacing = 47.0 * 0.01;
-        draw_text(&mut img, &roboto_bold, 47.0, x as i32, y as i32, hex_color("#3B3637")?, label, spacing);
-        let lx = x as i32 + text_width(&roboto_bold, 47.0, &(label.to_string() + " "), spacing).round() as i32;
-        draw_text(&mut img, &roboto_regular, 47.0, lx, y as i32, hex_color("#3B3637")?, phone, spacing);
+        let spacing = common_px * 0.01;
+        draw_text(&mut img, &roboto_bold, common_px, x as i32, y as i32, hex_color("#3B3637")?, label, spacing);
+        let lx = x as i32 + text_width(&roboto_bold, common_px, &(label.to_string() + " "), spacing).round() as i32;
+        draw_text(&mut img, &roboto_regular, common_px, lx, y as i32, hex_color("#3B3637")?, phone, spacing);
     }
 
-    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("NIGHTS_{lang}"), &nights_line, &roboto_bold, 47.0, hex_color("#000000")?, 0.01)?;
-    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKIN_{lang}"), &checkin_line, &roboto_regular, 47.0, hex_color("#5B5B5B")?, 0.01)?;
-    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKOUT_{lang}"), &checkout_line, &roboto_regular, 47.0, hex_color("#5B5B5B")?, 0.01)?;
+    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("NIGHTS_{lang}"), &nights_line, &roboto_bold, common_px, hex_color("#000000")?, 0.01)?;
+    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKIN_{lang}"), &checkin_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01)?;
+    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKOUT_{lang}"), &checkout_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01)?;
 
     // Right aligned confirmation + pin with bold numeric part
     if let Some(n) = figma::find_node(&template_json, PAGE, &format!("CONFIRM_{lang}")) {
         let (x, y, w, _h) = rel_box(&n, &frame_node)?;
         let base = format!("{} {}", text_for(lang, "confirm_label"), confirm_number);
-        let spacing = 42.5 * -0.02;
-        let tw = text_width(&roboto_regular, 42.5, &base, spacing);
+        let spacing = confirm_small_px * -0.02;
+        let tw = text_width(&roboto_regular, confirm_small_px, &base, spacing);
         let sx = (x as f32 + w as f32 - tw).round() as i32;
         let label = format!("{} ", text_for(lang, "confirm_label"));
-        draw_text(&mut img, &roboto_regular, 42.5, sx, y as i32, hex_color("#E6FFFF")?, &label, spacing);
-        let nx = sx + text_width(&roboto_regular, 42.5, &label, spacing).round() as i32;
-        draw_text(&mut img, &roboto_bold, 42.5, nx, y as i32, hex_color("#E6FFFF")?, &confirm_number, spacing);
+        draw_text(&mut img, &roboto_regular, confirm_small_px, sx, y as i32, hex_color("#E6FFFF")?, &label, spacing);
+        let nx = sx + text_width(&roboto_regular, confirm_small_px, &label, spacing).round() as i32;
+        draw_text(&mut img, &roboto_bold, confirm_small_px, nx, y as i32, hex_color("#E6FFFF")?, &confirm_number, spacing);
     }
     if let Some(n) = figma::find_node(&template_json, PAGE, &format!("PIN_{lang}")) {
         let (x, y, w, _h) = rel_box(&n, &frame_node)?;
         let label_txt = format!("{} ", text_for(lang, "pin_label"));
         let base = format!("{}{}", label_txt, pin);
-        let spacing = 42.5 * -0.02;
-        let tw = text_width(&roboto_regular, 42.5, &base, spacing);
+        let spacing = confirm_small_px * -0.02;
+        let tw = text_width(&roboto_regular, confirm_small_px, &base, spacing);
         let sx = (x as f32 + w as f32 - tw).round() as i32;
-        draw_text(&mut img, &roboto_regular, 42.5, sx, y as i32, hex_color("#E6FFFF")?, &label_txt, spacing);
-        let nx = sx + text_width(&roboto_regular, 42.5, &label_txt, spacing).round() as i32;
-        draw_text(&mut img, &roboto_bold, 42.5, nx, y as i32, hex_color("#E6FFFF")?, &pin, spacing);
+        draw_text(&mut img, &roboto_regular, confirm_small_px, sx, y as i32, hex_color("#E6FFFF")?, &label_txt, spacing);
+        let nx = sx + text_width(&roboto_regular, confirm_small_px, &label_txt, spacing).round() as i32;
+        draw_text(&mut img, &roboto_bold, confirm_small_px, nx, y as i32, hex_color("#E6FFFF")?, &pin, spacing);
     }
 
     let rgb = DynamicImage::ImageRgba8(img).to_rgb8();
