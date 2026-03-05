@@ -334,10 +334,8 @@ pub async fn generate_booking(
 
     let (_fx, _fy, fw, fh) = bbox(&frame_node).ok_or_else(|| GenError::Internal("frame missing bbox".into()))?;
 
-    let roboto_bold = load_font_cached("Roboto-Bold.ttf")
-        .or_else(|_| load_font_cached("SFPROTEXT-BOLD.TTF"))?;
-    let roboto_regular = load_font_cached("Roboto-Regular.ttf")
-        .or_else(|_| load_font_cached("SFProText-Regular.ttf"))?;
+    let roboto_bold = load_font_cached("Roboto-Bold.ttf")?;
+    let roboto_regular = load_font_cached("Roboto-Regular.ttf")?;
 
     let guest = input.guest_name.unwrap_or("Guest");
     let city = input.city.unwrap_or("City");
