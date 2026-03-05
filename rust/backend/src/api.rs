@@ -22,11 +22,24 @@ pub struct UniversalRequest {
     pub url: Option<String>,
     pub photo: Option<String>,
     pub name: Option<String>,
+    pub phone: Option<String>,
     pub address: Option<String>,
     pub seller_name: Option<String>,
     pub seller_photo: Option<String>,
     pub knopbook1: Option<String>,
     pub knopbook2: Option<String>,
+
+    // booking fields
+    pub city: Option<String>,
+    pub hotel_name: Option<String>,
+    pub checkin_date: Option<String>,
+    pub checkout_date: Option<String>,
+    pub checkin_time: Option<String>,
+    pub checkout_time: Option<String>,
+    pub nights: Option<i32>,
+    pub beds: Option<i32>,
+    pub confirmation_number: Option<String>,
+    pub pin_code: Option<String>,
 
     // QR-only params are not part of /generate schema.
 }
@@ -264,6 +277,21 @@ pub async fn generate(
                 price,
                 req.knopbook1.as_deref(),
                 req.knopbook2.as_deref(),
+                crate::generator::booking::BookingInput {
+                    guest_name: req.name.as_deref(),
+                    city: req.city.as_deref(),
+                    hotel_name: req.hotel_name.as_deref(),
+                    hotel_address: req.address.as_deref(),
+                    phone: req.phone.as_deref(),
+                    nights: req.nights,
+                    beds: req.beds,
+                    checkin_date: req.checkin_date.as_deref(),
+                    checkout_date: req.checkout_date.as_deref(),
+                    checkin_time: req.checkin_time.as_deref(),
+                    checkout_time: req.checkout_time.as_deref(),
+                    confirmation_number: req.confirmation_number.as_deref(),
+                    pin_code: req.pin_code.as_deref(),
+                },
             ).await
         }
         other => Err(crate::generator::GenError::NotImplemented(format!(
