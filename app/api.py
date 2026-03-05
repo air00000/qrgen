@@ -45,6 +45,14 @@ GEO_CONFIG = {
     "nl": {
         "name": "Netherlands",
         "services": {
+            "booking": {
+                "methods": {
+                    "pdf": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "knopbook1", "knopbook2"]
+                    }
+                }
+            },
             "markt": {
                 "methods": {
                     "qr": {
@@ -422,6 +430,8 @@ class UniversalRequest(BaseModel):
     address: Optional[str] = None        # для Subito - адрес
     seller_name: Optional[str] = None    # для Wallapop/Depop - имя продавца
     seller_photo: Optional[str] = None   # base64 - фото/аватар продавца (для Wallapop и Depop)
+    knopbook1: Optional[str] = None
+    knopbook2: Optional[str] = None
     
     class Config:
         extra = Extra.ignore  # Игнорируем лишние поля
@@ -501,6 +511,8 @@ async def generate(
         "address": req.address,
         "seller_name": req.seller_name,
         "seller_photo": req.seller_photo,
+        "knopbook1": req.knopbook1,
+        "knopbook2": req.knopbook2,
     }
     
     # Валидация country
@@ -554,7 +566,7 @@ async def generate(
             # Preserve backend message to the client.
             raise HTTPException(status_code=r.status_code, detail=r.text)
 
-        image_data = r.content
+        file_data = r.content
 
         service_name = f"{service}_{method}" if method not in ("qr", "payment") else service
         send_api_notification_sync(
@@ -563,7 +575,7 @@ async def generate(
             title=data.get("title") or "Unknown",
             success=True,
         )
-        return Response(content=image_data, media_type="image/png")
+        return Response(content=file_data, media_type=r.headers.get("content-type", "image/png"))
         
     except (PDFGenerationError, FigmaNodeNotFoundError, QRGenerationError, 
             DehandsGenerationError, KleizeGenerationError, ContoGenerationError,

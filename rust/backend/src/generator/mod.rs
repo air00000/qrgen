@@ -6,6 +6,7 @@ pub mod kleinanzeigen;
 pub mod conto;
 pub mod depop;
 pub mod gumtree;
+pub mod booking;
 
 mod font_cache;
 

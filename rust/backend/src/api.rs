@@ -25,6 +25,8 @@ pub struct UniversalRequest {
     pub address: Option<String>,
     pub seller_name: Option<String>,
     pub seller_photo: Option<String>,
+    pub knopbook1: Option<String>,
+    pub knopbook2: Option<String>,
 
     // QR-only params are not part of /generate schema.
 }
@@ -129,7 +131,7 @@ pub async fn generate(
     let title = req.title.as_deref().unwrap_or("");
     let price = req.price.unwrap_or(0.0);
 
-    let png = match req.service.as_str() {
+    let data = match req.service.as_str() {
         // QR-only generation moved from /qr to /generate.
         // Usage: service="qr", method=<profile>, url=<text>.
         // Style is inferred by profile; no per-request QR style fields are accepted.
@@ -254,13 +256,26 @@ pub async fn generate(
             )
             .await
         }
+        "booking" => {
+            crate::generator::booking::generate_booking(
+                &st.http,
+                &req.country,
+                title,
+                price,
+                req.knopbook1.as_deref(),
+                req.knopbook2.as_deref(),
+            ).await
+        }
         other => Err(crate::generator::GenError::NotImplemented(format!(
             "service not implemented in Rust yet: {other}"
         ))),
     };
 
-    match png {
-        Ok(png) => Ok(([(axum::http::header::CONTENT_TYPE, "image/png")], png)),
+    match data {
+        Ok(bytes) => {
+            let ctype = if req.service == "booking" { "application/pdf" } else { "image/png" };
+            Ok(([(axum::http::header::CONTENT_TYPE, ctype)], bytes))
+        }
         Err(crate::generator::GenError::BadRequest(msg)) => Err((StatusCode::BAD_REQUEST, msg)),
         Err(crate::generator::GenError::NotImplemented(msg)) => Err((StatusCode::BAD_REQUEST, msg)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
