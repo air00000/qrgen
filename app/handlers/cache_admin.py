@@ -373,6 +373,9 @@ def _service_group(service_name: str) -> str:
         return "2dehands"
     if service_name.startswith("2ememain"):
         return "2ememain"
+    # Booking cache keys are generated as figma_<fileKey>_Page_2_book_<lang>
+    if "_book_" in service_name and service_name.startswith("figma_"):
+        return "booking"
     if "_" in service_name:
         return service_name.split("_", 1)[0]
     return service_name
