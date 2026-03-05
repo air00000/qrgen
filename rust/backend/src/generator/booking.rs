@@ -1,7 +1,10 @@
 use chrono::{Datelike, Timelike};
 use chrono_tz::Tz;
-use image::{DynamicImage, ImageBuffer, Rgba};
-use printpdf::{BuiltinFont, Image as PdfImage, ImageTransform, LinkAnnotation, Mm, PdfDocument, Point, Rect};
+use image::{codecs::png::PngDecoder, ImageBuffer, Rgba};
+use printpdf::{
+    Actions, BorderArray, BuiltinFont, ColorArray, HighlightingMode, Image as PdfImage,
+    ImageTransform, LinkAnnotation, Mm, PdfDocument, Rect,
+};
 
 use crate::{cache::FigmaCache, figma};
 
@@ -85,19 +88,17 @@ fn draw_text(_img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, _x: i32, _y: i32, _text:
     // Kept for future 1:1 text rendering; currently background frame already contains static text.
 }
 
-fn mm_from_px(px: f64) -> f64 {
-    px * 25.4 / 96.0
+fn mm_from_px(px: f64) -> f32 {
+    (px * 25.4 / 96.0) as f32
 }
 
 fn pdf_rect_from_figma(frame_h: f64, x: f64, y: f64, w: f64, h: f64) -> Rect {
-    let x1 = Mm(mm_from_px(x));
-    let y1 = Mm(mm_from_px(frame_h - (y + h)));
-    let x2 = Mm(mm_from_px(x + w));
-    let y2 = Mm(mm_from_px(frame_h - y));
-    Rect {
-        ll: Point::new(x1, y1),
-        ur: Point::new(x2, y2),
-    }
+    Rect::new(
+        Mm(mm_from_px(x)),
+        Mm(mm_from_px(frame_h - (y + h))),
+        Mm(mm_from_px(x + w)),
+        Mm(mm_from_px(frame_h - y)),
+    )
 }
 
 pub async fn generate_booking(
@@ -164,12 +165,20 @@ pub async fn generate_booking(
         }
     }
 
-    let dynimg = DynamicImage::ImageRgba8(img);
+    let mut png_buf = Vec::new();
+    {
+        let mut cur = std::io::Cursor::new(&mut png_buf);
+        image::DynamicImage::ImageRgba8(img)
+            .write_to(&mut cur, image::ImageFormat::Png)
+            .map_err(|e| GenError::Image(e.to_string()))?;
+    }
 
     let (doc, page1, layer1) = PdfDocument::new("booking", Mm(mm_from_px(fw)), Mm(mm_from_px(fh)), "Layer 1");
     let current_layer = doc.get_page(page1).get_layer(layer1);
 
-    let pdf_img = PdfImage::from_dynamic_image(&dynimg);
+    let mut png_reader = std::io::Cursor::new(png_buf);
+    let decoder = PngDecoder::new(&mut png_reader).map_err(|e| GenError::Image(e.to_string()))?;
+    let pdf_img = PdfImage::try_from(decoder).map_err(|e| GenError::Image(e.to_string()))?;
     pdf_img.add_to_layer(
         current_layer.clone(),
         ImageTransform {
@@ -189,7 +198,13 @@ pub async fn generate_booking(
         if let Some(node) = figma::find_node(&template_json, PAGE, node_name) {
             let (x, y, w, h) = rel_box(&node, &frame_node)?;
             let rect = pdf_rect_from_figma(fh, x, y, w, h);
-            current_layer.add_link_annotation(LinkAnnotation::new(rect, url.to_string()));
+            current_layer.add_link_annotation(LinkAnnotation::new(
+                rect,
+                Some(BorderArray::default()),
+                Some(ColorArray::default()),
+                Actions::uri(url.to_string()),
+                Some(HighlightingMode::Invert),
+            ));
         }
         Ok(())
     };
@@ -202,8 +217,12 @@ pub async fn generate_booking(
         .map_err(|e| GenError::Internal(format!("pdf font error: {e}")))?;
 
     let mut out = Vec::<u8>::new();
-    doc.save(&mut std::io::Cursor::new(&mut out))
-        .map_err(|e| GenError::Internal(format!("pdf save error: {e}")))?;
+    {
+        let cursor = std::io::Cursor::new(&mut out);
+        let mut writer = std::io::BufWriter::new(cursor);
+        doc.save(&mut writer)
+            .map_err(|e| GenError::Internal(format!("pdf save error: {e}")))?;
+    }
 
     Ok(out)
 }
