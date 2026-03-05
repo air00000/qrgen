@@ -452,7 +452,7 @@ pub async fn generate_depop(
 
     // time center (Sydney)
     if let Some(n) = time_n {
-        let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
+        let (x, y, w, h) = rel_box(&n, &frame_node)?;
         let now = chrono::Utc::now().with_timezone(&chrono_tz::Europe::Rome);
         let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
         // Strict center placement inside time layer bbox (no empirical offsets).
