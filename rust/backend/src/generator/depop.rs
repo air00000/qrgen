@@ -370,11 +370,6 @@ pub async fn generate_depop(
 
     let mut out = frame_img;
 
-    let node = |name: &str| -> Result<serde_json::Value, GenError> {
-        figma::find_node(&template_json, PAGE, name)
-            .ok_or_else(|| GenError::BadRequest(format!("node not found: {name}")))
-    };
-
     let nazv_n = figma::find_node(&template_json, PAGE, "nazvanie_depop1_au");
     let price_n = figma::find_node(&template_json, PAGE, "price_depop1_au");
     let subtotal_n = figma::find_node(&template_json, PAGE, "subtotalprice_depop1_au");
@@ -457,7 +452,7 @@ pub async fn generate_depop(
 
     // time center (Sydney)
     if let Some(n) = time_n {
-        let (x, y, w, h) = rel_box(&n, &frame_node)?;
+        let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
         let now = chrono::Utc::now().with_timezone(&chrono_tz::Europe::Rome);
         let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
         // Strict center placement inside time layer bbox (no empirical offsets).

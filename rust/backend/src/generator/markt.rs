@@ -163,7 +163,6 @@ fn text_width(font: &Font<'static>, px: f32, text: &str, letter_spacing: f32) ->
     let mut width: f32 = 0.0;
     for (i, g) in glyphs.iter().enumerate() {
         if let Some(bb) = g.pixel_bounding_box() {
-            let w = bb.width() as f32;
             // This is not perfect but close enough for truncation logic.
             width = width.max((bb.max.x) as f32);
             if i + 1 < glyphs.len() {

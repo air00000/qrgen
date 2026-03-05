@@ -744,7 +744,7 @@ pub async fn generate_subito(
     photo_b64: Option<&str>,
     url: Option<&str>,
     name: Option<&str>,
-    address: Option<&str>,
+    _address: Option<&str>,
 ) -> Result<Vec<u8>, GenError> {
     let _span_total = perf_scope!("gen.subito.total");
 
