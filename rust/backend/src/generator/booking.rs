@@ -441,20 +441,24 @@ pub async fn generate_booking(
         let confirm_label = format!("{}", text_for(lang, "confirm_label"));
         let pin_label = format!("{}", text_for(lang, "pin_label"));
 
-        // Keep PIN close to lock, then align BOTH label endings and code starts by this anchor.
-        let pin_num_w = text_width(&roboto_bold, confirm_small_px, &pin, spacing).round() as i32;
-        let code_start_x = right_edge - pin_num_w;
-        let label_right_x = code_start_x - gap;
-
+        // Align code RIGHT edges to a single vertical line, keep equal label->code gap.
+        let confirm_num_w = text_width(&roboto_bold, confirm_small_px, &confirm_number, spacing).round() as i32;
+        let confirm_num_x = right_edge - confirm_num_w;
+        let confirm_label_right_x = confirm_num_x - gap;
         let confirm_label_w = text_width(&roboto_regular, confirm_small_px, &confirm_label, spacing).round() as i32;
-        let confirm_label_x = label_right_x - confirm_label_w;
-        draw_text(&mut img, &roboto_regular, confirm_small_px, confirm_label_x, cy as i32, hex_color("#E6FFFF")?, &confirm_label, spacing);
-        draw_text(&mut img, &roboto_bold, confirm_small_px, code_start_x, cy as i32, hex_color("#E6FFFF")?, &confirm_number, spacing);
+        let confirm_label_x = confirm_label_right_x - confirm_label_w;
 
+        draw_text(&mut img, &roboto_regular, confirm_small_px, confirm_label_x, cy as i32, hex_color("#E6FFFF")?, &confirm_label, spacing);
+        draw_text(&mut img, &roboto_bold, confirm_small_px, confirm_num_x, cy as i32, hex_color("#E6FFFF")?, &confirm_number, spacing);
+
+        let pin_num_w = text_width(&roboto_bold, confirm_small_px, &pin, spacing).round() as i32;
+        let pin_num_x = right_edge - pin_num_w;
+        let pin_label_right_x = pin_num_x - gap;
         let pin_label_w = text_width(&roboto_regular, confirm_small_px, &pin_label, spacing).round() as i32;
-        let pin_label_x = label_right_x - pin_label_w;
+        let pin_label_x = pin_label_right_x - pin_label_w;
+
         draw_text(&mut img, &roboto_regular, confirm_small_px, pin_label_x, py as i32, hex_color("#E6FFFF")?, &pin_label, spacing);
-        draw_text(&mut img, &roboto_bold, confirm_small_px, code_start_x, py as i32, hex_color("#E6FFFF")?, &pin, spacing);
+        draw_text(&mut img, &roboto_bold, confirm_small_px, pin_num_x, py as i32, hex_color("#E6FFFF")?, &pin, spacing);
     } else {
         // Fallback to independent rendering if one of nodes is missing.
         if let Some(n) = figma::find_node(&template_json, PAGE, &format!("CONFIRM_{lang}")) {
