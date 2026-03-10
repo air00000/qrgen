@@ -259,13 +259,13 @@ fn text_for<'a>(lang: &str, key: &'a str) -> &'a str {
 
 fn nights_text(lang: &str, nights: i32, beds: i32) -> String {
     match lang {
-        "it" => format!("{} {}, {} {}", nights, if nights == 1 { "notte" } else { "notti" }, beds, if beds == 1 { "letto" } else { "letti" }),
-        "fr" => format!("{} {}, {} {}", nights, if nights == 1 { "nuit" } else { "nuits" }, beds, if beds == 1 { "lit" } else { "lits" }),
-        "es" => format!("{} {}, {} {}", nights, if nights == 1 { "noche" } else { "noches" }, beds, if beds == 1 { "cama" } else { "camas" }),
-        "pr" => format!("{} {}, {} {}", nights, if nights == 1 { "noite" } else { "noites" }, beds, if beds == 1 { "cama" } else { "camas" }),
-        "de" => format!("{} {}, {} {}", nights, if nights == 1 { "Nacht" } else { "Nächte" }, beds, if beds == 1 { "Bett" } else { "Betten" }),
-        "nl" => format!("{} {}, {} {}", nights, if nights == 1 { "nacht" } else { "nachten" }, beds, if beds == 1 { "bed" } else { "bedden" }),
-        _ => format!("{} {}, {} {}", nights, if nights == 1 { "night" } else { "nights" }, beds, if beds == 1 { "dormitory bed" } else { "dormitory beds" }),
+        "it" => format!("{} {} , {} {}", nights, if nights == 1 { "notte" } else { "notti" }, beds, if beds == 1 { "letto" } else { "letti" }),
+        "fr" => format!("{} {} , {} {}", nights, if nights == 1 { "nuit" } else { "nuits" }, beds, if beds == 1 { "lit" } else { "lits" }),
+        "es" => format!("{} {} , {} {}", nights, if nights == 1 { "noche" } else { "noches" }, beds, if beds == 1 { "cama" } else { "camas" }),
+        "pr" => format!("{} {} , {} {}", nights, if nights == 1 { "noite" } else { "noites" }, beds, if beds == 1 { "cama" } else { "camas" }),
+        "de" => format!("{} {} , {} {}", nights, if nights == 1 { "Nacht" } else { "Nächte" }, beds, if beds == 1 { "Bett" } else { "Betten" }),
+        "nl" => format!("{} {} , {} {}", nights, if nights == 1 { "nacht" } else { "nachten" }, beds, if beds == 1 { "bed" } else { "bedden" }),
+        _ => format!("{} {} , {} {}", nights, if nights == 1 { "night" } else { "nights" }, beds, if beds == 1 { "dormitory bed" } else { "dormitory beds" }),
     }
 }
 
@@ -397,35 +397,16 @@ pub async fn generate_booking(
     draw_in_node_left(&mut img, &frame_node, &template_json, &format!("BOOKCONFIRM_{lang}"), &confirm_city, &roboto_bold, confirm_px, hex_color("#3B3637")?, 0.04)?;
     draw_in_node_left(&mut img, &frame_node, &template_json, &format!("BOOKDATE_{lang}"), &book_date, &roboto_regular, common_px, hex_color("#3B3637")?, 0.017)?;
 
-    // BOOKPAY with bold word between *...* and equal spacing around the bold word.
+    // BOOKPAY with bold word between *...*
     if let Some(n) = figma::find_node(&template_json, PAGE, &format!("BOOKPAY_{lang}")) {
-        let (x, y, w, _h) = rel_box(&n, &frame_node)?;
+        let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
+        let mut cursor = x as i32;
         let spacing = common_px * 0.017;
-
-        let parts: Vec<&str> = book_pay.split('*').collect();
-        let (left_raw, mid_raw, right_raw) = if parts.len() >= 3 {
-            (parts[0].trim_end(), parts[1].trim(), parts[2].trim_start())
-        } else {
-            (book_pay.as_str(), "", "")
-        };
-
-        let join_gap = " ";
-        let left = if mid_raw.is_empty() { left_raw.to_string() } else { format!("{}{}", left_raw, join_gap) };
-        let mid = mid_raw.to_string();
-        let right = if mid_raw.is_empty() { String::new() } else { format!("{}{}", join_gap, right_raw) };
-
-        let left_w = text_width(&roboto_regular, common_px, &left, spacing).round() as i32;
-        let mid_w = text_width(&roboto_bold, common_px, &mid, spacing).round() as i32;
-        let right_w = text_width(&roboto_regular, common_px, &right, spacing).round() as i32;
-        let total_w = left_w + mid_w + right_w;
-
-        let mut cursor = (x as i32 + w as i32 - total_w) + RIGHT_BLOCK_SHIFT_PX;
-        draw_text(&mut img, &roboto_regular, common_px, cursor, y as i32, hex_color("#3B3637")?, &left, spacing);
-        cursor += left_w;
-        if !mid.is_empty() {
-            draw_text(&mut img, &roboto_bold, common_px, cursor, y as i32, hex_color("#3B3637")?, &mid, spacing);
-            cursor += mid_w;
-            draw_text(&mut img, &roboto_regular, common_px, cursor, y as i32, hex_color("#3B3637")?, &right, spacing);
+        for seg in book_pay.split('*').enumerate() {
+            let (i, part) = seg;
+            let f = if i % 2 == 1 { &*roboto_bold } else { &*roboto_regular };
+            draw_text(&mut img, f, common_px, cursor, y as i32, hex_color("#3B3637")?, part, spacing);
+            cursor += text_width(f, common_px, part, spacing).round() as i32;
         }
     }
 
