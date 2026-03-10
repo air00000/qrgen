@@ -421,28 +421,62 @@ pub async fn generate_booking(
     draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKIN_{lang}"), &checkin_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01, RIGHT_BLOCK_SHIFT_PX)?;
     draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKOUT_{lang}"), &checkout_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01, RIGHT_BLOCK_SHIFT_PX)?;
 
-    // Right aligned confirmation + pin with bold numeric part
-    if let Some(n) = figma::find_node(&template_json, PAGE, &format!("CONFIRM_{lang}")) {
-        let (x, y, w, _h) = rel_box(&n, &frame_node)?;
-        let base = format!("{} {}", text_for(lang, "confirm_label"), confirm_number);
+    // CONFIRM + PIN aligned to the same right edge (lock side) with equal label-number gap.
+    let confirm_node = figma::find_node(&template_json, PAGE, &format!("CONFIRM_{lang}"));
+    let pin_node = figma::find_node(&template_json, PAGE, &format!("PIN_{lang}"));
+    if let (Some(cn), Some(pn)) = (confirm_node, pin_node) {
+        let (cx, cy, cw, _ch) = rel_box(&cn, &frame_node)?;
+        let (px, py, pw, _ph) = rel_box(&pn, &frame_node)?;
+
         let spacing = confirm_small_px * -0.02;
-        let tw = text_width(&roboto_regular, confirm_small_px, &base, spacing);
-        let sx = (x as f32 + w as f32 - tw).round() as i32 + RIGHT_BLOCK_SHIFT_PX;
-        let label = format!("{} ", text_for(lang, "confirm_label"));
-        draw_text(&mut img, &roboto_regular, confirm_small_px, sx, y as i32, hex_color("#E6FFFF")?, &label, spacing);
-        let nx = sx + text_width(&roboto_regular, confirm_small_px, &label, spacing).round() as i32;
-        draw_text(&mut img, &roboto_bold, confirm_small_px, nx, y as i32, hex_color("#E6FFFF")?, &confirm_number, spacing);
-    }
-    if let Some(n) = figma::find_node(&template_json, PAGE, &format!("PIN_{lang}")) {
-        let (x, y, w, _h) = rel_box(&n, &frame_node)?;
-        let label_txt = format!("{} ", text_for(lang, "pin_label"));
-        let base = format!("{}{}", label_txt, pin);
-        let spacing = confirm_small_px * -0.02;
-        let tw = text_width(&roboto_regular, confirm_small_px, &base, spacing);
-        let sx = (x as f32 + w as f32 - tw).round() as i32 + RIGHT_BLOCK_SHIFT_PX;
-        draw_text(&mut img, &roboto_regular, confirm_small_px, sx, y as i32, hex_color("#E6FFFF")?, &label_txt, spacing);
-        let nx = sx + text_width(&roboto_regular, confirm_small_px, &label_txt, spacing).round() as i32;
-        draw_text(&mut img, &roboto_bold, confirm_small_px, nx, y as i32, hex_color("#E6FFFF")?, &pin, spacing);
+        let gap = (confirm_small_px * 0.22).round() as i32; // same gap for both lines
+
+        let right_edge = (cx as i32 + cw as i32)
+            .min(px as i32 + pw as i32)
+            + RIGHT_BLOCK_SHIFT_PX;
+
+        let confirm_label = format!("{}", text_for(lang, "confirm_label"));
+        let pin_label = format!("{}", text_for(lang, "pin_label"));
+
+        let confirm_num_w = text_width(&roboto_bold, confirm_small_px, &confirm_number, spacing).round() as i32;
+        let confirm_num_x = right_edge - confirm_num_w;
+        let confirm_label_w = text_width(&roboto_regular, confirm_small_px, &confirm_label, spacing).round() as i32;
+        let confirm_label_x = confirm_num_x - gap - confirm_label_w;
+
+        draw_text(&mut img, &roboto_regular, confirm_small_px, confirm_label_x, cy as i32, hex_color("#E6FFFF")?, &confirm_label, spacing);
+        draw_text(&mut img, &roboto_bold, confirm_small_px, confirm_num_x, cy as i32, hex_color("#E6FFFF")?, &confirm_number, spacing);
+
+        let pin_num_w = text_width(&roboto_bold, confirm_small_px, &pin, spacing).round() as i32;
+        let pin_num_x = right_edge - pin_num_w;
+        let pin_label_w = text_width(&roboto_regular, confirm_small_px, &pin_label, spacing).round() as i32;
+        let pin_label_x = pin_num_x - gap - pin_label_w;
+
+        draw_text(&mut img, &roboto_regular, confirm_small_px, pin_label_x, py as i32, hex_color("#E6FFFF")?, &pin_label, spacing);
+        draw_text(&mut img, &roboto_bold, confirm_small_px, pin_num_x, py as i32, hex_color("#E6FFFF")?, &pin, spacing);
+    } else {
+        // Fallback to independent rendering if one of nodes is missing.
+        if let Some(n) = figma::find_node(&template_json, PAGE, &format!("CONFIRM_{lang}")) {
+            let (x, y, w, _h) = rel_box(&n, &frame_node)?;
+            let base = format!("{} {}", text_for(lang, "confirm_label"), confirm_number);
+            let spacing = confirm_small_px * -0.02;
+            let tw = text_width(&roboto_regular, confirm_small_px, &base, spacing);
+            let sx = (x as f32 + w as f32 - tw).round() as i32 + RIGHT_BLOCK_SHIFT_PX;
+            let label = format!("{} ", text_for(lang, "confirm_label"));
+            draw_text(&mut img, &roboto_regular, confirm_small_px, sx, y as i32, hex_color("#E6FFFF")?, &label, spacing);
+            let nx = sx + text_width(&roboto_regular, confirm_small_px, &label, spacing).round() as i32;
+            draw_text(&mut img, &roboto_bold, confirm_small_px, nx, y as i32, hex_color("#E6FFFF")?, &confirm_number, spacing);
+        }
+        if let Some(n) = figma::find_node(&template_json, PAGE, &format!("PIN_{lang}")) {
+            let (x, y, w, _h) = rel_box(&n, &frame_node)?;
+            let label_txt = format!("{} ", text_for(lang, "pin_label"));
+            let base = format!("{}{}", label_txt, pin);
+            let spacing = confirm_small_px * -0.02;
+            let tw = text_width(&roboto_regular, confirm_small_px, &base, spacing);
+            let sx = (x as f32 + w as f32 - tw).round() as i32 + RIGHT_BLOCK_SHIFT_PX;
+            draw_text(&mut img, &roboto_regular, confirm_small_px, sx, y as i32, hex_color("#E6FFFF")?, &label_txt, spacing);
+            let nx = sx + text_width(&roboto_regular, confirm_small_px, &label_txt, spacing).round() as i32;
+            draw_text(&mut img, &roboto_bold, confirm_small_px, nx, y as i32, hex_color("#E6FFFF")?, &pin, spacing);
+        }
     }
 
     let rgb = DynamicImage::ImageRgba8(img).to_rgb8();
