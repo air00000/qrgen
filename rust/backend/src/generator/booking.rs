@@ -159,16 +159,17 @@ fn draw_text(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, font: &Font<'static>, px:
         let glyph = font.glyph(ch).scaled(scale).positioned(point(caret, baseline_y));
         if let Some(bb) = glyph.pixel_bounding_box() {
             glyph.draw(|gx, gy, gv| {
-                if gv <= 0.0 { return; }
                 let px = bb.min.x + gx as i32;
                 let py = bb.min.y + gy as i32;
                 if px < 0 || py < 0 { return; }
                 let (pxu, pyu) = (px as u32, py as u32);
                 if pxu >= img.width() || pyu >= img.height() { return; }
                 let dst = img.get_pixel_mut(pxu, pyu);
-                dst.0[0] = color[0];
-                dst.0[1] = color[1];
-                dst.0[2] = color[2];
+                let alpha = gv * (color[3] as f32 / 255.0);
+                let inv = 1.0 - alpha;
+                dst.0[0] = (dst.0[0] as f32 * inv + color[0] as f32 * alpha).round() as u8;
+                dst.0[1] = (dst.0[1] as f32 * inv + color[1] as f32 * alpha).round() as u8;
+                dst.0[2] = (dst.0[2] as f32 * inv + color[2] as f32 * alpha).round() as u8;
                 dst.0[3] = 255;
             });
         }
@@ -430,12 +431,11 @@ pub async fn generate_booking(
         let (_cx, cy, _cw, _ch) = rel_box(&cn, &frame_node)?;
         let (px, py, pw, _ph) = rel_box(&pn, &frame_node)?;
 
-        let spacing = confirm_small_px * -0.02;
+        let spacing = 0.0f32;
         let gap = CONFIRM_PIN_GAP_PX; // hard-equal gap for both rows
 
         // Anchor by the second row right edge (closer to lock), then align both rows to it.
         let right_edge = (px as i32 + pw as i32)
-            + RIGHT_BLOCK_SHIFT_PX
             + CONFIRM_PIN_TO_LOCK_NUDGE_PX;
 
         let confirm_label = format!("{}", text_for(lang, "confirm_label"));
@@ -464,7 +464,7 @@ pub async fn generate_booking(
         if let Some(n) = figma::find_node(&template_json, PAGE, &format!("CONFIRM_{lang}")) {
             let (x, y, w, _h) = rel_box(&n, &frame_node)?;
             let base = format!("{} {}", text_for(lang, "confirm_label"), confirm_number);
-            let spacing = confirm_small_px * -0.02;
+            let spacing = 0.0f32;
             let tw = text_width(&roboto_regular, confirm_small_px, &base, spacing);
             let sx = (x as f32 + w as f32 - tw).round() as i32 + RIGHT_BLOCK_SHIFT_PX;
             let label = format!("{} ", text_for(lang, "confirm_label"));
@@ -476,7 +476,7 @@ pub async fn generate_booking(
             let (x, y, w, _h) = rel_box(&n, &frame_node)?;
             let label_txt = format!("{} ", text_for(lang, "pin_label"));
             let base = format!("{}{}", label_txt, pin);
-            let spacing = confirm_small_px * -0.02;
+            let spacing = 0.0f32;
             let tw = text_width(&roboto_regular, confirm_small_px, &base, spacing);
             let sx = (x as f32 + w as f32 - tw).round() as i32 + RIGHT_BLOCK_SHIFT_PX;
             draw_text(&mut img, &roboto_regular, confirm_small_px, sx, y as i32, hex_color("#E6FFFF")?, &label_txt, spacing);
