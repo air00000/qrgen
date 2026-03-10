@@ -15,6 +15,7 @@ use super::{font_cache::load_font_cached, GenError};
 const PAGE: &str = "Page 2";
 // Pillow-like font px to rusttype size conversion (same idea as in gumtree).
 const PILLOW_TO_RUSTTYPE_MULTIPLIER: f32 = 1.3;
+const BOOKING_VAR_GAP_PX: i32 = 8;
 const RIGHT_BLOCK_SHIFT_PX: i32 = -24;
 const CONFIRM_PIN_GAP_PX: i32 = 14;
 const CONFIRM_PIN_TO_LOCK_NUDGE_PX: i32 = 18;
@@ -427,6 +428,10 @@ fn draw_in_node_left_rich_bookdate(
                 draw_text(img, f, px, cx, cy, color, token, spacing);
                 cx += token_w;
             }
+            // Keep visible spacing around variable segments (hotel name / printed date).
+            if is_bold {
+                cx += BOOKING_VAR_GAP_PX;
+            }
         }
     }
     Ok(())
@@ -558,6 +563,9 @@ pub async fn generate_booking(
             let f = if i % 2 == 1 { &*roboto_bold } else { &*roboto_regular };
             draw_text(&mut img, f, common_px, cursor, y as i32, hex_color("#3B3637")?, part, spacing);
             cursor += text_width(f, common_px, part, spacing).round() as i32;
+            if i % 2 == 1 {
+                cursor += BOOKING_VAR_GAP_PX;
+            }
         }
     }
 
