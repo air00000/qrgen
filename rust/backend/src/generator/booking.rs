@@ -23,7 +23,6 @@ const CONFIRM_PIN_TO_LOCK_NUDGE_PX: i32 = 18;
 const PIN_LOCK_TAIL_PX: i32 = 26;
 const PIN_ROW_Y_NUDGE_PX: i32 = 2;
 const CONFIRM_ROW_RIGHT_EXTRA_PX: i32 = 20;
-const SOLID_TEXT_THRESHOLD: f32 = 0.35;
 
 fn pillow_size_to_rusttype(pillow_px: f32) -> f32 {
     pillow_px * PILLOW_TO_RUSTTYPE_MULTIPLIER
@@ -256,16 +255,20 @@ fn draw_text(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, font: &Font<'static>, px:
         let glyph = font.glyph(ch).scaled(scale).positioned(point(caret, baseline_y));
         if let Some(bb) = glyph.pixel_bounding_box() {
             glyph.draw(|gx, gy, gv| {
-                if gv < SOLID_TEXT_THRESHOLD { return; }
                 let px = bb.min.x + gx as i32;
                 let py = bb.min.y + gy as i32;
                 if px < 0 || py < 0 { return; }
                 let (pxu, pyu) = (px as u32, py as u32);
                 if pxu >= img.width() || pyu >= img.height() { return; }
+
+                let alpha = gv * (color[3] as f32 / 255.0);
+                if alpha <= 0.0 { return; }
+
                 let dst = img.get_pixel_mut(pxu, pyu);
-                dst.0[0] = color[0];
-                dst.0[1] = color[1];
-                dst.0[2] = color[2];
+                let inv = 1.0 - alpha;
+                dst.0[0] = (dst.0[0] as f32 * inv + color[0] as f32 * alpha).round() as u8;
+                dst.0[1] = (dst.0[1] as f32 * inv + color[1] as f32 * alpha).round() as u8;
+                dst.0[2] = (dst.0[2] as f32 * inv + color[2] as f32 * alpha).round() as u8;
                 dst.0[3] = 255;
             });
         }
