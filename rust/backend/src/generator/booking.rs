@@ -16,6 +16,8 @@ const PAGE: &str = "Page 2";
 // Pillow-like font px to rusttype size conversion (same idea as in gumtree).
 const PILLOW_TO_RUSTTYPE_MULTIPLIER: f32 = 1.3;
 const RIGHT_BLOCK_SHIFT_PX: i32 = -24;
+const CONFIRM_PIN_GAP_PX: i32 = 14;
+const CONFIRM_PIN_TO_LOCK_NUDGE_PX: i32 = 12;
 
 fn pillow_size_to_rusttype(pillow_px: f32) -> f32 {
     pillow_px * PILLOW_TO_RUSTTYPE_MULTIPLIER
@@ -425,15 +427,16 @@ pub async fn generate_booking(
     let confirm_node = figma::find_node(&template_json, PAGE, &format!("CONFIRM_{lang}"));
     let pin_node = figma::find_node(&template_json, PAGE, &format!("PIN_{lang}"));
     if let (Some(cn), Some(pn)) = (confirm_node, pin_node) {
-        let (cx, cy, cw, _ch) = rel_box(&cn, &frame_node)?;
+        let (_cx, cy, _cw, _ch) = rel_box(&cn, &frame_node)?;
         let (px, py, pw, _ph) = rel_box(&pn, &frame_node)?;
 
         let spacing = confirm_small_px * -0.02;
-        let gap = (confirm_small_px * 0.22).round() as i32; // same gap for both lines
+        let gap = CONFIRM_PIN_GAP_PX; // hard-equal gap for both rows
 
-        let right_edge = (cx as i32 + cw as i32)
-            .min(px as i32 + pw as i32)
-            + RIGHT_BLOCK_SHIFT_PX;
+        // Anchor by the second row right edge (closer to lock), then align both rows to it.
+        let right_edge = (px as i32 + pw as i32)
+            + RIGHT_BLOCK_SHIFT_PX
+            + CONFIRM_PIN_TO_LOCK_NUDGE_PX;
 
         let confirm_label = format!("{}", text_for(lang, "confirm_label"));
         let pin_label = format!("{}", text_for(lang, "pin_label"));
