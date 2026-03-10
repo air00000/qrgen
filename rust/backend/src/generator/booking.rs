@@ -17,7 +17,7 @@ const PAGE: &str = "Page 2";
 const PILLOW_TO_RUSTTYPE_MULTIPLIER: f32 = 1.3;
 const RIGHT_BLOCK_SHIFT_PX: i32 = -24;
 const CONFIRM_PIN_GAP_PX: i32 = 14;
-const CONFIRM_PIN_TO_LOCK_NUDGE_PX: i32 = 12;
+const CONFIRM_PIN_TO_LOCK_NUDGE_PX: i32 = 0;
 
 fn pillow_size_to_rusttype(pillow_px: f32) -> f32 {
     pillow_px * PILLOW_TO_RUSTTYPE_MULTIPLIER
@@ -159,7 +159,7 @@ fn draw_text(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, font: &Font<'static>, px:
         let glyph = font.glyph(ch).scaled(scale).positioned(point(caret, baseline_y));
         if let Some(bb) = glyph.pixel_bounding_box() {
             glyph.draw(|gx, gy, gv| {
-                if gv < 0.45 { return; }
+                if gv <= 0.0 { return; }
                 let px = bb.min.x + gx as i32;
                 let py = bb.min.y + gy as i32;
                 if px < 0 || py < 0 { return; }
