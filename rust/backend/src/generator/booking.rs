@@ -20,6 +20,7 @@ const CONFIRM_PIN_GAP_PX: i32 = 14;
 const CONFIRM_PIN_TO_LOCK_NUDGE_PX: i32 = 18;
 // Extra right tail for PIN row to account for lock icon width in visual alignment.
 const PIN_LOCK_TAIL_PX: i32 = 26;
+const CONFIRM_ROW_RIGHT_EXTRA_PX: i32 = 10;
 const SOLID_TEXT_THRESHOLD: f32 = 0.35;
 
 fn pillow_size_to_rusttype(pillow_px: f32) -> f32 {
@@ -446,7 +447,7 @@ pub async fn generate_booking(
 
         // First row ends exactly at visual_right_edge.
         let confirm_num_w = text_width(&roboto_bold, confirm_small_px, &confirm_number, spacing).round() as i32;
-        let confirm_num_x = visual_right_edge - confirm_num_w;
+        let confirm_num_x = visual_right_edge - confirm_num_w + CONFIRM_ROW_RIGHT_EXTRA_PX;
         let confirm_label_right_x = confirm_num_x - gap;
         let confirm_label_w = text_width(&roboto_regular, confirm_small_px, &confirm_label, spacing).round() as i32;
         let confirm_label_x = confirm_label_right_x - confirm_label_w;
