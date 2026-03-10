@@ -15,7 +15,7 @@ use super::{font_cache::load_font_cached, GenError};
 const PAGE: &str = "Page 2";
 // Pillow-like font px to rusttype size conversion (same idea as in gumtree).
 const PILLOW_TO_RUSTTYPE_MULTIPLIER: f32 = 1.3;
-const RIGHT_BLOCK_SHIFT_PX: i32 = 36;
+const RIGHT_BLOCK_SHIFT_PX: i32 = -24;
 
 fn pillow_size_to_rusttype(pillow_px: f32) -> f32 {
     pillow_px * PILLOW_TO_RUSTTYPE_MULTIPLIER
@@ -417,7 +417,7 @@ pub async fn generate_booking(
         draw_text(&mut img, &roboto_regular, common_px, lx, y as i32, hex_color("#3B3637")?, phone, spacing);
     }
 
-    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("NIGHTS_{lang}"), &nights_line, &roboto_bold, common_px, hex_color("#000000")?, 0.01, 0)?;
+    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("NIGHTS_{lang}"), &nights_line, &roboto_bold, common_px, hex_color("#000000")?, 0.01, RIGHT_BLOCK_SHIFT_PX)?;
     draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKIN_{lang}"), &checkin_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01, RIGHT_BLOCK_SHIFT_PX)?;
     draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKOUT_{lang}"), &checkout_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01, RIGHT_BLOCK_SHIFT_PX)?;
 
