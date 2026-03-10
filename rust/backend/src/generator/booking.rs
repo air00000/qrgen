@@ -17,7 +17,7 @@ const PAGE: &str = "Page 2";
 const PILLOW_TO_RUSTTYPE_MULTIPLIER: f32 = 1.3;
 const RIGHT_BLOCK_SHIFT_PX: i32 = -24;
 const CONFIRM_PIN_GAP_PX: i32 = 14;
-const CONFIRM_PIN_TO_LOCK_NUDGE_PX: i32 = 8;
+const CONFIRM_PIN_TO_LOCK_NUDGE_PX: i32 = 18;
 // Extra right tail for PIN row to account for lock icon width in visual alignment.
 const PIN_LOCK_TAIL_PX: i32 = 26;
 const SOLID_TEXT_THRESHOLD: f32 = 0.35;
