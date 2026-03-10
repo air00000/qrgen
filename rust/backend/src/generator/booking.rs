@@ -521,10 +521,14 @@ pub async fn generate_booking(
         let mut rng = rand::thread_rng();
         rng.gen_range(3_860_070_132u64..=3_890_070_985u64).to_string()
     });
-    let pin = input.pin_code.map(str::to_string).unwrap_or_else(|| {
-        let mut rng = rand::thread_rng();
-        format!("{:04}", rng.gen_range(0u32..=9999u32))
-    });
+    let pin = input
+        .pin_code
+        .map(|s| s.chars().take(4).collect::<String>())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| {
+            let mut rng = rand::thread_rng();
+            format!("{:04}", rng.gen_range(0u32..=9999u32))
+        });
 
     let hello = text_for(lang, "hello").replace("{name}", guest);
     let confirm_city = text_for(lang, "confirm_city").replace("{city}", city);
