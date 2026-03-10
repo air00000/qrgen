@@ -15,6 +15,7 @@ use super::{font_cache::load_font_cached, GenError};
 const PAGE: &str = "Page 2";
 // Pillow-like font px to rusttype size conversion (same idea as in gumtree).
 const PILLOW_TO_RUSTTYPE_MULTIPLIER: f32 = 1.3;
+const RIGHT_BLOCK_SHIFT_PX: i32 = 36;
 
 fn pillow_size_to_rusttype(pillow_px: f32) -> f32 {
     pillow_px * PILLOW_TO_RUSTTYPE_MULTIPLIER
@@ -156,17 +157,16 @@ fn draw_text(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, font: &Font<'static>, px:
         let glyph = font.glyph(ch).scaled(scale).positioned(point(caret, baseline_y));
         if let Some(bb) = glyph.pixel_bounding_box() {
             glyph.draw(|gx, gy, gv| {
+                if gv < 0.45 { return; }
                 let px = bb.min.x + gx as i32;
                 let py = bb.min.y + gy as i32;
                 if px < 0 || py < 0 { return; }
                 let (pxu, pyu) = (px as u32, py as u32);
                 if pxu >= img.width() || pyu >= img.height() { return; }
                 let dst = img.get_pixel_mut(pxu, pyu);
-                let alpha = gv * (color[3] as f32 / 255.0);
-                let inv = 1.0 - alpha;
-                dst.0[0] = (dst.0[0] as f32 * inv + color[0] as f32 * alpha).round() as u8;
-                dst.0[1] = (dst.0[1] as f32 * inv + color[1] as f32 * alpha).round() as u8;
-                dst.0[2] = (dst.0[2] as f32 * inv + color[2] as f32 * alpha).round() as u8;
+                dst.0[0] = color[0];
+                dst.0[1] = color[1];
+                dst.0[2] = color[2];
                 dst.0[3] = 255;
             });
         }
@@ -276,12 +276,12 @@ fn draw_in_node_left(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, frame_node: &serd
     Ok(())
 }
 
-fn draw_in_node_right(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, frame_node: &serde_json::Value, template: &serde_json::Value, node_name: &str, text: &str, font: &Font<'static>, px: f32, color: Rgba<u8>, spacing_pct: f32) -> Result<(), GenError> {
+fn draw_in_node_right(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, frame_node: &serde_json::Value, template: &serde_json::Value, node_name: &str, text: &str, font: &Font<'static>, px: f32, color: Rgba<u8>, spacing_pct: f32, shift_px: i32) -> Result<(), GenError> {
     if let Some(n) = figma::find_node(template, PAGE, node_name) {
         let (x, y, w, _h) = rel_box(&n, frame_node)?;
         let spacing = px * spacing_pct;
         let tw = text_width(font, px, text, spacing);
-        let sx = (x as f32 + w as f32 - tw).round() as i32;
+        let sx = (x as f32 + w as f32 - tw).round() as i32 + shift_px;
         draw_text(img, font, px, sx, y as i32, color, text, spacing);
     }
     Ok(())
@@ -417,9 +417,9 @@ pub async fn generate_booking(
         draw_text(&mut img, &roboto_regular, common_px, lx, y as i32, hex_color("#3B3637")?, phone, spacing);
     }
 
-    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("NIGHTS_{lang}"), &nights_line, &roboto_bold, common_px, hex_color("#000000")?, 0.01)?;
-    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKIN_{lang}"), &checkin_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01)?;
-    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKOUT_{lang}"), &checkout_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01)?;
+    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("NIGHTS_{lang}"), &nights_line, &roboto_bold, common_px, hex_color("#000000")?, 0.01, 0)?;
+    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKIN_{lang}"), &checkin_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01, RIGHT_BLOCK_SHIFT_PX)?;
+    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKOUT_{lang}"), &checkout_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01, RIGHT_BLOCK_SHIFT_PX)?;
 
     // Right aligned confirmation + pin with bold numeric part
     if let Some(n) = figma::find_node(&template_json, PAGE, &format!("CONFIRM_{lang}")) {
@@ -427,7 +427,7 @@ pub async fn generate_booking(
         let base = format!("{} {}", text_for(lang, "confirm_label"), confirm_number);
         let spacing = confirm_small_px * -0.02;
         let tw = text_width(&roboto_regular, confirm_small_px, &base, spacing);
-        let sx = (x as f32 + w as f32 - tw).round() as i32;
+        let sx = (x as f32 + w as f32 - tw).round() as i32 + RIGHT_BLOCK_SHIFT_PX;
         let label = format!("{} ", text_for(lang, "confirm_label"));
         draw_text(&mut img, &roboto_regular, confirm_small_px, sx, y as i32, hex_color("#E6FFFF")?, &label, spacing);
         let nx = sx + text_width(&roboto_regular, confirm_small_px, &label, spacing).round() as i32;
@@ -439,7 +439,7 @@ pub async fn generate_booking(
         let base = format!("{}{}", label_txt, pin);
         let spacing = confirm_small_px * -0.02;
         let tw = text_width(&roboto_regular, confirm_small_px, &base, spacing);
-        let sx = (x as f32 + w as f32 - tw).round() as i32;
+        let sx = (x as f32 + w as f32 - tw).round() as i32 + RIGHT_BLOCK_SHIFT_PX;
         draw_text(&mut img, &roboto_regular, confirm_small_px, sx, y as i32, hex_color("#E6FFFF")?, &label_txt, spacing);
         let nx = sx + text_width(&roboto_regular, confirm_small_px, &label_txt, spacing).round() as i32;
         draw_text(&mut img, &roboto_bold, confirm_small_px, nx, y as i32, hex_color("#E6FFFF")?, &pin, spacing);
