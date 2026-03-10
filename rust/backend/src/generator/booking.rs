@@ -413,7 +413,7 @@ pub async fn generate_booking(
         let label = text_for(lang, "phone");
         let spacing = common_px * 0.01;
         draw_text(&mut img, &roboto_bold, common_px, x as i32, y as i32, hex_color("#3B3637")?, label, spacing);
-        let lx = x as i32 + text_width(&roboto_bold, common_px, &(label.to_string() + " "), spacing).round() as i32;
+        let lx = x as i32 + text_width(&roboto_bold, common_px, &(label.to_string() + " "), spacing).round() as i32 + 10;
         draw_text(&mut img, &roboto_regular, common_px, lx, y as i32, hex_color("#3B3637")?, phone, spacing);
     }
 
