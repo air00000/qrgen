@@ -18,6 +18,8 @@ const PILLOW_TO_RUSTTYPE_MULTIPLIER: f32 = 1.3;
 const RIGHT_BLOCK_SHIFT_PX: i32 = -24;
 const CONFIRM_PIN_GAP_PX: i32 = 14;
 const CONFIRM_PIN_TO_LOCK_NUDGE_PX: i32 = 8;
+// Extra right tail for PIN row to account for lock icon width in visual alignment.
+const PIN_LOCK_TAIL_PX: i32 = 26;
 const SOLID_TEXT_THRESHOLD: f32 = 0.35;
 
 fn pillow_size_to_rusttype(pillow_px: f32) -> f32 {
@@ -435,15 +437,16 @@ pub async fn generate_booking(
         let gap = CONFIRM_PIN_GAP_PX; // hard-equal gap for both rows
 
         // Anchor by the second row right edge (closer to lock), then align both rows to it.
-        let right_edge = (px as i32 + pw as i32)
+        // Visual right edge is where the lock icon ends (second row, as requested).
+        let visual_right_edge = (px as i32 + pw as i32)
             + CONFIRM_PIN_TO_LOCK_NUDGE_PX;
 
         let confirm_label = format!("{}", text_for(lang, "confirm_label"));
         let pin_label = format!("{}", text_for(lang, "pin_label"));
 
-        // Align code RIGHT edges to a single vertical line, keep equal label->code gap.
+        // First row ends exactly at visual_right_edge.
         let confirm_num_w = text_width(&roboto_bold, confirm_small_px, &confirm_number, spacing).round() as i32;
-        let confirm_num_x = right_edge - confirm_num_w;
+        let confirm_num_x = visual_right_edge - confirm_num_w;
         let confirm_label_right_x = confirm_num_x - gap;
         let confirm_label_w = text_width(&roboto_regular, confirm_small_px, &confirm_label, spacing).round() as i32;
         let confirm_label_x = confirm_label_right_x - confirm_label_w;
@@ -451,8 +454,10 @@ pub async fn generate_booking(
         draw_text(&mut img, &roboto_regular, confirm_small_px, confirm_label_x, cy as i32, hex_color("#E6FFFF")?, &confirm_label, spacing);
         draw_text(&mut img, &roboto_bold, confirm_small_px, confirm_num_x, cy as i32, hex_color("#E6FFFF")?, &confirm_number, spacing);
 
+        // Second row includes lock icon, so code ends earlier by lock tail width.
+        let pin_code_right_edge = visual_right_edge - PIN_LOCK_TAIL_PX;
         let pin_num_w = text_width(&roboto_bold, confirm_small_px, &pin, spacing).round() as i32;
-        let pin_num_x = right_edge - pin_num_w;
+        let pin_num_x = pin_code_right_edge - pin_num_w;
         let pin_label_right_x = pin_num_x - gap;
         let pin_label_w = text_width(&roboto_regular, confirm_small_px, &pin_label, spacing).round() as i32;
         let pin_label_x = pin_label_right_x - pin_label_w;
