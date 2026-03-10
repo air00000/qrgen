@@ -21,6 +21,7 @@ const CONFIRM_PIN_GAP_PX: i32 = 14;
 const CONFIRM_PIN_TO_LOCK_NUDGE_PX: i32 = 18;
 // Extra right tail for PIN row to account for lock icon width in visual alignment.
 const PIN_LOCK_TAIL_PX: i32 = 26;
+const PIN_ROW_Y_NUDGE_PX: i32 = 2;
 const CONFIRM_ROW_RIGHT_EXTRA_PX: i32 = 20;
 const SOLID_TEXT_THRESHOLD: f32 = 0.35;
 
@@ -624,8 +625,8 @@ pub async fn generate_booking(
         let pin_label_w = text_width(&roboto_regular, confirm_small_px, &pin_label, spacing).round() as i32;
         let pin_label_x = pin_label_right_x - pin_label_w;
 
-        draw_text(&mut img, &roboto_regular, confirm_small_px, pin_label_x, py as i32, hex_color("#E6FFFF")?, &pin_label, spacing);
-        draw_text(&mut img, &roboto_bold, confirm_small_px, pin_num_x, py as i32, hex_color("#E6FFFF")?, &pin, spacing);
+        draw_text(&mut img, &roboto_regular, confirm_small_px, pin_label_x, py as i32 + PIN_ROW_Y_NUDGE_PX, hex_color("#E6FFFF")?, &pin_label, spacing);
+        draw_text(&mut img, &roboto_bold, confirm_small_px, pin_num_x, py as i32 + PIN_ROW_Y_NUDGE_PX, hex_color("#E6FFFF")?, &pin, spacing);
     } else {
         // Fallback to independent rendering if one of nodes is missing.
         if let Some(n) = figma::find_node(&template_json, PAGE, &format!("CONFIRM_{lang}")) {
@@ -646,9 +647,9 @@ pub async fn generate_booking(
             let spacing = 0.0f32;
             let tw = text_width(&roboto_regular, confirm_small_px, &base, spacing);
             let sx = (x as f32 + w as f32 - tw).round() as i32 + RIGHT_BLOCK_SHIFT_PX;
-            draw_text(&mut img, &roboto_regular, confirm_small_px, sx, y as i32, hex_color("#E6FFFF")?, &label_txt, spacing);
+            draw_text(&mut img, &roboto_regular, confirm_small_px, sx, y as i32 + PIN_ROW_Y_NUDGE_PX, hex_color("#E6FFFF")?, &label_txt, spacing);
             let nx = sx + text_width(&roboto_regular, confirm_small_px, &label_txt, spacing).round() as i32;
-            draw_text(&mut img, &roboto_bold, confirm_small_px, nx, y as i32, hex_color("#E6FFFF")?, &pin, spacing);
+            draw_text(&mut img, &roboto_bold, confirm_small_px, nx, y as i32 + PIN_ROW_Y_NUDGE_PX, hex_color("#E6FFFF")?, &pin, spacing);
         }
     }
 
