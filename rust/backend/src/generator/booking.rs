@@ -230,18 +230,20 @@ fn hex_color(s: &str) -> Result<Rgba<u8>, GenError> {
 }
 
 fn text_width(font: &Font<'static>, px: f32, text: &str, spacing: f32) -> f32 {
-    if text.is_empty() { return 0.0; }
+    if text.is_empty() {
+        return 0.0;
+    }
     let scale = Scale::uniform(px);
-    let v = font.v_metrics(scale);
-    let glyphs: Vec<_> = font.layout(text, scale, point(0.0, v.ascent)).collect();
     let mut width = 0.0f32;
-    for (i, g) in glyphs.iter().enumerate() {
-        if let Some(bb) = g.pixel_bounding_box() {
-            width = width.max(bb.max.x as f32);
-            if i + 1 < glyphs.len() { width += spacing; }
+    let chars: Vec<char> = text.chars().collect();
+    for (i, ch) in chars.iter().enumerate() {
+        let g = font.glyph(*ch).scaled(scale);
+        width += g.h_metrics().advance_width;
+        if i + 1 < chars.len() {
+            width += spacing;
         }
     }
-    width
+    width.max(0.0)
 }
 
 fn draw_text(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, font: &Font<'static>, px: f32, x: i32, y: i32, color: Rgba<u8>, text: &str, spacing: f32) {
