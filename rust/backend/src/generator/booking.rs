@@ -21,7 +21,7 @@ const CONFIRM_PIN_GAP_PX: i32 = 14;
 const CONFIRM_PIN_TO_LOCK_NUDGE_PX: i32 = 18;
 // Extra right tail for PIN row to account for lock icon width in visual alignment.
 const PIN_LOCK_TAIL_PX: i32 = 26;
-const PIN_ROW_Y_NUDGE_PX: i32 = 2;
+const PIN_ROW_Y_NUDGE_PX: i32 = -3;
 const CONFIRM_ROW_RIGHT_EXTRA_PX: i32 = 20;
 const SOLID_TEXT_THRESHOLD: f32 = 0.35;
 
