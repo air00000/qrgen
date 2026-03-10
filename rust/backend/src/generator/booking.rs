@@ -382,7 +382,8 @@ pub async fn generate_booking(
     let hello = text_for(lang, "hello").replace("{name}", guest);
     let confirm_city = text_for(lang, "confirm_city").replace("{city}", city);
     let print_date = format!("{} {} {}", checkin_date.day(), month_short(lang, checkin_date.month()), checkin_date.year());
-    let book_date = text_for(lang, "book_date").replace("{hotel}", hotel).replace("{date}", &print_date);
+    let book_date_tpl = text_for(lang, "book_date");
+    let book_date = book_date_tpl.replace("{hotel}", hotel).replace("{date}", &print_date);
     let book_pay = text_for(lang, "pay").replace("{hotel}", hotel);
     let nights_line = nights_text(lang, nights, beds);
     let checkin_line = human_check_date(lang, checkin_date, true, checkin_time);
@@ -395,7 +396,39 @@ pub async fn generate_booking(
 
     draw_in_node_left(&mut img, &frame_node, &template_json, &format!("NAME_{lang}"), &hello, &roboto_bold, name_px, hex_color("#3B3637")?, 0.04)?;
     draw_in_node_left(&mut img, &frame_node, &template_json, &format!("BOOKCONFIRM_{lang}"), &confirm_city, &roboto_bold, confirm_px, hex_color("#3B3637")?, 0.04)?;
-    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("BOOKDATE_{lang}"), &book_date, &roboto_regular, common_px, hex_color("#3B3637")?, 0.017)?;
+    if let Some(n) = figma::find_node(&template_json, PAGE, &format!("BOOKDATE_{lang}")) {
+        let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
+        let spacing = common_px * 0.017;
+
+        // Render BOOKDATE with mixed styles: hotel + date in bold, rest in regular.
+        let mut cursor = x as i32;
+        if let Some(h_i) = book_date_tpl.find("{hotel}") {
+            let pre = &book_date_tpl[..h_i];
+            draw_text(&mut img, &roboto_regular, common_px, cursor, y as i32, hex_color("#3B3637")?, pre, spacing);
+            cursor += text_width(&roboto_regular, common_px, pre, spacing).round() as i32;
+
+            draw_text(&mut img, &roboto_bold, common_px, cursor, y as i32, hex_color("#3B3637")?, hotel, spacing);
+            cursor += text_width(&roboto_bold, common_px, hotel, spacing).round() as i32;
+
+            let after_hotel = &book_date_tpl[h_i + "{hotel}".len()..];
+            if let Some(d_rel) = after_hotel.find("{date}") {
+                let mid = &after_hotel[..d_rel];
+                draw_text(&mut img, &roboto_regular, common_px, cursor, y as i32, hex_color("#3B3637")?, mid, spacing);
+                cursor += text_width(&roboto_regular, common_px, mid, spacing).round() as i32;
+
+                draw_text(&mut img, &roboto_bold, common_px, cursor, y as i32, hex_color("#3B3637")?, &print_date, spacing);
+                cursor += text_width(&roboto_bold, common_px, &print_date, spacing).round() as i32;
+
+                let post = &after_hotel[d_rel + "{date}".len()..];
+                draw_text(&mut img, &roboto_regular, common_px, cursor, y as i32, hex_color("#3B3637")?, post, spacing);
+            } else {
+                draw_text(&mut img, &roboto_regular, common_px, cursor, y as i32, hex_color("#3B3637")?, after_hotel, spacing);
+            }
+        } else {
+            // Fallback
+            draw_text(&mut img, &roboto_regular, common_px, x as i32, y as i32, hex_color("#3B3637")?, &book_date, spacing);
+        }
+    }
 
     // BOOKPAY with bold word between *...* and equal spacing around the bold word.
     if let Some(n) = figma::find_node(&template_json, PAGE, &format!("BOOKPAY_{lang}")) {
