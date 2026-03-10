@@ -118,15 +118,104 @@ fn weekday_name(lang: &str, w: Weekday) -> &'static str {
     }
 }
 
+fn format_time_hhmm_to_fr(time: &str) -> String {
+    if let Some((h, m)) = time.split_once(':') {
+        format!("{}h{}", h, m)
+    } else {
+        time.to_string()
+    }
+}
+
 fn human_check_date(lang: &str, d: NaiveDate, is_checkin: bool, time: &str) -> String {
     match lang {
-        "it" => format!("{} {} {} {} ({})", weekday_name(lang, d.weekday()), d.day(), month_short(lang, d.month()), d.year(), if is_checkin { format!("dalle {}", time) } else { format!("fino alle {}", time) }),
-        "fr" => format!("{} {} {} {} ({})", weekday_name(lang, d.weekday()), d.day(), month_short(lang, d.month()), d.year(), if is_checkin { format!("à partir de {}", time) } else { format!("jusqu'à {}", time) }),
-        "es" => format!("{} {} {} {} ({})", weekday_name(lang, d.weekday()), d.day(), month_short(lang, d.month()), d.year(), if is_checkin { format!("a partir de las {}", time) } else { format!("hasta las {}", time) }),
-        "pr" => format!("{}, {} de {} de {} ({})", weekday_name(lang, d.weekday()), d.day(), month_short(lang, d.month()), d.year(), if is_checkin { format!("a partir das {}", time) } else { format!("até às {}", time) }),
-        "de" => format!("{}, {}. {} {} ({})", weekday_name(lang, d.weekday()), d.day(), month_short(lang, d.month()), d.year(), if is_checkin { format!("ab {} Uhr", time) } else { format!("bis {} Uhr", time) }),
-        "nl" => format!("{} {} {} {} ({})", weekday_name(lang, d.weekday()), d.day(), month_short(lang, d.month()), d.year(), if is_checkin { format!("vanaf {}", time) } else { format!("tot {}", time) }),
-        _ => format!("{} {} {} {} ({})", weekday_name(lang, d.weekday()), d.day(), month_short(lang, d.month()), d.year(), if is_checkin { format!("from {}", time) } else { format!("until {}", time) }),
+        "it" => format!(
+            "{} {} {} {} ({})",
+            weekday_name(lang, d.weekday()),
+            d.day(),
+            month_short(lang, d.month()),
+            d.year(),
+            if is_checkin {
+                format!("dalle {}", time)
+            } else {
+                format!("fino alle {}", time)
+            }
+        ),
+        "fr" => {
+            let day = if d.day() == 1 { "1er".to_string() } else { d.day().to_string() };
+            let t = format_time_hhmm_to_fr(time);
+            format!(
+                "{} {} {} {} ({})",
+                weekday_name(lang, d.weekday()),
+                day,
+                month_short(lang, d.month()),
+                d.year(),
+                if is_checkin {
+                    format!("à partir de {}", t)
+                } else {
+                    format!("jusqu'à {}", t)
+                }
+            )
+        }
+        "es" => format!(
+            "{} {} {} {} ({})",
+            weekday_name(lang, d.weekday()),
+            d.day(),
+            month_short(lang, d.month()),
+            d.year(),
+            if is_checkin {
+                format!("a partir de las {}", time)
+            } else {
+                format!("hasta las {}", time)
+            }
+        ),
+        "pr" => format!(
+            "{}, {} de {} de {} ({})",
+            weekday_name(lang, d.weekday()),
+            d.day(),
+            month_short(lang, d.month()),
+            d.year(),
+            if is_checkin {
+                format!("a partir das {}", time)
+            } else {
+                format!("até às {}h", time)
+            }
+        ),
+        "de" => format!(
+            "{}, {}. {} {} ({})",
+            weekday_name(lang, d.weekday()),
+            d.day(),
+            month_short(lang, d.month()),
+            d.year(),
+            if is_checkin {
+                format!("ab {} Uhr", time)
+            } else {
+                format!("bis {} Uhr", time)
+            }
+        ),
+        "nl" => format!(
+            "{} {} {} {} ({})",
+            weekday_name(lang, d.weekday()),
+            d.day(),
+            month_short(lang, d.month()),
+            d.year(),
+            if is_checkin {
+                format!("vanaf {}", time)
+            } else {
+                format!("tot {}", time)
+            }
+        ),
+        _ => format!(
+            "{} {} {} {} ({})",
+            weekday_name(lang, d.weekday()),
+            d.day(),
+            month_short(lang, d.month()),
+            d.year(),
+            if is_checkin {
+                format!("from {}", time)
+            } else {
+                format!("until {}", time)
+            }
+        ),
     }
 }
 
@@ -259,13 +348,13 @@ fn text_for<'a>(lang: &str, key: &'a str) -> &'a str {
 
 fn nights_text(lang: &str, nights: i32, beds: i32) -> String {
     match lang {
-        "it" => format!("{} {} , {} {}", nights, if nights == 1 { "notte" } else { "notti" }, beds, if beds == 1 { "letto" } else { "letti" }),
-        "fr" => format!("{} {} , {} {}", nights, if nights == 1 { "nuit" } else { "nuits" }, beds, if beds == 1 { "lit" } else { "lits" }),
-        "es" => format!("{} {} , {} {}", nights, if nights == 1 { "noche" } else { "noches" }, beds, if beds == 1 { "cama" } else { "camas" }),
-        "pr" => format!("{} {} , {} {}", nights, if nights == 1 { "noite" } else { "noites" }, beds, if beds == 1 { "cama" } else { "camas" }),
-        "de" => format!("{} {} , {} {}", nights, if nights == 1 { "Nacht" } else { "Nächte" }, beds, if beds == 1 { "Bett" } else { "Betten" }),
-        "nl" => format!("{} {} , {} {}", nights, if nights == 1 { "nacht" } else { "nachten" }, beds, if beds == 1 { "bed" } else { "bedden" }),
-        _ => format!("{} {} , {} {}", nights, if nights == 1 { "night" } else { "nights" }, beds, if beds == 1 { "dormitory bed" } else { "dormitory beds" }),
+        "it" => format!("{} {}, {} {}", nights, if nights == 1 { "notte" } else { "notti" }, beds, if beds == 1 { "letto" } else { "letti" }),
+        "fr" => format!("{} {}, {} {}", nights, if nights == 1 { "nuit" } else { "nuits" }, beds, if beds == 1 { "lit" } else { "lits" }),
+        "es" => format!("{} {}, {} {}", nights, if nights == 1 { "noche" } else { "noches" }, beds, if beds == 1 { "cama" } else { "camas" }),
+        "pr" => format!("{} {}, {} {}", nights, if nights == 1 { "noite" } else { "noites" }, beds, if beds == 1 { "cama" } else { "camas" }),
+        "de" => format!("{} {}, {} {}", nights, if nights == 1 { "Nacht" } else { "Nächte" }, beds, if beds == 1 { "Bett" } else { "Betten" }),
+        "nl" => format!("{} {}, {} {}", nights, if nights == 1 { "nacht" } else { "nachten" }, beds, if beds == 1 { "bed" } else { "bedden" }),
+        _ => format!("{} {}, {} {}", nights, if nights == 1 { "night" } else { "nights" }, beds, if beds == 1 { "dormitory bed" } else { "dormitory beds" }),
     }
 }
 
@@ -289,6 +378,56 @@ fn draw_in_node_right(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, frame_node: &ser
         let tw = text_width(font, px, text, spacing);
         let sx = (x as f32 + w as f32 - tw).round() as i32 + shift_px;
         draw_text(img, font, px, sx, y as i32, color, text, spacing);
+    }
+    Ok(())
+}
+
+fn book_date_segments(lang: &str, hotel: &str, date: &str) -> Vec<(String, bool)> {
+    match lang {
+        "it" => vec![(hotel.to_string(), true), (" ti aspetterà ".to_string(), false), (date.to_string(), true), (" dopo la conferma".to_string(), false)],
+        "fr" => vec![(hotel.to_string(), true), (" vous attendra ".to_string(), false), (date.to_string(), true), (" après confirmation".to_string(), false)],
+        "es" => vec![(hotel.to_string(), true), (" te estará esperando ".to_string(), false), (date.to_string(), true), (" después de la confirmación.".to_string(), false)],
+        "pr" => vec![("O ".to_string(), false), (hotel.to_string(), true), (" estará à sua espera no ".to_string(), false), (date.to_string(), true), (" após a confirmação".to_string(), false)],
+        "de" => vec![(hotel.to_string(), true), (" erwartet Sie ".to_string(), false), (date.to_string(), true), (" nach Bestätigung".to_string(), false)],
+        "nl" => vec![(hotel.to_string(), true), (" staat na bevestiging ".to_string(), false), (date.to_string(), true), (" voor u klaar".to_string(), false)],
+        _ => vec![(hotel.to_string(), true), (" will be waiting for you on ".to_string(), false), (date.to_string(), true), (" after confirmation".to_string(), false)],
+    }
+}
+
+fn draw_in_node_left_rich_bookdate(
+    img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>,
+    frame_node: &serde_json::Value,
+    template: &serde_json::Value,
+    node_name: &str,
+    lang: &str,
+    hotel: &str,
+    date: &str,
+    regular_font: &Font<'static>,
+    bold_font: &Font<'static>,
+    px: f32,
+    color: Rgba<u8>,
+    spacing_pct: f32,
+) -> Result<(), GenError> {
+    if let Some(n) = figma::find_node(template, PAGE, node_name) {
+        let (x, y, w, _h) = rel_box(&n, frame_node)?;
+        let spacing = px * spacing_pct;
+        let line_h = (px * 1.25).round() as i32;
+
+        let mut cx = x as i32;
+        let mut cy = y as i32;
+
+        for (seg_text, is_bold) in book_date_segments(lang, hotel, date) {
+            for token in seg_text.split_inclusive(' ') {
+                let f = if is_bold { bold_font } else { regular_font };
+                let token_w = text_width(f, px, token, spacing).round() as i32;
+                if (cx - x as i32) + token_w > w as i32 {
+                    cx = x as i32;
+                    cy += line_h;
+                }
+                draw_text(img, f, px, cx, cy, color, token, spacing);
+                cx += token_w;
+            }
+        }
     }
     Ok(())
 }
@@ -382,7 +521,6 @@ pub async fn generate_booking(
     let hello = text_for(lang, "hello").replace("{name}", guest);
     let confirm_city = text_for(lang, "confirm_city").replace("{city}", city);
     let print_date = format!("{} {} {}", checkin_date.day(), month_short(lang, checkin_date.month()), checkin_date.year());
-    let book_date = text_for(lang, "book_date").replace("{hotel}", hotel).replace("{date}", &print_date);
     let book_pay = text_for(lang, "pay").replace("{hotel}", hotel);
     let nights_line = nights_text(lang, nights, beds);
     let checkin_line = human_check_date(lang, checkin_date, true, checkin_time);
@@ -395,7 +533,20 @@ pub async fn generate_booking(
 
     draw_in_node_left(&mut img, &frame_node, &template_json, &format!("NAME_{lang}"), &hello, &roboto_bold, name_px, hex_color("#3B3637")?, 0.04)?;
     draw_in_node_left(&mut img, &frame_node, &template_json, &format!("BOOKCONFIRM_{lang}"), &confirm_city, &roboto_bold, confirm_px, hex_color("#3B3637")?, 0.04)?;
-    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("BOOKDATE_{lang}"), &book_date, &roboto_regular, common_px, hex_color("#3B3637")?, 0.017)?;
+    draw_in_node_left_rich_bookdate(
+        &mut img,
+        &frame_node,
+        &template_json,
+        &format!("BOOKDATE_{lang}"),
+        lang,
+        hotel,
+        &print_date,
+        &roboto_regular,
+        &roboto_bold,
+        common_px,
+        hex_color("#3B3637")?,
+        0.017,
+    )?;
 
     // BOOKPAY with bold word between *...*
     if let Some(n) = figma::find_node(&template_json, PAGE, &format!("BOOKPAY_{lang}")) {
@@ -423,7 +574,7 @@ pub async fn generate_booking(
         draw_text(&mut img, &roboto_regular, common_px, lx, y as i32, hex_color("#3B3637")?, phone, spacing);
     }
 
-    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("NIGHTS_{lang}"), &nights_line, &roboto_bold, common_px, hex_color("#000000")?, 0.01, RIGHT_BLOCK_SHIFT_PX)?;
+    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("NIGHTS_{lang}"), &nights_line, &roboto_bold, common_px, hex_color("#000000")?, 0.01)?;
     draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKIN_{lang}"), &checkin_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01, RIGHT_BLOCK_SHIFT_PX)?;
     draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKOUT_{lang}"), &checkout_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01, RIGHT_BLOCK_SHIFT_PX)?;
 
