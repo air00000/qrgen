@@ -284,6 +284,72 @@ fn wrap_lines(font: &Font<'static>, px: f32, text: &str, spacing: f32, max_w: f3
     out
 }
 
+fn fit_font_to_height(font: &Font<'static>, px: f32, text: &str, spacing_pct: f32, max_w: f32, max_h: f32) -> f32 {
+    const MIN_PX: f32 = 24.0;
+    let mut current_px = px;
+    loop {
+        let spacing = current_px * spacing_pct;
+        let lines = wrap_lines(font, current_px, text, spacing, max_w);
+        let line_h = (current_px * 1.25).round();
+        let total_h = lines.len() as f32 * line_h;
+        if total_h <= max_h || current_px <= MIN_PX {
+            return current_px.max(MIN_PX);
+        }
+        current_px -= 1.0;
+    }
+}
+
+fn count_lines_rich_bookdate(
+    regular_font: &Font<'static>,
+    bold_font: &Font<'static>,
+    px: f32,
+    spacing_pct: f32,
+    segments: &[(String, bool)],
+    max_w: f32,
+) -> usize {
+    let spacing = px * spacing_pct;
+    let mut cx = 0i32;
+    let mut line_count = 1usize;
+
+    for (seg_text, is_bold) in segments {
+        for token in seg_text.split_inclusive(' ') {
+            let f = if *is_bold { bold_font } else { regular_font };
+            let token_w = text_width(f, px, token, spacing).round() as i32;
+            if cx + token_w > max_w as i32 {
+                cx = 0;
+                line_count += 1;
+            }
+            cx += token_w;
+        }
+        if *is_bold {
+            cx += BOOKING_VAR_GAP_PX;
+        }
+    }
+    line_count
+}
+
+fn fit_font_to_height_rich_bookdate(
+    regular_font: &Font<'static>,
+    bold_font: &Font<'static>,
+    px: f32,
+    spacing_pct: f32,
+    segments: &[(String, bool)],
+    max_w: f32,
+    max_h: f32,
+) -> f32 {
+    const MIN_PX: f32 = 24.0;
+    let mut current_px = px;
+    loop {
+        let line_count = count_lines_rich_bookdate(regular_font, bold_font, current_px, spacing_pct, segments, max_w);
+        let line_h = (current_px * 1.25).round();
+        let total_h = line_count as f32 * line_h;
+        if total_h <= max_h || current_px <= MIN_PX {
+            return current_px.max(MIN_PX);
+        }
+        current_px -= 1.0;
+    }
+}
+
 fn text_for<'a>(lang: &str, key: &'a str) -> &'a str {
     match (lang, key) {
         ("it", "hello") => "Ciao, {name}!",
@@ -359,12 +425,13 @@ fn nights_text(lang: &str, nights: i32, beds: i32) -> String {
 
 fn draw_in_node_left(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, frame_node: &serde_json::Value, template: &serde_json::Value, node_name: &str, text: &str, font: &Font<'static>, px: f32, color: Rgba<u8>, spacing_pct: f32) -> Result<(), GenError> {
     if let Some(n) = figma::find_node(template, PAGE, node_name) {
-        let (x, y, w, _h) = rel_box(&n, frame_node)?;
-        let spacing = px * spacing_pct;
-        let lines = wrap_lines(font, px, text, spacing, w as f32);
-        let line_h = (px * 1.25).round() as i32;
+        let (x, y, w, h) = rel_box(&n, frame_node)?;
+        let fitted_px = fit_font_to_height(font, px, text, spacing_pct, w as f32, h as f32);
+        let spacing = fitted_px * spacing_pct;
+        let lines = wrap_lines(font, fitted_px, text, spacing, w as f32);
+        let line_h = (fitted_px * 1.25).round() as i32;
         for (i, line) in lines.iter().enumerate() {
-            draw_text(img, font, px, x as i32, y as i32 + (i as i32) * line_h, color, line, spacing);
+            draw_text(img, font, fitted_px, x as i32, y as i32 + (i as i32) * line_h, color, line, spacing);
         }
     }
     Ok(())
@@ -408,22 +475,24 @@ fn draw_in_node_left_rich_bookdate(
     spacing_pct: f32,
 ) -> Result<(), GenError> {
     if let Some(n) = figma::find_node(template, PAGE, node_name) {
-        let (x, y, w, _h) = rel_box(&n, frame_node)?;
-        let spacing = px * spacing_pct;
-        let line_h = (px * 1.25).round() as i32;
+        let (x, y, w, h) = rel_box(&n, frame_node)?;
+        let segments = book_date_segments(lang, hotel, date);
+        let fitted_px = fit_font_to_height_rich_bookdate(regular_font, bold_font, px, spacing_pct, &segments, w as f32, h as f32);
+        let spacing = fitted_px * spacing_pct;
+        let line_h = (fitted_px * 1.25).round() as i32;
 
         let mut cx = x as i32;
         let mut cy = y as i32;
 
-        for (seg_text, is_bold) in book_date_segments(lang, hotel, date) {
+        for (seg_text, is_bold) in segments {
             for token in seg_text.split_inclusive(' ') {
                 let f = if is_bold { bold_font } else { regular_font };
-                let token_w = text_width(f, px, token, spacing).round() as i32;
+                let token_w = text_width(f, fitted_px, token, spacing).round() as i32;
                 if (cx - x as i32) + token_w > w as i32 {
                     cx = x as i32;
                     cy += line_h;
                 }
-                draw_text(img, f, px, cx, cy, color, token, spacing);
+                draw_text(img, f, fitted_px, cx, cy, color, token, spacing);
                 cx += token_w;
             }
             // Keep visible spacing around variable segments (hotel name / printed date).
