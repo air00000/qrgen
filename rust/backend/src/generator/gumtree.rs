@@ -13,13 +13,6 @@ const PAGE: &str = "Page 2";
 const QR_LOGO_URL: &str = "https://i.postimg.cc/MZ7TLvhP/gumtree3.png";
 const UK_PROTECT_BASE: Decimal = dec!(0.70);
 const UK_PROTECT_RATE: Decimal = dec!(0.05);
-// Pillow font sizes are in 96 DPI CSS pixels, while rusttype sizing maps closer to 72 DPI points.
-// Convert by 96/72 ~= 1.333 to preserve Gumtree template visual size parity.
-const PILLOW_TO_RUSTTYPE_MULTIPLIER: f32 = 1.3;
-
-fn pillow_size_to_rusttype(pillow_px: f32) -> f32 {
-    pillow_px * PILLOW_TO_RUSTTYPE_MULTIPLIER
-}
 
 #[derive(Clone, Copy, Debug)]
 enum Variant {
@@ -142,8 +135,8 @@ fn text_width(font: &Font<'static>, px: f32, text: &str, letter_spacing: f32) ->
     if text.is_empty() {
         return 0.0;
     }
-    let rusttype_px = pillow_size_to_rusttype(px);
-    let scale = Scale::uniform(rusttype_px);
+    // px already accounts for scale_factor (2.0), use directly
+    let scale = Scale::uniform(px);
     let v_metrics = font.v_metrics(scale);
     let glyphs: Vec<_> = font.layout(text, scale, point(0.0, v_metrics.ascent)).collect();
 
@@ -245,8 +238,8 @@ fn draw_text_with_letter_spacing(
     text: &str,
     letter_spacing: f32,
 ) {
-    let rusttype_px = pillow_size_to_rusttype(px);
-    let scale = Scale::uniform(rusttype_px);
+    // px already accounts for scale_factor (2.0), use directly
+    let scale = Scale::uniform(px);
     let v_metrics = font.v_metrics(scale);
     let mut caret_x = x as f32;
     let baseline_y = y as f32 + v_metrics.ascent;
@@ -291,7 +284,8 @@ fn draw_text_bold_with_letter_spacing(
     text: &str,
     letter_spacing: f32,
 ) {
-    // Manual synthetic bold disabled: render with native font weight only.
+    // Use native font weight (no synthetic bold).
+    // px already accounts for scale_factor (2.0), use directly.
     draw_text_with_letter_spacing(img, font, px, x, y, color, text, letter_spacing);
 }
 
@@ -467,7 +461,9 @@ pub async fn generate_gumtree(
 
     let sf = scale_factor();
 
-    // Keep baseline sizing; only Pillow->rusttype conversion is applied inside text renderer.
+    // Font sizing: coordinates and sizes are all scaled by scale_factor (2.0) via rel_box().
+    // Pass scaled px directly to Scale::uniform() - no additional conversion needed.
+    // This is the correct formula: effective_px = figma_fontSize_px * scale_factor
     let title_px = 45.0 * sf;
     let title_spacing = 0.0;
     let max_title_w = 912.0 * sf;

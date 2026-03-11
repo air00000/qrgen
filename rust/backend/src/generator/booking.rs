@@ -13,8 +13,6 @@ use crate::{cache::FigmaCache, figma};
 use super::{font_cache::load_font_cached, GenError};
 
 const PAGE: &str = "Page 2";
-// Pillow-like font px to rusttype size conversion (same idea as in gumtree).
-const PILLOW_TO_RUSTTYPE_MULTIPLIER: f32 = 1.3;
 const BOOKING_VAR_GAP_PX: i32 = 8;
 const RIGHT_BLOCK_SHIFT_PX: i32 = -24;
 const CONFIRM_PIN_GAP_PX: i32 = 14;
@@ -25,9 +23,6 @@ const PIN_ROW_Y_NUDGE_PX: i32 = -3;
 const CONFIRM_ROW_RIGHT_EXTRA_PX: i32 = 20;
 const SOLID_TEXT_THRESHOLD: f32 = 0.35;
 
-fn pillow_size_to_rusttype(pillow_px: f32) -> f32 {
-    pillow_px * PILLOW_TO_RUSTTYPE_MULTIPLIER
-}
 
 #[derive(Debug, Clone)]
 pub struct BookingInput<'a> {
@@ -538,10 +533,13 @@ pub async fn generate_booking(
     let checkin_line = human_check_date(lang, checkin_date, true, checkin_time);
     let checkout_line = human_check_date(lang, checkout_date, false, checkout_time);
 
-    let name_px = pillow_size_to_rusttype(51.0);
-    let confirm_px = pillow_size_to_rusttype(63.0);
-    let common_px = pillow_size_to_rusttype(47.0);
-    let confirm_small_px = pillow_size_to_rusttype(42.5);
+    // Font sizes for Booking: frame exported at scale=1, no conversion needed.
+    // Font size in CSS px from Figma is used directly as Scale::uniform() parameter.
+    // Coordinates are not scaled since export_scale is 1.0.
+    let name_px = 51.0;
+    let confirm_px = 63.0;
+    let common_px = 47.0;
+    let confirm_small_px = 42.5;
 
     draw_in_node_left(&mut img, &frame_node, &template_json, &format!("NAME_{lang}"), &hello, &roboto_bold, name_px, hex_color("#3B3637")?, 0.04)?;
     draw_in_node_left(&mut img, &frame_node, &template_json, &format!("BOOKCONFIRM_{lang}"), &confirm_city, &roboto_bold, confirm_px, hex_color("#3B3637")?, 0.04)?;
