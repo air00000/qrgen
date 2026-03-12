@@ -9,6 +9,7 @@ pub mod gumtree;
 pub mod booking;
 
 mod font_cache;
+mod text_shaping;
 
 use thiserror::Error;
 

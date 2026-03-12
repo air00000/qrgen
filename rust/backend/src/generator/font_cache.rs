@@ -7,6 +7,8 @@ use super::GenError;
 
 static FONT_CACHE: Lazy<Mutex<HashMap<String, Arc<Font<'static>>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
+static FONT_BYTES_CACHE: Lazy<Mutex<HashMap<String, Arc<Vec<u8>>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 fn fonts_dir() -> PathBuf {
     let project_root = std::env::var("PROJECT_ROOT").ok().unwrap_or_else(|| {
@@ -19,14 +21,27 @@ fn fonts_dir() -> PathBuf {
         .join("fonts")
 }
 
+pub fn load_font_bytes_cached(name: &str) -> Result<Arc<Vec<u8>>, GenError> {
+    if let Some(b) = FONT_BYTES_CACHE.lock().get(name) {
+        return Ok(Arc::clone(b));
+    }
+
+    let bytes = std::fs::read(fonts_dir().join(name))
+        .map_err(|e| GenError::Internal(format!("failed to read font {name}: {e}")))?;
+    let bytes = Arc::new(bytes);
+    FONT_BYTES_CACHE
+        .lock()
+        .insert(name.to_string(), Arc::clone(&bytes));
+    Ok(bytes)
+}
+
 pub fn load_font_cached(name: &str) -> Result<Arc<Font<'static>>, GenError> {
     if let Some(f) = FONT_CACHE.lock().get(name) {
         return Ok(Arc::clone(f));
     }
 
-    let bytes = std::fs::read(fonts_dir().join(name))
-        .map_err(|e| GenError::Internal(format!("failed to read font {name}: {e}")))?;
-    let f = Font::try_from_vec(bytes)
+    let bytes = load_font_bytes_cached(name)?;
+    let f = Font::try_from_vec((*bytes).clone())
         .ok_or_else(|| GenError::Internal(format!("failed to parse font {name}")))?;
 
     let f = Arc::new(f);
