@@ -8,16 +8,13 @@ use crate::api;
         api::health,
         api::api_status,
         api::get_geo,
-        api::get_booking_geo,
         api::generate,
-        api::generate_booking_endpoint,
     ),
     components(
-        schemas(api::UniversalRequest, api::BookingRequest)
+        schemas(api::UniversalRequest)
     ),
     tags(
-        (name = "qrgen", description = "qrgen backend API"),
-        (name = "booking", description = "booking-specific endpoints")
+        (name = "qrgen", description = "qrgen backend API")
     )
 )]
 pub struct ApiDoc;

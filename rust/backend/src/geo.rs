@@ -6,14 +6,14 @@ use serde_json::Value;
 pub fn booking_geo_group() -> Value {
     serde_json::json!({
       "name": "Booking",
-      "description": "Dedicated booking PDF generation",
+      "description": "Booking PDF generation via existing /generate endpoint",
       "service": "booking",
       "methods": {
         "pdf": {
-          "endpoint": "/booking/generate",
+          "endpoint": "/generate",
           "content_type": "application/pdf",
           "fields": [
-            "country", "title", "name", "city", "hotel_name", "address", "phone",
+            "country", "service", "method", "title", "name", "city", "hotel_name", "address", "phone",
             "checkin_date", "checkout_date", "checkin_time", "checkout_time",
             "nights", "beds", "confirmation_number", "pin_code", "knopbook1", "knopbook2"
           ]
