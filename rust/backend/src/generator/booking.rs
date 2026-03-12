@@ -12,6 +12,38 @@ use crate::{cache::FigmaCache, figma};
 
 use super::{font_cache::load_font_cached, GenError};
 
+// Font metrics helpers for accurate Figma-to-RustType alignment
+mod font_metrics {
+    use rusttype::{Font, Scale};
+
+    /// Calculate line height based on actual font metrics (ascent + descent + line_gap)
+    /// instead of using a fixed multiplier like 1.25x
+    pub fn calculate_line_height(font: &Font<'static>, px: f32) -> f32 {
+        let scale = Scale::uniform(px);
+        let vm = font.v_metrics(scale);
+        let line_height = vm.ascent + (-vm.descent) + vm.line_gap;
+        line_height.max(px)
+    }
+
+    /// Calculate line height for mixed regular/bold fonts by using maximum metrics from both
+    /// Ensures both fonts share the same baseline in rich text
+    pub fn calculate_line_height_dual(
+        font1: &Font<'static>,
+        font2: &Font<'static>,
+        px: f32,
+    ) -> f32 {
+        let scale = Scale::uniform(px);
+        let vm1 = font1.v_metrics(scale);
+        let vm2 = font2.v_metrics(scale);
+
+        let ascent = vm1.ascent.max(vm2.ascent);
+        let descent = (-vm1.descent).max(-vm2.descent);
+        let line_gap = vm1.line_gap.max(vm2.line_gap);
+
+        (ascent + descent + line_gap).max(px)
+    }
+}
+
 const PAGE: &str = "Page 2";
 const BOOKING_VAR_GAP_PX: i32 = 8;
 const RIGHT_BLOCK_SHIFT_PX: i32 = -24;
@@ -292,7 +324,7 @@ fn fit_font_to_height(font: &Font<'static>, px: f32, text: &str, spacing_pct: f3
     loop {
         let spacing = current_px * spacing_pct;
         let lines = wrap_lines(font, current_px, text, spacing, max_w);
-        let line_h = (current_px * 1.25).round();
+        let line_h = font_metrics::calculate_line_height(font, current_px).round();
         let total_h = lines.len() as f32 * line_h;
         if total_h <= max_h || current_px <= MIN_PX {
             return current_px.max(MIN_PX);
@@ -343,7 +375,7 @@ fn fit_font_to_height_rich_bookdate(
     let mut current_px = px;
     loop {
         let line_count = count_lines_rich_bookdate(regular_font, bold_font, current_px, spacing_pct, segments, max_w);
-        let line_h = (current_px * 1.25).round();
+        let line_h = font_metrics::calculate_line_height_dual(regular_font, bold_font, current_px).round();
         let total_h = line_count as f32 * line_h;
         if total_h <= max_h || current_px <= MIN_PX {
             return current_px.max(MIN_PX);
@@ -431,7 +463,7 @@ fn draw_in_node_left(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, frame_node: &serd
         let fitted_px = fit_font_to_height(font, px, text, spacing_pct, w as f32, h as f32);
         let spacing = fitted_px * spacing_pct;
         let lines = wrap_lines(font, fitted_px, text, spacing, w as f32);
-        let line_h = (fitted_px * 1.25).round() as i32;
+        let line_h = font_metrics::calculate_line_height(font, fitted_px).round() as i32;
         for (i, line) in lines.iter().enumerate() {
             draw_text(img, font, fitted_px, x as i32, y as i32 + (i as i32) * line_h, color, line, spacing);
         }
@@ -481,7 +513,7 @@ fn draw_in_node_left_rich_bookdate(
         let segments = book_date_segments(lang, hotel, date);
         let fitted_px = fit_font_to_height_rich_bookdate(regular_font, bold_font, px, spacing_pct, &segments, w as f32, h as f32);
         let spacing = fitted_px * spacing_pct;
-        let line_h = (fitted_px * 1.25).round() as i32;
+        let line_h = font_metrics::calculate_line_height_dual(regular_font, bold_font, fitted_px).round() as i32;
 
         let mut cx = x as i32;
         let mut cy = y as i32;
