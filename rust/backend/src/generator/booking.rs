@@ -263,12 +263,19 @@ fn text_width(font: &Font<'static>, px: f32, text: &str, spacing: f32) -> f32 {
     let scale = Scale::uniform(px);
     let mut width = 0.0f32;
     let chars: Vec<char> = text.chars().collect();
+    let mut prev: Option<char> = None;
+
     for (i, ch) in chars.iter().enumerate() {
+        if let Some(p) = prev {
+            width += font.pair_kerning(scale, p, *ch);
+        }
+
         let g = font.glyph(*ch).scaled(scale);
         width += g.h_metrics().advance_width;
         if i + 1 < chars.len() {
             width += spacing;
         }
+        prev = Some(*ch);
     }
     width.max(0.0)
 }
@@ -278,7 +285,13 @@ fn draw_text(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, font: &Font<'static>, px:
     let v_metrics = font.v_metrics(scale);
     let mut caret = x as f32;
     let baseline_y = y as f32 + v_metrics.ascent;
+    let mut prev: Option<char> = None;
+
     for ch in text.chars() {
+        if let Some(p) = prev {
+            caret += font.pair_kerning(scale, p, ch);
+        }
+
         let glyph = font.glyph(ch).scaled(scale).positioned(point(caret, baseline_y));
         if let Some(bb) = glyph.pixel_bounding_box() {
             glyph.draw(|gx, gy, gv| {
@@ -299,6 +312,7 @@ fn draw_text(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, font: &Font<'static>, px:
             });
         }
         caret += glyph.unpositioned().h_metrics().advance_width + spacing;
+        prev = Some(ch);
     }
 }
 
