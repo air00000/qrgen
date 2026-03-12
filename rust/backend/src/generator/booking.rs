@@ -10,7 +10,7 @@ use rusttype::{point, Font, Scale};
 
 use crate::{cache::FigmaCache, figma};
 
-use super::{font_cache::load_font_cached, GenError};
+use super::{dynamic_text_px, font_cache::load_font_cached, GenError};
 
 // Font metrics helpers for accurate Figma-to-RustType alignment
 mod font_metrics {
@@ -19,7 +19,7 @@ mod font_metrics {
     /// Calculate line height based on actual font metrics (ascent + descent + line_gap)
     /// instead of using a fixed multiplier like 1.25x
     pub fn calculate_line_height(font: &Font<'static>, px: f32) -> f32 {
-        let scale = Scale::uniform(px);
+        let scale = Scale::uniform(dynamic_text_px(px));
         let vm = font.v_metrics(scale);
         let line_height = vm.ascent + (-vm.descent) + vm.line_gap;
         line_height.max(px)
@@ -32,7 +32,7 @@ mod font_metrics {
         font2: &Font<'static>,
         px: f32,
     ) -> f32 {
-        let scale = Scale::uniform(px);
+        let scale = Scale::uniform(dynamic_text_px(px));
         let vm1 = font1.v_metrics(scale);
         let vm2 = font2.v_metrics(scale);
 
@@ -260,7 +260,7 @@ fn text_width(font: &Font<'static>, px: f32, text: &str, spacing: f32) -> f32 {
     if text.is_empty() {
         return 0.0;
     }
-    let scale = Scale::uniform(px);
+    let scale = Scale::uniform(dynamic_text_px(px));
     let mut width = 0.0f32;
     let chars: Vec<char> = text.chars().collect();
     for (i, ch) in chars.iter().enumerate() {
@@ -274,7 +274,7 @@ fn text_width(font: &Font<'static>, px: f32, text: &str, spacing: f32) -> f32 {
 }
 
 fn draw_text(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, font: &Font<'static>, px: f32, x: i32, y: i32, color: Rgba<u8>, text: &str, spacing: f32) {
-    let scale = Scale::uniform(px);
+    let scale = Scale::uniform(dynamic_text_px(px));
     let v_metrics = font.v_metrics(scale);
     let mut caret = x as f32;
     let baseline_y = y as f32 + v_metrics.ascent;

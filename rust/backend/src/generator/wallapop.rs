@@ -7,7 +7,7 @@ use rusttype::{point, Font, Scale};
 
 use crate::{cache::FigmaCache, figma, qr, util};
 
-use super::GenError;
+use super::{dynamic_text_px, GenError};
 
 const PAGE: &str = "Page 2";
 
@@ -138,7 +138,7 @@ fn text_width(font: &Font<'static>, px: f32, text: &str, letter_spacing: f32) ->
     if text.is_empty() {
         return 0.0;
     }
-    let scale = Scale::uniform(px);
+    let scale = Scale::uniform(dynamic_text_px(px));
     let v_metrics = font.v_metrics(scale);
     let glyphs: Vec<_> = font.layout(text, scale, point(0.0, v_metrics.ascent)).collect();
 
@@ -197,7 +197,7 @@ fn draw_text_with_letter_spacing(
     text: &str,
     letter_spacing: f32,
 ) {
-    let scale = Scale::uniform(px);
+    let scale = Scale::uniform(dynamic_text_px(px));
     let v_metrics = font.v_metrics(scale);
     let mut caret_x = x as f32;
     // y is top-left in python; rusttype uses baseline.
