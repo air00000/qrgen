@@ -95,10 +95,23 @@ fn bbox(v: &serde_json::Value) -> Option<(f64, f64, f64, f64)> {
     ))
 }
 
-fn rel_box(node: &serde_json::Value, frame_node: &serde_json::Value) -> Result<(u32, u32, u32, u32), GenError> {
+fn rel_box(node: &serde_json::Value, frame_node: &serde_json::Value, render_scale: f32) -> Result<(u32, u32, u32, u32), GenError> {
     let (x, y, w, h) = bbox(node).ok_or_else(|| GenError::Internal("missing absoluteBoundingBox".into()))?;
     let (fx, fy, _fw, _fh) = bbox(frame_node).ok_or_else(|| GenError::Internal("missing frame absoluteBoundingBox".into()))?;
-    Ok((((x - fx).max(0.0)).round() as u32, ((y - fy).max(0.0)).round() as u32, w.round() as u32, h.round() as u32))
+    Ok((
+        (((x - fx).max(0.0) * render_scale as f64).round() as u32),
+        (((y - fy).max(0.0) * render_scale as f64).round() as u32),
+        ((w * render_scale as f64).round() as u32),
+        ((h * render_scale as f64).round() as u32),
+    ))
+}
+
+fn booking_render_scale() -> f32 {
+    std::env::var("BOOKING_RENDER_SCALE")
+        .ok()
+        .and_then(|s| s.parse::<f32>().ok())
+        .map(|v| v.clamp(1.0, 3.0))
+        .unwrap_or(1.0)
 }
 
 fn mm_from_px(px: f64) -> f32 {
@@ -370,7 +383,8 @@ fn count_lines_rich_bookdate(
             cx += token_w;
         }
         if *is_bold {
-            cx += BOOKING_VAR_GAP_PX;
+            let var_gap = ((BOOKING_VAR_GAP_PX as f32) * (px / 47.0)).round() as i32;
+            cx += var_gap;
         }
     }
     line_count
@@ -471,9 +485,9 @@ fn nights_text(lang: &str, nights: i32, beds: i32) -> String {
     }
 }
 
-fn draw_in_node_left(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, frame_node: &serde_json::Value, template: &serde_json::Value, node_name: &str, text: &str, font: &Font<'static>, px: f32, color: Rgba<u8>, spacing_pct: f32) -> Result<(), GenError> {
+fn draw_in_node_left(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, frame_node: &serde_json::Value, template: &serde_json::Value, node_name: &str, text: &str, font: &Font<'static>, px: f32, color: Rgba<u8>, spacing_pct: f32, render_scale: f32) -> Result<(), GenError> {
     if let Some(n) = figma::find_node(template, PAGE, node_name) {
-        let (x, y, w, h) = rel_box(&n, frame_node)?;
+        let (x, y, w, h) = rel_box(&n, frame_node, render_scale)?;
         let fitted_px = fit_font_to_height(font, px, text, spacing_pct, w as f32, h as f32);
         let spacing = fitted_px * spacing_pct;
         let lines = wrap_lines(font, fitted_px, text, spacing, w as f32);
@@ -485,9 +499,9 @@ fn draw_in_node_left(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, frame_node: &serd
     Ok(())
 }
 
-fn draw_in_node_right(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, frame_node: &serde_json::Value, template: &serde_json::Value, node_name: &str, text: &str, font: &Font<'static>, px: f32, color: Rgba<u8>, spacing_pct: f32, shift_px: i32) -> Result<(), GenError> {
+fn draw_in_node_right(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, frame_node: &serde_json::Value, template: &serde_json::Value, node_name: &str, text: &str, font: &Font<'static>, px: f32, color: Rgba<u8>, spacing_pct: f32, shift_px: i32, render_scale: f32) -> Result<(), GenError> {
     if let Some(n) = figma::find_node(template, PAGE, node_name) {
-        let (x, y, w, _h) = rel_box(&n, frame_node)?;
+        let (x, y, w, _h) = rel_box(&n, frame_node, render_scale)?;
         let spacing = px * spacing_pct;
         let tw = text_width(font, px, text, spacing);
         let sx = (x as f32 + w as f32 - tw).round() as i32 + shift_px;
@@ -521,9 +535,10 @@ fn draw_in_node_left_rich_bookdate(
     px: f32,
     color: Rgba<u8>,
     spacing_pct: f32,
+    render_scale: f32,
 ) -> Result<(), GenError> {
     if let Some(n) = figma::find_node(template, PAGE, node_name) {
-        let (x, y, w, h) = rel_box(&n, frame_node)?;
+        let (x, y, w, h) = rel_box(&n, frame_node, render_scale)?;
         let segments = book_date_segments(lang, hotel, date);
         let fitted_px = fit_font_to_height_rich_bookdate(regular_font, bold_font, px, spacing_pct, &segments, w as f32, h as f32);
         let spacing = fitted_px * spacing_pct;
@@ -545,7 +560,8 @@ fn draw_in_node_left_rich_bookdate(
             }
             // Keep visible spacing around variable segments (hotel name / printed date).
             if is_bold {
-                cx += BOOKING_VAR_GAP_PX;
+                let var_gap = ((BOOKING_VAR_GAP_PX as f32) * (fitted_px / 47.0)).round() as i32;
+                cx += var_gap;
             }
         }
     }
@@ -566,8 +582,10 @@ pub async fn generate_booking(
     }
 
     let frame_name = format!("book_{lang}");
+    let render_scale = booking_render_scale();
+    let render_scale_u32 = render_scale.round() as u32;
     let file_key = std::env::var("TEMPLATE_FILE_KEY").unwrap_or_else(|_| "default".to_string());
-    let cache = FigmaCache::new(format!("figma_{}_{}_{}", file_key, PAGE.replace(' ', "_"), frame_name));
+    let cache = FigmaCache::new(format!("figma_{}_{}_{}_s{}", file_key, PAGE.replace(' ', "_"), frame_name, render_scale_u32));
 
     let (template_json, frame_png, frame_node, used_cache) = if cache.exists() {
         let (structure, png) = cache.load()?;
@@ -594,7 +612,7 @@ pub async fn generate_booking(
             .get("id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| GenError::Internal("frame node missing id".into()))?;
-        let png = figma::export_frame_as_png(http, node_id, Some(1)).await?;
+        let png = figma::export_frame_as_png(http, node_id, Some(render_scale_u32)).await?;
         cache.save(&template_json, &png)?;
         png
     };
@@ -650,16 +668,16 @@ pub async fn generate_booking(
     let checkin_line = human_check_date(lang, checkin_date, true, checkin_time);
     let checkout_line = human_check_date(lang, checkout_date, false, checkout_time);
 
-    // Font sizes for Booking: frame exported at scale=1, no conversion needed.
-    // Font size in CSS px from Figma is used directly as Scale::uniform() parameter.
-    // Coordinates are not scaled since export_scale is 1.0.
-    let name_px = 51.0;
-    let confirm_px = 63.0;
-    let common_px = 47.0;
-    let confirm_small_px = 42.5;
+    // Font sizes for Booking.
+    // We export frame with BOOKING_RENDER_SCALE and apply the same scale to coordinates + font sizes,
+    // then downsample to original frame size for smoother anti-aliased text edges.
+    let name_px = 51.0 * render_scale;
+    let confirm_px = 63.0 * render_scale;
+    let common_px = 47.0 * render_scale;
+    let confirm_small_px = 42.5 * render_scale;
 
-    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("NAME_{lang}"), &hello, &roboto_bold, name_px, hex_color("#3B3637")?, 0.04)?;
-    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("BOOKCONFIRM_{lang}"), &confirm_city, &roboto_bold, confirm_px, hex_color("#3B3637")?, 0.04)?;
+    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("NAME_{lang}"), &hello, &roboto_bold, name_px, hex_color("#3B3637")?, 0.04, render_scale)?;
+    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("BOOKCONFIRM_{lang}"), &confirm_city, &roboto_bold, confirm_px, hex_color("#3B3637")?, 0.04, render_scale)?;
     draw_in_node_left_rich_bookdate(
         &mut img,
         &frame_node,
@@ -673,11 +691,12 @@ pub async fn generate_booking(
         common_px,
         hex_color("#3B3637")?,
         0.017,
+        render_scale,
     )?;
 
     // BOOKPAY with bold word between *...*
     if let Some(n) = figma::find_node(&template_json, PAGE, &format!("BOOKPAY_{lang}")) {
-        let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
+        let (x, y, _w, _h) = rel_box(&n, &frame_node, render_scale)?;
         let mut cursor = x as i32;
         let spacing = common_px * 0.017;
         for seg in book_pay.split('*').enumerate() {
@@ -686,17 +705,18 @@ pub async fn generate_booking(
             draw_text(&mut img, f, common_px, cursor, y as i32, hex_color("#3B3637")?, part, spacing);
             cursor += text_width(f, common_px, part, spacing).round() as i32;
             if i % 2 == 1 {
-                cursor += BOOKING_VAR_GAP_PX;
+                let var_gap = ((BOOKING_VAR_GAP_PX as f32) * (common_px / 47.0)).round() as i32;
+                cursor += var_gap;
             }
         }
     }
 
-    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("HOTELNAME_{lang}"), hotel, &roboto_bold, confirm_px, hex_color("#0278CD")?, 0.04)?;
-    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("ADRESS_{lang}"), address, &roboto_regular, common_px, hex_color("#3B3637")?, 0.01)?;
+    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("HOTELNAME_{lang}"), hotel, &roboto_bold, confirm_px, hex_color("#0278CD")?, 0.04, render_scale)?;
+    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("ADRESS_{lang}"), address, &roboto_regular, common_px, hex_color("#3B3637")?, 0.01, render_scale)?;
 
     // Phone: label bold + number regular
     if let Some(n) = figma::find_node(&template_json, PAGE, &format!("PHONENUM_{lang}")) {
-        let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
+        let (x, y, _w, _h) = rel_box(&n, &frame_node, render_scale)?;
         let label = text_for(lang, "phone");
         let spacing = common_px * 0.01;
         draw_text(&mut img, &roboto_bold, common_px, x as i32, y as i32, hex_color("#3B3637")?, label, spacing);
@@ -704,31 +724,34 @@ pub async fn generate_booking(
         draw_text(&mut img, &roboto_regular, common_px, lx, y as i32, hex_color("#3B3637")?, phone, spacing);
     }
 
-    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("NIGHTS_{lang}"), &nights_line, &roboto_bold, common_px, hex_color("#000000")?, 0.01, RIGHT_BLOCK_SHIFT_PX + 20)?;
-    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKIN_{lang}"), &checkin_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01, RIGHT_BLOCK_SHIFT_PX + 20)?;
-    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKOUT_{lang}"), &checkout_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01, RIGHT_BLOCK_SHIFT_PX + 20)?;
+    let right_block_shift = ((RIGHT_BLOCK_SHIFT_PX + 20) as f32 * render_scale).round() as i32;
+    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("NIGHTS_{lang}"), &nights_line, &roboto_bold, common_px, hex_color("#000000")?, 0.01, right_block_shift, render_scale)?;
+    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKIN_{lang}"), &checkin_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01, right_block_shift, render_scale)?;
+    draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKOUT_{lang}"), &checkout_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01, right_block_shift, render_scale)?;
 
     // CONFIRM + PIN aligned to the same right edge (lock side) with equal label-number gap.
     let confirm_node = figma::find_node(&template_json, PAGE, &format!("CONFIRM_{lang}"));
     let pin_node = figma::find_node(&template_json, PAGE, &format!("PIN_{lang}"));
     if let (Some(cn), Some(pn)) = (confirm_node, pin_node) {
-        let (_cx, cy, _cw, _ch) = rel_box(&cn, &frame_node)?;
-        let (px, py, pw, _ph) = rel_box(&pn, &frame_node)?;
+        let (_cx, cy, _cw, _ch) = rel_box(&cn, &frame_node, render_scale)?;
+        let (px, py, pw, _ph) = rel_box(&pn, &frame_node, render_scale)?;
 
         let spacing = 0.0f32;
-        let gap = CONFIRM_PIN_GAP_PX; // hard-equal gap for both rows
+        let gap = (CONFIRM_PIN_GAP_PX as f32 * render_scale).round() as i32; // hard-equal gap for both rows
+        let confirm_row_right_extra = (CONFIRM_ROW_RIGHT_EXTRA_PX as f32 * render_scale).round() as i32;
+        let pin_lock_tail = (PIN_LOCK_TAIL_PX as f32 * render_scale).round() as i32;
 
         // Anchor by the second row right edge (closer to lock), then align both rows to it.
         // Visual right edge is where the lock icon ends (second row, as requested).
         let visual_right_edge = (px as i32 + pw as i32)
-            + CONFIRM_PIN_TO_LOCK_NUDGE_PX;
+            + (CONFIRM_PIN_TO_LOCK_NUDGE_PX as f32 * render_scale).round() as i32;
 
         let confirm_label = format!("{}", text_for(lang, "confirm_label"));
         let pin_label = format!("{}", text_for(lang, "pin_label"));
 
         // First row ends exactly at visual_right_edge.
         let confirm_num_w = text_width(&roboto_bold, confirm_small_px, &confirm_number, spacing).round() as i32;
-        let confirm_num_x = visual_right_edge - confirm_num_w + CONFIRM_ROW_RIGHT_EXTRA_PX;
+        let confirm_num_x = visual_right_edge - confirm_num_w + confirm_row_right_extra;
         let confirm_label_right_x = confirm_num_x - gap;
         let confirm_label_w = text_width(&roboto_regular, confirm_small_px, &confirm_label, spacing).round() as i32;
         let confirm_label_x = confirm_label_right_x - confirm_label_w;
@@ -737,39 +760,47 @@ pub async fn generate_booking(
         draw_text(&mut img, &roboto_bold, confirm_small_px, confirm_num_x, cy as i32, hex_color("#E6FFFF")?, &confirm_number, spacing);
 
         // Second row includes lock icon, so code ends earlier by lock tail width.
-        let pin_code_right_edge = visual_right_edge - PIN_LOCK_TAIL_PX;
+        let pin_code_right_edge = visual_right_edge - pin_lock_tail;
         let pin_num_w = text_width(&roboto_bold, confirm_small_px, &pin, spacing).round() as i32;
         let pin_num_x = pin_code_right_edge - pin_num_w;
         let pin_label_right_x = pin_num_x - gap;
         let pin_label_w = text_width(&roboto_regular, confirm_small_px, &pin_label, spacing).round() as i32;
         let pin_label_x = pin_label_right_x - pin_label_w;
 
-        draw_text(&mut img, &roboto_regular, confirm_small_px, pin_label_x, py as i32 + PIN_ROW_Y_NUDGE_PX, hex_color("#E6FFFF")?, &pin_label, spacing);
-        draw_text(&mut img, &roboto_bold, confirm_small_px, pin_num_x, py as i32 + PIN_ROW_Y_NUDGE_PX, hex_color("#E6FFFF")?, &pin, spacing);
+        let pin_row_y_nudge = (PIN_ROW_Y_NUDGE_PX as f32 * render_scale).round() as i32;
+        draw_text(&mut img, &roboto_regular, confirm_small_px, pin_label_x, py as i32 + pin_row_y_nudge, hex_color("#E6FFFF")?, &pin_label, spacing);
+        draw_text(&mut img, &roboto_bold, confirm_small_px, pin_num_x, py as i32 + pin_row_y_nudge, hex_color("#E6FFFF")?, &pin, spacing);
     } else {
         // Fallback to independent rendering if one of nodes is missing.
         if let Some(n) = figma::find_node(&template_json, PAGE, &format!("CONFIRM_{lang}")) {
-            let (x, y, w, _h) = rel_box(&n, &frame_node)?;
+            let (x, y, w, _h) = rel_box(&n, &frame_node, render_scale)?;
             let base = format!("{} {}", text_for(lang, "confirm_label"), confirm_number);
             let spacing = 0.0f32;
             let tw = text_width(&roboto_regular, confirm_small_px, &base, spacing);
-            let sx = (x as f32 + w as f32 - tw).round() as i32 + RIGHT_BLOCK_SHIFT_PX;
+            let sx = (x as f32 + w as f32 - tw).round() as i32 + (RIGHT_BLOCK_SHIFT_PX as f32 * render_scale).round() as i32;
             let label = format!("{} ", text_for(lang, "confirm_label"));
             draw_text(&mut img, &roboto_regular, confirm_small_px, sx, y as i32, hex_color("#E6FFFF")?, &label, spacing);
             let nx = sx + text_width(&roboto_regular, confirm_small_px, &label, spacing).round() as i32;
             draw_text(&mut img, &roboto_bold, confirm_small_px, nx, y as i32, hex_color("#E6FFFF")?, &confirm_number, spacing);
         }
         if let Some(n) = figma::find_node(&template_json, PAGE, &format!("PIN_{lang}")) {
-            let (x, y, w, _h) = rel_box(&n, &frame_node)?;
+            let (x, y, w, _h) = rel_box(&n, &frame_node, render_scale)?;
             let label_txt = format!("{} ", text_for(lang, "pin_label"));
             let base = format!("{}{}", label_txt, pin);
             let spacing = 0.0f32;
             let tw = text_width(&roboto_regular, confirm_small_px, &base, spacing);
-            let sx = (x as f32 + w as f32 - tw).round() as i32 + RIGHT_BLOCK_SHIFT_PX;
-            draw_text(&mut img, &roboto_regular, confirm_small_px, sx, y as i32 + PIN_ROW_Y_NUDGE_PX, hex_color("#E6FFFF")?, &label_txt, spacing);
+            let sx = (x as f32 + w as f32 - tw).round() as i32 + (RIGHT_BLOCK_SHIFT_PX as f32 * render_scale).round() as i32;
+            let pin_row_y_nudge = (PIN_ROW_Y_NUDGE_PX as f32 * render_scale).round() as i32;
+            draw_text(&mut img, &roboto_regular, confirm_small_px, sx, y as i32 + pin_row_y_nudge, hex_color("#E6FFFF")?, &label_txt, spacing);
             let nx = sx + text_width(&roboto_regular, confirm_small_px, &label_txt, spacing).round() as i32;
-            draw_text(&mut img, &roboto_bold, confirm_small_px, nx, y as i32 + PIN_ROW_Y_NUDGE_PX, hex_color("#E6FFFF")?, &pin, spacing);
+            draw_text(&mut img, &roboto_bold, confirm_small_px, nx, y as i32 + pin_row_y_nudge, hex_color("#E6FFFF")?, &pin, spacing);
         }
+    }
+
+    if render_scale > 1.0 {
+        let target_w = fw.round() as u32;
+        let target_h = fh.round() as u32;
+        img = image::imageops::resize(&img, target_w, target_h, image::imageops::FilterType::Lanczos3);
     }
 
     let rgb = DynamicImage::ImageRgba8(img).to_rgb8();
