@@ -10,7 +10,7 @@ use rusttype::{point, Font, Scale};
 
 use crate::{cache::FigmaCache, figma};
 
-use super::{dynamic_text_px, font_cache::load_font_cached, GenError};
+use super::{font_cache::load_font_cached, GenError};
 
 // Font metrics helpers for accurate Figma-to-RustType alignment
 mod font_metrics {
@@ -54,6 +54,12 @@ const CONFIRM_PIN_TO_LOCK_NUDGE_PX: i32 = 18;
 const PIN_LOCK_TAIL_PX: i32 = 26;
 const PIN_ROW_Y_NUDGE_PX: i32 = -3;
 const CONFIRM_ROW_RIGHT_EXTRA_PX: i32 = 20;
+const BOOKING_DYNAMIC_TEXT_MULTIPLIER: f32 = 1.2;
+
+#[inline]
+fn dynamic_text_px(px: f32) -> f32 {
+    px * BOOKING_DYNAMIC_TEXT_MULTIPLIER
+}
 
 
 #[derive(Debug, Clone)]

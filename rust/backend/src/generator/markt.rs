@@ -9,7 +9,7 @@ use rusttype::{point, Font, Scale};
 
 use crate::{cache::FigmaCache, figma, qr, util};
 
-use super::{dynamic_text_px, GenError};
+use super::GenError;
 
 const PAGE: &str = "Page 2";
 
@@ -149,7 +149,7 @@ fn text_width(font: &Font<'static>, px: f32, text: &str, letter_spacing: f32) ->
     if text.is_empty() {
         return 0.0;
     }
-    let scale = Scale::uniform(dynamic_text_px(px));
+    let scale = Scale::uniform(px);
     let v_metrics = font.v_metrics(scale);
     let glyphs: Vec<_> = font.layout(text, scale, point(0.0, v_metrics.ascent)).collect();
     let mut width: f32 = 0.0;
@@ -191,7 +191,7 @@ fn draw_text_with_letter_spacing(
     text: &str,
     letter_spacing: f32,
 ) {
-    let scale = Scale::uniform(dynamic_text_px(px));
+    let scale = Scale::uniform(px);
     let v_metrics = font.v_metrics(scale);
     let mut caret_x = x as f32;
     // y is top-left in python; rusttype uses baseline.
@@ -376,7 +376,7 @@ pub async fn generate_markt(
 
     // Font sizing: frame exported at scale=2.0, coordinates and sizes already scaled via rel_box().
     // Font size formula: effective_px = figma_fontSize_px * scale_factor
-    // Scale::uniform(dynamic_text_px(px)) directly uses the scaled px value without conversion.
+    // Scale::uniform(px) directly uses the scaled px value without conversion.
 
     // Title
     let title_node = node(&format!("nazv{frame_name}"))?;

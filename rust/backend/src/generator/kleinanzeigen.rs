@@ -6,7 +6,7 @@ use rusttype::{point, Font, Scale};
 
 use crate::{cache::FigmaCache, figma, qr, util};
 
-use super::{dynamic_text_px, GenError};
+use super::GenError;
 
 const PAGE: &str = "Page 2";
 
@@ -84,7 +84,7 @@ fn draw_text_with_letter_spacing(
     text: &str,
     letter_spacing: f32,
 ) {
-    let scale = Scale::uniform(dynamic_text_px(px));
+    let scale = Scale::uniform(px);
     let v_metrics = font.v_metrics(scale);
     let mut caret_x = x as f32;
     let baseline_y = y as f32 + v_metrics.ascent;

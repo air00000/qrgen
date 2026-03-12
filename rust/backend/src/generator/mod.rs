@@ -12,13 +12,6 @@ mod font_cache;
 
 use thiserror::Error;
 
-pub const DYNAMIC_TEXT_MULTIPLIER: f32 = 1.2;
-
-#[inline]
-pub fn dynamic_text_px(px: f32) -> f32 {
-    px * DYNAMIC_TEXT_MULTIPLIER
-}
-
 #[derive(Debug, Error)]
 pub enum GenError {
     #[error("bad request: {0}")]
