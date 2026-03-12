@@ -14,6 +14,7 @@ use super::{dynamic_text_px, font_cache::load_font_cached, GenError};
 
 // Font metrics helpers for accurate Figma-to-RustType alignment
 mod font_metrics {
+    use super::dynamic_text_px;
     use rusttype::{Font, Scale};
 
     /// Calculate line height based on actual font metrics (ascent + descent + line_gap)
