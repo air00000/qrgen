@@ -3,8 +3,27 @@ use serde_json::Value;
 /// Copy of Python GEO_CONFIG from app/api.py (1:1 as JSON).
 ///
 /// Keeping it as JSON ensures the response structure stays identical.
-pub fn geo_config() -> Value {
+pub fn booking_geo_group() -> Value {
     serde_json::json!({
+      "name": "Booking",
+      "description": "Dedicated booking PDF generation",
+      "service": "booking",
+      "methods": {
+        "pdf": {
+          "endpoint": "/booking/generate",
+          "content_type": "application/pdf",
+          "fields": [
+            "country", "title", "name", "city", "hotel_name", "address", "phone",
+            "checkin_date", "checkout_date", "checkin_time", "checkout_time",
+            "nights", "beds", "confirmation_number", "pin_code", "knopbook1", "knopbook2"
+          ]
+        }
+      }
+    })
+}
+
+pub fn geo_config() -> Value {
+    let mut cfg = serde_json::json!({
       "nl": {
         "name": "Netherlands",
         "services": {
@@ -169,5 +188,11 @@ pub fn geo_config() -> Value {
           }
         }
       }
-    })
+    });
+
+    if let Some(obj) = cfg.as_object_mut() {
+      obj.insert("booking".to_string(), booking_geo_group());
+    }
+
+    cfg
 }

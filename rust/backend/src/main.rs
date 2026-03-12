@@ -62,7 +62,9 @@ async fn main() {
 
         // API
         .route("/get-geo", get(api::get_geo))
+        .route("/booking/get-geo", get(api::get_booking_geo))
         .route("/generate", post(api::generate))
+        .route("/booking/generate", post(api::generate_booking_endpoint))
         .route("/api/status", get(api::api_status))
         .route("/health", get(api::health))
         .with_state(Arc::new(state));

@@ -44,6 +44,28 @@ pub struct UniversalRequest {
     // QR-only params are not part of /generate schema.
 }
 
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct BookingRequest {
+    pub country: String,
+    pub title: Option<String>,
+    pub price: Option<f64>,
+    pub name: Option<String>,
+    pub phone: Option<String>,
+    pub address: Option<String>,
+    pub knopbook1: Option<String>,
+    pub knopbook2: Option<String>,
+    pub city: Option<String>,
+    pub hotel_name: Option<String>,
+    pub checkin_date: Option<String>,
+    pub checkout_date: Option<String>,
+    pub checkin_time: Option<String>,
+    pub checkout_time: Option<String>,
+    pub nights: Option<i32>,
+    pub beds: Option<i32>,
+    pub confirmation_number: Option<String>,
+    pub pin_code: Option<String>,
+}
+
 #[utoipa::path(
     get,
     path = "/health",
@@ -93,6 +115,88 @@ pub async fn get_geo(
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let _key_name = verify_api_key(&st, &headers)?;
     Ok(Json(geo::geo_config()))
+}
+
+#[utoipa::path(
+    get,
+    path = "/booking/get-geo",
+    tag = "booking",
+    params(
+        ("X-API-Key" = String, Header, description = "API key")
+    ),
+    responses(
+        (status = 200, description = "Booking config", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    )
+)]
+pub async fn get_booking_geo(
+    State(st): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let _key_name = verify_api_key(&st, &headers)?;
+    Ok(Json(geo::booking_geo_group()))
+}
+
+fn booking_input_from_req(req: &BookingRequest) -> crate::generator::booking::BookingInput<'_> {
+    crate::generator::booking::BookingInput {
+        guest_name: req.name.as_deref(),
+        city: req.city.as_deref(),
+        hotel_name: req.hotel_name.as_deref(),
+        hotel_address: req.address.as_deref(),
+        phone: req.phone.as_deref(),
+        nights: req.nights,
+        beds: req.beds,
+        checkin_date: req.checkin_date.as_deref(),
+        checkout_date: req.checkout_date.as_deref(),
+        checkin_time: req.checkin_time.as_deref(),
+        checkout_time: req.checkout_time.as_deref(),
+        confirmation_number: req.confirmation_number.as_deref(),
+        pin_code: req.pin_code.as_deref(),
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/booking/generate",
+    tag = "booking",
+    request_body = BookingRequest,
+    params(
+        ("X-API-Key" = String, Header, description = "API key")
+    ),
+    responses(
+        (status = 200, description = "Generated booking PDF", content_type = "application/pdf"),
+        (status = 400, description = "Bad request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal error")
+    )
+)]
+pub async fn generate_booking_endpoint(
+    State(st): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(req): Json<BookingRequest>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let _key_name = verify_api_key(&st, &headers)?;
+
+    let title = req.title.as_deref().unwrap_or("");
+    let price = req.price.unwrap_or(0.0);
+
+    let data = crate::generator::booking::generate_booking(
+        &st.http,
+        &req.country,
+        title,
+        price,
+        req.knopbook1.as_deref(),
+        req.knopbook2.as_deref(),
+        booking_input_from_req(&req),
+    )
+    .await;
+
+    match data {
+        Ok(bytes) => Ok(([(axum::http::header::CONTENT_TYPE, "application/pdf")], bytes)),
+        Err(crate::generator::GenError::BadRequest(msg)) => Err((StatusCode::BAD_REQUEST, msg)),
+        Err(crate::generator::GenError::NotImplemented(msg)) => Err((StatusCode::BAD_REQUEST, msg)),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
+    }
 }
 
 #[utoipa::path(
