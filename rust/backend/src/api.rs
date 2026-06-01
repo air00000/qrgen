@@ -26,6 +26,7 @@ pub struct UniversalRequest {
     pub address: Option<String>,
     pub seller_name: Option<String>,
     pub seller_photo: Option<String>,
+    pub surname: Option<String>,
     pub knopbook1: Option<String>,
     pub knopbook2: Option<String>,
 
@@ -268,6 +269,17 @@ pub async fn generate(
                 req.url.as_deref(),
             )
             .await
+        }
+        "jofogas" => {
+            crate::generator::jofogas::generate_jofogas(
+                &st.http,
+                title,
+                price,
+                req.photo.as_deref(),
+                req.surname.as_deref().unwrap_or(""),
+                req.name.as_deref().unwrap_or(""),
+                req.address.as_deref().unwrap_or(""),
+            ).await
         }
         "booking" => {
             crate::generator::booking::generate_booking(

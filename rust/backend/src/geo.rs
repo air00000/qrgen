@@ -187,6 +187,16 @@ pub fn geo_config() -> Value {
             }
           }
         }
+      },
+      "hu": {
+        "name": "Hungary",
+        "services": {
+          "jofogas": {
+            "methods": {
+              "payment": {"endpoint": "/generate", "fields": ["title", "price", "photo", "surname", "name", "address"]}
+            }
+          }
+        }
       }
     });
 

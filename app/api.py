@@ -390,6 +390,19 @@ GEO_CONFIG = {
                 }
             }
         }
+    },
+    "hu": {
+        "name": "Hungary",
+        "services": {
+            "jofogas": {
+                "methods": {
+                    "payment": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "surname", "name", "address"]
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -430,6 +443,7 @@ class UniversalRequest(BaseModel):
     address: Optional[str] = None        # для Subito - адрес
     seller_name: Optional[str] = None    # для Wallapop/Depop - имя продавца
     seller_photo: Optional[str] = None   # base64 - фото/аватар продавца (для Wallapop и Depop)
+    surname: Optional[str] = None        # для Jofogas - фамилия покупателя
     knopbook1: Optional[str] = None
     knopbook2: Optional[str] = None
     

@@ -27,6 +27,7 @@ from app.handlers.cache_admin import get_cache_handlers
 from app.handlers.subito_variants import subito_variants_conv
 from app.handlers.markt_variants import markt_conv
 from app.handlers.gumtree_variants import gumtree_variants_conv
+from app.handlers.jofogas_variants import jofogas_variants_conv
 from app.handlers.access import enforce_admin_message, enforce_admin_callback
 from app.utils.notifications import set_bot_instance
 
@@ -95,6 +96,7 @@ def start_bot():
     app.add_handler(subito_variants_conv)       # QR:SUBITO → SN_TYPE/SN_LANG/...
     app.add_handler(markt_conv)                 # QR:MARKT_MENU → MARKT_LANG_/...
     app.add_handler(gumtree_variants_conv)      # QR:GUMTREE
+    app.add_handler(jofogas_variants_conv)      # QR:JOFOGAS
     app.add_handler(qr_conv)                    # QR:WALLAPOP_MENU, QR:2DEHANDS, QR:CONTO, ...
     app.add_handler(api_keys_conv)              # KEYS:START → API:*/...
     app.add_handler(CallbackQueryHandler(menu_cb, pattern=r"^MENU$"))

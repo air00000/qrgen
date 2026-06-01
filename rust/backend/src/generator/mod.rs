@@ -7,6 +7,7 @@ pub mod conto;
 pub mod depop;
 pub mod gumtree;
 pub mod booking;
+pub mod jofogas;
 
 mod font_cache;
 
