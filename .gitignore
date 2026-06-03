@@ -1,5 +1,6 @@
 # .env files
 app/.env
+app/data/api_keys.json
 # Project exclude paths
 /.venv/
 .idea/
