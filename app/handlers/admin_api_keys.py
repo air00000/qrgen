@@ -1,3 +1,5 @@
+import uuid
+
 from telegram import Update
 from telegram.error import BadRequest
 from telegram.ext import (
@@ -15,13 +17,13 @@ from app.keyboards.admin_api_keys import (
     get_key_actions_keyboard,
     get_delete_confirm_keyboard
 )
-from app.services.apikey import generate_key, get_all_keys, delete_key, update_key_name, get_key_name
+from app.services.apikey import generate_key, get_all_keys, delete_key, update_key_name, update_key_value, get_key_name
 from app.config import CFG
 from app.handlers.menu import start as show_main_menu
 from app.utils.state_stack import push_state, pop_state, clear_stack
 
 # Состояния
-API_MENU, API_WAIT_NAME, API_LIST, API_EDIT_MENU, API_DELETE_MENU, API_VIEW_KEY, API_WAIT_NEW_NAME = range(7)
+API_MENU, API_WAIT_NAME, API_LIST, API_EDIT_MENU, API_DELETE_MENU, API_VIEW_KEY, API_WAIT_NEW_NAME, API_WAIT_NEW_KEY = range(8)
 
 
 def _is_admin(update: Update) -> bool:
@@ -206,6 +208,27 @@ async def on_edit_name_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return API_WAIT_NEW_NAME
 
 
+async def on_edit_value_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Изменение значения ключа"""
+    data = update.callback_query.data
+    key = data.replace("API:EDIT_VALUE_", "", 1)
+
+    context.user_data["current_key"] = key
+    context.user_data["awaiting_new_key"] = True
+    push_state(context.user_data, API_WAIT_NEW_KEY)
+
+    key_name = get_key_name(key)
+    await update.callback_query.answer()
+
+    text = (
+        f"🔑 Введите новое значение API ключа для <b>{key_name}</b>:\n\n"
+        f"Текущий ключ: <code>{key}</code>\n\n"
+        f"⚠️ Введите новый ключ вручную или отправьте <code>generate</code> для автоматической генерации."
+    )
+    await _edit_or_send(update, text)
+    return API_WAIT_NEW_KEY
+
+
 async def on_delete_confirm_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Подтверждение удаления"""
     data = update.callback_query.data
@@ -278,6 +301,45 @@ async def on_new_name_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return API_MENU
 
 
+async def on_new_key_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработка ввода нового значения ключа"""
+    if not context.user_data.get("awaiting_new_key"):
+        return API_VIEW_KEY
+
+    raw = (update.message.text or "").strip()
+    old_key = context.user_data.get("current_key")
+
+    if not raw:
+        await update.message.reply_text("❌ Ключ не может быть пустым.")
+        return API_WAIT_NEW_KEY
+
+    if raw.lower() == "generate":
+        new_key = f"api_{uuid.uuid4().hex}"
+    else:
+        new_key = raw
+
+    if new_key == old_key:
+        await update.message.reply_text("❌ Новый ключ совпадает со старым.")
+        return API_WAIT_NEW_KEY
+
+    if update_key_value(old_key, new_key):
+        context.user_data["awaiting_new_key"] = False
+        context.user_data["current_key"] = new_key
+        await update.message.reply_text(
+            f"✅ Значение ключа изменено на:\n<code>{new_key}</code>",
+            parse_mode="HTML",
+            reply_markup=get_admin_api_menu()
+        )
+        clear_stack(context.user_data)
+        return API_MENU
+    else:
+        await update.message.reply_text(
+            "❌ Ошибка при изменении значения ключа.",
+            reply_markup=get_admin_api_menu()
+        )
+        return API_MENU
+
+
 # ===== Навигация =====
 
 async def api_menu_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -313,6 +375,11 @@ async def api_back_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif prev_state == API_WAIT_NAME:
         return await ask_key_name(update, context)
     elif prev_state == API_WAIT_NEW_NAME:
+        key = context.user_data.get("current_key")
+        if key:
+            return await show_key_details(update, context, key)
+        return await show_api_menu(update, context)
+    elif prev_state == API_WAIT_NEW_KEY:
         key = context.user_data.get("current_key")
         if key:
             return await show_key_details(update, context, key)
@@ -361,12 +428,18 @@ api_keys_conv = ConversationHandler(
         ],
         API_VIEW_KEY: [
             CallbackQueryHandler(on_edit_name_cb, pattern=r"^API:EDIT_NAME_.+"),
+            CallbackQueryHandler(on_edit_value_cb, pattern=r"^API:EDIT_VALUE_.+"),
             CallbackQueryHandler(on_delete_key_cb, pattern=r"^API:DELETE_.+"),
             CallbackQueryHandler(api_back_cb, pattern=r"^API:BACK$"),
             CallbackQueryHandler(api_menu_cb, pattern=r"^API:MENU$"),
         ],
         API_WAIT_NEW_NAME: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, on_new_name_input),
+            CallbackQueryHandler(api_back_cb, pattern=r"^API:BACK$"),
+            CallbackQueryHandler(api_menu_cb, pattern=r"^API:MENU$"),
+        ],
+        API_WAIT_NEW_KEY: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, on_new_key_input),
             CallbackQueryHandler(api_back_cb, pattern=r"^API:BACK$"),
             CallbackQueryHandler(api_menu_cb, pattern=r"^API:MENU$"),
         ],

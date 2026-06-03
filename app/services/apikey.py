@@ -52,6 +52,16 @@ def update_key_name(key: str, new_name: str) -> bool:
         return True
     return False
 
+def update_key_value(old_key: str, new_key: str) -> bool:
+    """Обновляет значение API ключа, сохраняя название"""
+    keys = _load_keys()
+    if old_key in keys:
+        name = keys.pop(old_key)
+        keys[new_key] = name
+        _save_keys(keys)
+        return True
+    return False
+
 def validate_key(api_key: str) -> bool:
     """Проверяет валидность API ключа"""
     keys = _load_keys()

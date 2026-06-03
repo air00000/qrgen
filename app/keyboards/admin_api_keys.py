@@ -25,6 +25,7 @@ def get_key_actions_keyboard(key: str):
     """Клавиатура действий с конкретным ключом"""
     rows = [
         [InlineKeyboardButton("✏️ Изменить название", callback_data=f"API:EDIT_NAME_{key}")],
+        [InlineKeyboardButton("🔑 Изменить ключ", callback_data=f"API:EDIT_VALUE_{key}")],
         [InlineKeyboardButton("🗑️ Удалить ключ", callback_data=f"API:DELETE_{key}")],
     ]
     return with_menu_back(rows, back_data="API:BACK", menu_data="API:MENU")
