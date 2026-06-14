@@ -1,5 +1,6 @@
 # .env files
 app/.env
+/.env
 # Project exclude paths
 /.venv/
 .idea/

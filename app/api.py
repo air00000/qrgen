@@ -49,7 +49,9 @@ GEO_CONFIG = {
                 "methods": {
                     "pdf": {
                         "endpoint": "/generate",
-                        "fields": ["title", "price", "knopbook1", "knopbook2"]
+                        "fields": ["title", "price", "name", "hotel_name", "address",
+                                   "checkin_date", "checkout_date", "nights",
+                                   "knopbook1", "knopbook2"]
                     }
                 }
             },
@@ -439,13 +441,19 @@ class UniversalRequest(BaseModel):
     price: Optional[float] = None
     url: Optional[str] = None
     photo: Optional[str] = None          # base64 - фото товара
-    name: Optional[str] = None           # для Subito - имя покупателя
-    address: Optional[str] = None        # для Subito - адрес
+    name: Optional[str] = None           # для Subito - имя покупателя / Booking - имя гостя
+    address: Optional[str] = None        # для Subito - адрес / Booking - адрес отеля
     seller_name: Optional[str] = None    # для Wallapop/Depop - имя продавца
     seller_photo: Optional[str] = None   # base64 - фото/аватар продавца (для Wallapop и Depop)
     surname: Optional[str] = None        # для Jofogas - фамилия покупателя
     knopbook1: Optional[str] = None
     knopbook2: Optional[str] = None
+
+    # Booking fields
+    hotel_name: Optional[str] = None
+    checkin_date: Optional[str] = None
+    checkout_date: Optional[str] = None
+    nights: Optional[int] = None
     
     class Config:
         extra = Extra.ignore  # Игнорируем лишние поля
@@ -527,6 +535,10 @@ async def generate(
         "seller_photo": req.seller_photo,
         "knopbook1": req.knopbook1,
         "knopbook2": req.knopbook2,
+        "hotel_name": req.hotel_name,
+        "checkin_date": req.checkin_date,
+        "checkout_date": req.checkout_date,
+        "nights": req.nights,
     }
     
     # Валидация country

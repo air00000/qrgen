@@ -291,18 +291,11 @@ pub async fn generate(
                 req.knopbook2.as_deref(),
                 crate::generator::booking::BookingInput {
                     guest_name: req.name.as_deref(),
-                    city: req.city.as_deref(),
                     hotel_name: req.hotel_name.as_deref(),
                     hotel_address: req.address.as_deref(),
-                    phone: req.phone.as_deref(),
                     nights: req.nights,
-                    beds: req.beds,
                     checkin_date: req.checkin_date.as_deref(),
                     checkout_date: req.checkout_date.as_deref(),
-                    checkin_time: req.checkin_time.as_deref(),
-                    checkout_time: req.checkout_time.as_deref(),
-                    confirmation_number: req.confirmation_number.as_deref(),
-                    pin_code: req.pin_code.as_deref(),
                 },
             ).await
         }

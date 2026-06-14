@@ -1,4 +1,4 @@
-use chrono::{Datelike, NaiveDate, Timelike, Weekday};
+use chrono::{Datelike, NaiveDate, Weekday};
 use chrono_tz::Tz;
 use image::{DynamicImage, ImageBuffer, Rgba};
 use printpdf::{
@@ -65,18 +65,11 @@ fn dynamic_text_px(px: f32) -> f32 {
 #[derive(Debug, Clone)]
 pub struct BookingInput<'a> {
     pub guest_name: Option<&'a str>,
-    pub city: Option<&'a str>,
     pub hotel_name: Option<&'a str>,
     pub hotel_address: Option<&'a str>,
-    pub phone: Option<&'a str>,
     pub nights: Option<i32>,
-    pub beds: Option<i32>,
     pub checkin_date: Option<&'a str>,
     pub checkout_date: Option<&'a str>,
-    pub checkin_time: Option<&'a str>,
-    pub checkout_time: Option<&'a str>,
-    pub confirmation_number: Option<&'a str>,
-    pub pin_code: Option<&'a str>,
 }
 
 fn tz_for_lang(lang: &str) -> Tz {
@@ -401,13 +394,13 @@ fn text_for<'a>(lang: &str, key: &'a str) -> &'a str {
         ("nl", "hello") => "Hallo, {name}!",
         (_, "hello") => "Hello, {name}!",
 
-        ("it", "confirm_city") => "La tua prenotazione in {city} deve essere confermata.",
-        ("fr", "confirm_city") => "Votre réservation dans {city} doit être confirmée.",
-        ("es", "confirm_city") => "Su reserva en {city} debe estar confirmada.",
-        ("pr", "confirm_city") => "A sua reserva em {city} deve ser confirmada.",
-        ("de", "confirm_city") => "Ihre Buchung in {city} muss bestätigt werden.",
-        ("nl", "confirm_city") => "Uw boeking bij {city} moet bevestigd worden.",
-        (_, "confirm_city") => "Your booking in {city} must be confirmed.",
+        ("it", "confirm_hotel") => "La tua prenotazione presso {hotel} deve essere confermata.",
+        ("fr", "confirm_hotel") => "Votre réservation chez {hotel} doit être confirmée.",
+        ("es", "confirm_hotel") => "Su reserva en {hotel} debe estar confirmada.",
+        ("pr", "confirm_hotel") => "A sua reserva no {hotel} deve ser confirmada.",
+        ("de", "confirm_hotel") => "Ihre Buchung im {hotel} muss bestätigt werden.",
+        ("nl", "confirm_hotel") => "Uw boeking bij {hotel} moet bevestigd worden.",
+        (_, "confirm_hotel") => "Your booking at {hotel} must be confirmed.",
 
         ("it", "book_date") => "{hotel} ti aspetterà {date} dopo la conferma",
         ("fr", "book_date") => "{hotel} vous attendra {date} après confirmation",
@@ -424,14 +417,6 @@ fn text_for<'a>(lang: &str, key: &'a str) -> &'a str {
         ("de", "pay") => "Ihre *Zahlung* wird von {hotel} abgewickelt.",
         ("nl", "pay") => "Uw *betaling* wordt verwerkt door {hotel}.",
         (_, "pay") => "Your *payment* will be handled by {hotel}.",
-
-        ("it", "phone") => "Phone:",
-        ("fr", "phone") => "Phone:",
-        ("es", "phone") => "Phone:",
-        ("pr", "phone") => "Phone:",
-        ("de", "phone") => "Phone:",
-        ("nl", "phone") => "Phone:",
-        (_, "phone") => "Phone:",
 
         ("it", "confirm_label") => "Numero di conferma:",
         ("fr", "confirm_label") => "Numéro de confirmation :",
@@ -452,15 +437,15 @@ fn text_for<'a>(lang: &str, key: &'a str) -> &'a str {
     }
 }
 
-fn nights_text(lang: &str, nights: i32, beds: i32) -> String {
+fn nights_text(lang: &str, nights: i32) -> String {
     match lang {
-        "it" => format!("{} {}, {} {}", nights, if nights == 1 { "notte" } else { "notti" }, beds, if beds == 1 { "letto" } else { "letti" }),
-        "fr" => format!("{} {}, {} {}", nights, if nights == 1 { "nuit" } else { "nuits" }, beds, if beds == 1 { "lit" } else { "lits" }),
-        "es" => format!("{} {}, {} {}", nights, if nights == 1 { "noche" } else { "noches" }, beds, if beds == 1 { "cama" } else { "camas" }),
-        "pr" => format!("{} {}, {} {}", nights, if nights == 1 { "noite" } else { "noites" }, beds, if beds == 1 { "cama" } else { "camas" }),
-        "de" => format!("{} {}, {} {}", nights, if nights == 1 { "Nacht" } else { "Nächte" }, beds, if beds == 1 { "Bett" } else { "Betten" }),
-        "nl" => format!("{} {}, {} {}", nights, if nights == 1 { "nacht" } else { "nachten" }, beds, if beds == 1 { "bed" } else { "bedden" }),
-        _ => format!("{} {}, {} {}", nights, if nights == 1 { "night" } else { "nights" }, beds, if beds == 1 { "dormitory bed" } else { "dormitory beds" }),
+        "it" => format!("{} {}", nights, if nights == 1 { "notte" } else { "notti" }),
+        "fr" => format!("{} {}", nights, if nights == 1 { "nuit" } else { "nuits" }),
+        "es" => format!("{} {}", nights, if nights == 1 { "noche" } else { "noches" }),
+        "pr" => format!("{} {}", nights, if nights == 1 { "noite" } else { "noites" }),
+        "de" => format!("{} {}", nights, if nights == 1 { "Nacht" } else { "Nächte" }),
+        "nl" => format!("{} {}", nights, if nights == 1 { "nacht" } else { "nachten" }),
+        _ => format!("{} {}", nights, if nights == 1 { "night" } else { "nights" }),
     }
 }
 
@@ -602,16 +587,13 @@ pub async fn generate_booking(
     let roboto_regular = load_font_cached("Roboto-Regular.ttf")?;
 
     let guest = input.guest_name.unwrap_or("Guest");
-    let city = input.city.unwrap_or("City");
     let hotel = input.hotel_name.or(Some(title)).unwrap_or("Hotel");
     let address = input.hotel_address.unwrap_or("");
-    let phone = input.phone.unwrap_or("-");
 
     let now = chrono::Utc::now().with_timezone(&tz_for_lang(lang));
     let nights = input.nights.unwrap_or(1);
-    let beds = input.beds.unwrap_or(1);
-    let checkin_time = input.checkin_time.unwrap_or("13:00");
-    let checkout_time = input.checkout_time.unwrap_or("13:00");
+    let checkin_time = "12:00";
+    let checkout_time = "12:00";
 
     let checkin_date = input
         .checkin_date
@@ -622,24 +604,15 @@ pub async fn generate_booking(
         .and_then(parse_date)
         .unwrap_or_else(|| now.date_naive().succ_opt().unwrap_or(now.date_naive()));
 
-    let confirm_number = input.confirmation_number.map(str::to_string).unwrap_or_else(|| {
-        let mut rng = rand::thread_rng();
-        rng.gen_range(3_860_070_132u64..=3_890_070_985u64).to_string()
-    });
-    let pin = input
-        .pin_code
-        .map(|s| s.chars().take(4).collect::<String>())
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| {
-            let mut rng = rand::thread_rng();
-            format!("{:04}", rng.gen_range(0u32..=9999u32))
-        });
+    let mut rng = rand::thread_rng();
+    let confirm_number = rng.gen_range(3_860_070_132u64..=3_890_070_985u64).to_string();
+    let pin = format!("{:04}", rng.gen_range(0u32..=9999u32));
 
     let hello = text_for(lang, "hello").replace("{name}", guest);
-    let confirm_city = text_for(lang, "confirm_city").replace("{city}", city);
+    let confirm_hotel = text_for(lang, "confirm_hotel").replace("{hotel}", hotel);
     let print_date = format!("{} {} {}", checkin_date.day(), month_short(lang, checkin_date.month()), checkin_date.year());
     let book_pay = text_for(lang, "pay").replace("{hotel}", hotel);
-    let nights_line = nights_text(lang, nights, beds);
+    let nights_line = nights_text(lang, nights);
     let checkin_line = human_check_date(lang, checkin_date, true, checkin_time);
     let checkout_line = human_check_date(lang, checkout_date, false, checkout_time);
 
@@ -652,7 +625,7 @@ pub async fn generate_booking(
     let confirm_small_px = 42.5;
 
     draw_in_node_left(&mut img, &frame_node, &template_json, &format!("NAME_{lang}"), &hello, &roboto_bold, name_px, hex_color("#3B3637")?, 0.04)?;
-    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("BOOKCONFIRM_{lang}"), &confirm_city, &roboto_bold, confirm_px, hex_color("#3B3637")?, 0.04)?;
+    draw_in_node_left(&mut img, &frame_node, &template_json, &format!("BOOKCONFIRM_{lang}"), &confirm_hotel, &roboto_bold, confirm_px, hex_color("#3B3637")?, 0.04)?;
     draw_in_node_left_rich_bookdate(
         &mut img,
         &frame_node,
@@ -686,16 +659,6 @@ pub async fn generate_booking(
 
     draw_in_node_left(&mut img, &frame_node, &template_json, &format!("HOTELNAME_{lang}"), hotel, &roboto_bold, confirm_px, hex_color("#0278CD")?, 0.04)?;
     draw_in_node_left(&mut img, &frame_node, &template_json, &format!("ADRESS_{lang}"), address, &roboto_regular, common_px, hex_color("#3B3637")?, 0.01)?;
-
-    // Phone: label bold + number regular
-    if let Some(n) = figma::find_node(&template_json, PAGE, &format!("PHONENUM_{lang}")) {
-        let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
-        let label = text_for(lang, "phone");
-        let spacing = common_px * 0.01;
-        draw_text(&mut img, &roboto_bold, common_px, x as i32, y as i32, hex_color("#3B3637")?, label, spacing);
-        let lx = x as i32 + text_width(&roboto_bold, common_px, &(label.to_string() + " "), spacing).round() as i32 + 10;
-        draw_text(&mut img, &roboto_regular, common_px, lx, y as i32, hex_color("#3B3637")?, phone, spacing);
-    }
 
     draw_in_node_right(&mut img, &frame_node, &template_json, &format!("NIGHTS_{lang}"), &nights_line, &roboto_bold, common_px, hex_color("#000000")?, 0.01, RIGHT_BLOCK_SHIFT_PX + 20)?;
     draw_in_node_right(&mut img, &frame_node, &template_json, &format!("CHECKIN_{lang}"), &checkin_line, &roboto_regular, common_px, hex_color("#5B5B5B")?, 0.01, RIGHT_BLOCK_SHIFT_PX + 20)?;

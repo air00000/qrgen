@@ -350,18 +350,11 @@ async def ask_booking_link2(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 BOOKING_FIELDS = [
     ("name", "Имя гостя (name):"),
-    ("city", "Город (city):"),
     ("hotel_name", "Название отеля (hotel_name):"),
     ("address", "Адрес (address):"),
-    ("phone", "Телефон (phone):"),
     ("nights", "Количество ночей (nights), число:"),
-    ("beds", "Количество кроватей (beds), число:"),
     ("checkin_date", "Дата заезда (checkin_date) в формате YYYY-MM-DD:"),
     ("checkout_date", "Дата выезда (checkout_date) в формате YYYY-MM-DD:"),
-    ("checkin_time", "Время заезда (checkin_time) в формате HH:MM:"),
-    ("checkout_time", "Время выезда (checkout_time) в формате HH:MM:"),
-    ("confirmation_number", "Номер подтверждения (confirmation_number) или '-' для автогенерации:"),
-    ("pin_code", "PIN (pin_code) или '-' для автогенерации:"),
 ]
 
 
@@ -484,7 +477,7 @@ async def on_booking_details(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     key, _prompt = BOOKING_FIELDS[idx]
 
-    if key in ["nights", "beds"]:
+    if key == "nights":
         try:
             context.user_data[key] = int(text)
         except Exception:
@@ -553,16 +546,10 @@ async def on_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "name": name,
             "address": address,
             "phone": phone,
-            "city": context.user_data.get("city"),
             "hotel_name": context.user_data.get("hotel_name"),
             "checkin_date": context.user_data.get("checkin_date"),
             "checkout_date": context.user_data.get("checkout_date"),
-            "checkin_time": context.user_data.get("checkin_time"),
-            "checkout_time": context.user_data.get("checkout_time"),
             "nights": context.user_data.get("nights"),
-            "beds": context.user_data.get("beds"),
-            "confirmation_number": context.user_data.get("confirmation_number"),
-            "pin_code": context.user_data.get("pin_code"),
             "seller_name": context.user_data.get("seller_name"),
             "seller_photo": base64.b64encode(context.user_data.get("seller_photo_bytes") or b"").decode("utf-8")
             if context.user_data.get("seller_photo_bytes")

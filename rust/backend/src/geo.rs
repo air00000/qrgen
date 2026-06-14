@@ -13,9 +13,8 @@ pub fn booking_geo_group() -> Value {
           "endpoint": "/generate",
           "content_type": "application/pdf",
           "fields": [
-            "country", "service", "method", "title", "name", "city", "hotel_name", "address", "phone",
-            "checkin_date", "checkout_date", "checkin_time", "checkout_time",
-            "nights", "beds", "confirmation_number", "pin_code", "knopbook1", "knopbook2"
+            "country", "service", "method", "title", "name", "hotel_name", "address",
+            "checkin_date", "checkout_date", "nights", "knopbook1", "knopbook2"
           ]
         }
       }
