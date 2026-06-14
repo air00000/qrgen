@@ -8,9 +8,15 @@ use super::GenError;
 
 const PAGE: &str = "Page 2";
 const DELIVERY_FEE: u64 = 2899;
+const JOFOGAS_TEXT_MULTIPLIER: f32 = 1.2;
 
 fn scale_factor() -> f32 {
     2.0
+}
+
+#[inline]
+fn dynamic_text_px(px: f32) -> f32 {
+    px * JOFOGAS_TEXT_MULTIPLIER
 }
 
 fn fonts_dir() -> std::path::PathBuf {
@@ -154,6 +160,8 @@ fn process_photo_rect(photo_b64: &str, w: u32, h: u32) -> Result<Option<DynamicI
     };
     let img = image::load_from_memory(&bytes).map_err(|e| GenError::BadRequest(format!("invalid photo: {e}")))?;
     let mut img = img.to_rgba8();
+
+    // Composite any transparency on white before cropping/resizing.
     for p in img.pixels_mut() {
         if p.0[3] < 255 {
             let a = p.0[3] as f32 / 255.0;
@@ -164,7 +172,22 @@ fn process_photo_rect(photo_b64: &str, w: u32, h: u32) -> Result<Option<DynamicI
             p.0[3] = 255;
         }
     }
-    let resized = image::imageops::resize(&img, w, h, image::imageops::FilterType::Lanczos3);
+
+    // Crop to target aspect ratio (center crop) then resize, matching Subito/Gumtree.
+    let target_ratio = w as f32 / h as f32;
+    let src_ratio = img.width() as f32 / img.height() as f32;
+    let (crop_w, crop_h) = if src_ratio > target_ratio {
+        // too wide
+        ((img.height() as f32 * target_ratio).round() as u32, img.height())
+    } else {
+        // too tall
+        (img.width(), (img.width() as f32 / target_ratio).round() as u32)
+    };
+    let left = (img.width().saturating_sub(crop_w)) / 2;
+    let top = (img.height().saturating_sub(crop_h)) / 2;
+    let cropped = image::imageops::crop(&mut img, left, top, crop_w, crop_h).to_image();
+    let resized = image::imageops::resize(&cropped, w, h, image::imageops::FilterType::Lanczos3);
+
     Ok(Some(DynamicImage::ImageRgba8(resized)))
 }
 
@@ -315,7 +338,7 @@ pub async fn generate_jofogas(
     // Title (nazv) - left aligned, 2 lines max, ellipsis
     if let Some(n) = node_opt(&format!("nazv_{frame_name}")) {
         let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
-        let title_px = 39.0 * sf;
+        let title_px = dynamic_text_px(39.0 * sf);
         let title_spacing = (title_px * -0.007).round();
         let max_width = 880.0 * sf;
         let lines = truncate_title_2_lines(&font_reg, title_px, title, title_spacing, max_width);
@@ -337,7 +360,7 @@ pub async fn generate_jofogas(
     // Price (full price without delivery) - left aligned, orange
     if let Some(n) = node_opt(&format!("price_{frame_name}")) {
         let (x, y, _w, _h) = rel_box(&n, &frame_node)?;
-        let price_px = 45.0 * sf;
+        let price_px = dynamic_text_px(45.0 * sf);
         let price_spacing = (price_px * -0.017).round();
         let text = format_price_ft(full_price);
         draw_text_with_letter_spacing(
@@ -355,7 +378,7 @@ pub async fn generate_jofogas(
     // Familiya - right aligned
     if let Some(n) = node_opt(&format!("familiya_{frame_name}")) {
         let (x, y, w, _h) = rel_box(&n, &frame_node)?;
-        let px = 45.0 * sf;
+        let px = dynamic_text_px(45.0 * sf);
         let spacing = (px * -0.017).round();
         let width = text_width(&font_medium, px, surname, spacing);
         let start_x = (x + w) as f32 - width;
@@ -374,7 +397,7 @@ pub async fn generate_jofogas(
     // Imya - right aligned
     if let Some(n) = node_opt(&format!("imya_{frame_name}")) {
         let (x, y, w, _h) = rel_box(&n, &frame_node)?;
-        let px = 45.0 * sf;
+        let px = dynamic_text_px(45.0 * sf);
         let spacing = (px * -0.017).round();
         let width = text_width(&font_medium, px, name, spacing);
         let start_x = (x + w) as f32 - width;
@@ -393,7 +416,7 @@ pub async fn generate_jofogas(
     // Adres - right aligned
     if let Some(n) = node_opt(&format!("adres_{frame_name}")) {
         let (x, y, w, _h) = rel_box(&n, &frame_node)?;
-        let px = 45.0 * sf;
+        let px = dynamic_text_px(45.0 * sf);
         let spacing = (px * -0.017).round();
         let width = text_width(&font_medium, px, address, spacing);
         let start_x = (x + w) as f32 - width;
@@ -412,7 +435,7 @@ pub async fn generate_jofogas(
     // Tovarprice - right aligned
     if let Some(n) = node_opt(&format!("tovarprice_{frame_name}")) {
         let (x, y, w, _h) = rel_box(&n, &frame_node)?;
-        let px = 45.0 * sf;
+        let px = dynamic_text_px(45.0 * sf);
         let spacing = (px * -0.017).round();
         let text = format_price_ft(base_price);
         let width = text_width(&font_medium, px, &text, spacing);
@@ -432,7 +455,7 @@ pub async fn generate_jofogas(
     // Defendprice - right aligned
     if let Some(n) = node_opt(&format!("defendprice_{frame_name}")) {
         let (x, y, w, _h) = rel_box(&n, &frame_node)?;
-        let px = 45.0 * sf;
+        let px = dynamic_text_px(45.0 * sf);
         let spacing = (px * -0.017).round();
         let text = format_price_ft(defend_price);
         let width = text_width(&font_medium, px, &text, spacing);
@@ -452,7 +475,7 @@ pub async fn generate_jofogas(
     // Dostavkaprice - right aligned
     if let Some(n) = node_opt(&format!("dostavkaprice_{frame_name}")) {
         let (x, y, w, _h) = rel_box(&n, &frame_node)?;
-        let px = 45.0 * sf;
+        let px = dynamic_text_px(45.0 * sf);
         let spacing = (px * -0.017).round();
         let text = format_price_ft(DELIVERY_FEE);
         let width = text_width(&font_medium, px, &text, spacing);
@@ -472,7 +495,7 @@ pub async fn generate_jofogas(
     // Itogoprice - right aligned, orange
     if let Some(n) = node_opt(&format!("itogoprice_{frame_name}")) {
         let (x, y, w, _h) = rel_box(&n, &frame_node)?;
-        let px = 45.0 * sf;
+        let px = dynamic_text_px(45.0 * sf);
         let spacing = (px * -0.017).round();
         let text = format_price_ft(total_price);
         let width = text_width(&font_medium, px, &text, spacing);
@@ -495,7 +518,7 @@ pub async fn generate_jofogas(
         let tz = chrono_tz::Europe::Budapest;
         let now = chrono::Utc::now().with_timezone(&tz);
         let time_text = format!("{:02}:{:02}", now.hour(), now.minute());
-        let time_px = 53.0 * sf;
+        let time_px = dynamic_text_px(53.0 * sf);
         let time_spacing = (time_px * -0.02).round();
         let width = text_width(&font_semibold, time_px, &time_text, time_spacing);
         let start_x = (x + w) as f32 - width;
