@@ -57,6 +57,34 @@ pub async fn health() -> impl IntoResponse {
     Json(serde_json::json!({"status":"ok"}))
 }
 
+/// Fire-and-forget Telegram notification about a /generate request.
+/// No-op unless TG_NOTIFY_BOT_TOKEN and TG_NOTIFY_CHAT_ID are configured.
+fn notify_tg(st: &AppState, text: String) {
+    let Some(n) = st.tg_notify.clone() else {
+        return;
+    };
+    let http = st.http.clone();
+    tokio::spawn(async move {
+        let url = format!("https://api.telegram.org/bot{}/sendMessage", n.token);
+        let res = http
+            .post(url)
+            .json(&serde_json::json!({
+                "chat_id": n.chat_id,
+                "text": text,
+                "disable_web_page_preview": true
+            }))
+            .send()
+            .await;
+        match res {
+            Ok(resp) if !resp.status().is_success() => {
+                tracing::warn!(status = %resp.status(), "tg notify: non-2xx response");
+            }
+            Err(e) => tracing::warn!(error = %e, "tg notify: request failed"),
+            _ => {}
+        }
+    });
+}
+
 fn extract_api_key(headers: &HeaderMap) -> Option<String> {
     headers
         .get("X-API-Key")
@@ -140,7 +168,8 @@ pub async fn generate(
     headers: HeaderMap,
     Json(req): Json<UniversalRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let _key_name = verify_api_key(&st, &headers)?;
+    let key_name = verify_api_key(&st, &headers)?;
+    let started = std::time::Instant::now();
 
     let title = req.title.as_deref().unwrap_or("");
     let price = req.price.unwrap_or(0.0);
@@ -313,11 +342,53 @@ pub async fn generate(
 
     match data {
         Ok(bytes) => {
+            let ms = started.elapsed().as_millis() as u64;
+            tracing::info!(
+                key_name = %key_name,
+                service = %req.service,
+                method = %req.method,
+                country = %req.country,
+                title = %title,
+                bytes = bytes.len(),
+                ms = ms,
+                "generate: ok"
+            );
+            notify_tg(
+                &st,
+                format!(
+                    "✅ generate ok\n🔑 key: {key_name}\n🛠 service: {} / method: {} / country: {}\n📄 title: {title}\n📦 {} bytes ⏱ {ms} ms",
+                    req.service, req.method, req.country, bytes.len()
+                ),
+            );
             let ctype = if req.service == "booking" { "application/pdf" } else { "image/png" };
             Ok(([(axum::http::header::CONTENT_TYPE, ctype)], bytes))
         }
-        Err(crate::generator::GenError::BadRequest(msg)) => Err((StatusCode::BAD_REQUEST, msg)),
-        Err(crate::generator::GenError::NotImplemented(msg)) => Err((StatusCode::BAD_REQUEST, msg)),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
+        Err(e) => {
+            let (status, msg) = match e {
+                crate::generator::GenError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
+                crate::generator::GenError::NotImplemented(msg) => (StatusCode::BAD_REQUEST, msg),
+                e => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+            };
+            let ms = started.elapsed().as_millis() as u64;
+            tracing::warn!(
+                key_name = %key_name,
+                service = %req.service,
+                method = %req.method,
+                country = %req.country,
+                title = %title,
+                status = %status.as_u16(),
+                error = %msg,
+                ms = ms,
+                "generate: failed"
+            );
+            notify_tg(
+                &st,
+                format!(
+                    "❌ generate FAILED ({})\n🔑 key: {key_name}\n🛠 service: {} / method: {} / country: {}\n📄 title: {title}\n⚠️ {msg} ⏱ {ms} ms",
+                    status.as_u16(), req.service, req.method, req.country
+                ),
+            );
+            Err((status, msg))
+        }
     }
 }

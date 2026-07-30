@@ -19,9 +19,16 @@ use utoipa_swagger_ui::SwaggerUi;
 use utoipa::OpenApi;
 
 #[derive(Clone)]
+pub struct TgNotify {
+    pub token: String,
+    pub chat_id: String,
+}
+
+#[derive(Clone)]
 pub struct AppState {
     pub http: reqwest::Client,
     pub api_keys: Arc<apikey::ApiKeys>,
+    pub tg_notify: Option<TgNotify>,
 }
 
 #[tokio::main]
@@ -46,9 +53,20 @@ async fn main() {
             .expect("failed to load api keys")
     );
 
+    // Telegram notifications for /generate requests (optional).
+    // Enabled when both TG_NOTIFY_BOT_TOKEN and TG_NOTIFY_CHAT_ID are set.
+    let tg_notify = match (
+        std::env::var("TG_NOTIFY_BOT_TOKEN"),
+        std::env::var("TG_NOTIFY_CHAT_ID"),
+    ) {
+        (Ok(token), Ok(chat_id)) => Some(TgNotify { token, chat_id }),
+        _ => None,
+    };
+
     let state = AppState {
         http: reqwest::Client::new(),
         api_keys,
+        tg_notify,
     };
 
     let openapi = openapi::ApiDoc::openapi();
