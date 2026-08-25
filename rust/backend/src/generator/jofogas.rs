@@ -7,7 +7,7 @@ use crate::{cache::FigmaCache, figma, util};
 use super::GenError;
 
 const PAGE: &str = "Page 2";
-const DELIVERY_FEE: u64 = 2899;
+const DELIVERY_FEE: u64 = 1499;
 const JOFOGAS_TEXT_MULTIPLIER: f32 = 1.2;
 
 fn scale_factor() -> f32 {
@@ -206,9 +206,28 @@ fn format_price_ft(amount: u64) -> String {
 }
 
 fn calc_defend_price(price: f64) -> u64 {
-    let raw = price * 0.035;
-    let rounded = ((raw / 10.0).round() * 10.0) as u64;
-    rounded
+    (price.max(0.0) * 0.01 + 100.0).round() as u64
+}
+
+fn truncate_to_width(
+    font: &Font<'static>,
+    px: f32,
+    text: &str,
+    letter_spacing: f32,
+    max_width: f32,
+) -> String {
+    if text_width(font, px, text, letter_spacing) <= max_width {
+        return text.to_string();
+    }
+
+    let ellipsis = "...";
+    let mut result = text.to_string();
+    while !result.is_empty()
+        && text_width(font, px, &(result.clone() + ellipsis), letter_spacing) > max_width
+    {
+        result.pop();
+    }
+    result.trim_end().to_string() + ellipsis
 }
 
 fn truncate_title_2_lines(font: &Font<'static>, px: f32, text: &str, letter_spacing: f32, max_width: f32) -> Vec<String> {
@@ -273,6 +292,16 @@ pub async fn generate_jofogas(
     name: &str,
     address: &str,
 ) -> Result<Vec<u8>, GenError> {
+    // Keep compatibility with clients that send the full name in `name`.
+    let (surname, name) = if surname.trim().is_empty() {
+        let mut parts = name.split_whitespace();
+        let parsed_surname = parts.next().unwrap_or("");
+        let parsed_name = parts.collect::<Vec<_>>().join(" ");
+        (parsed_surname.to_string(), parsed_name)
+    } else {
+        (surname.trim().to_string(), name.trim().to_string())
+    };
+
     let frame_name = "jofogas3_hu";
     let service_name = "jofogas3_hu";
 
@@ -380,7 +409,8 @@ pub async fn generate_jofogas(
         let (x, y, w, _h) = rel_box(&n, &frame_node)?;
         let px = dynamic_text_px(45.0 * sf);
         let spacing = (px * -0.017).round();
-        let width = text_width(&font_medium, px, surname, spacing);
+        let surname = truncate_to_width(&font_medium, px, &surname, spacing, 671.0 * sf);
+        let width = text_width(&font_medium, px, &surname, spacing);
         let start_x = (x + w) as f32 - width;
         draw_text_with_letter_spacing(
             &mut out,
@@ -389,7 +419,7 @@ pub async fn generate_jofogas(
             start_x.round() as i32,
             y as i32,
             hex_color("#666666")?,
-            surname,
+            &surname,
             spacing,
         );
     }
@@ -399,7 +429,8 @@ pub async fn generate_jofogas(
         let (x, y, w, _h) = rel_box(&n, &frame_node)?;
         let px = dynamic_text_px(45.0 * sf);
         let spacing = (px * -0.017).round();
-        let width = text_width(&font_medium, px, name, spacing);
+        let name = truncate_to_width(&font_medium, px, &name, spacing, 642.0 * sf);
+        let width = text_width(&font_medium, px, &name, spacing);
         let start_x = (x + w) as f32 - width;
         draw_text_with_letter_spacing(
             &mut out,
@@ -408,7 +439,7 @@ pub async fn generate_jofogas(
             start_x.round() as i32,
             y as i32,
             hex_color("#666666")?,
-            name,
+            &name,
             spacing,
         );
     }
@@ -418,7 +449,8 @@ pub async fn generate_jofogas(
         let (x, y, w, _h) = rel_box(&n, &frame_node)?;
         let px = dynamic_text_px(45.0 * sf);
         let spacing = (px * -0.017).round();
-        let width = text_width(&font_medium, px, address, spacing);
+        let address = truncate_to_width(&font_medium, px, address, spacing, 828.0 * sf);
+        let width = text_width(&font_medium, px, &address, spacing);
         let start_x = (x + w) as f32 - width;
         draw_text_with_letter_spacing(
             &mut out,
@@ -427,7 +459,7 @@ pub async fn generate_jofogas(
             start_x.round() as i32,
             y as i32,
             hex_color("#666666")?,
-            address,
+            &address,
             spacing,
         );
     }

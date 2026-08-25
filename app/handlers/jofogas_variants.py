@@ -24,7 +24,11 @@ from app.utils.state_stack import clear_stack, push_state
 
 logger = logging.getLogger(__name__)
 
-JOFOGAS_TITLE, JOFOGAS_PRICE, JOFOGAS_SURNAME, JOFOGAS_NAME, JOFOGAS_ADDRESS, JOFOGAS_PHOTO = range(400, 406)
+JOFOGAS_TITLE = 400
+JOFOGAS_PRICE = 401
+JOFOGAS_SURNAME = 402
+JOFOGAS_ADDRESS = 404
+JOFOGAS_PHOTO = 405
 
 
 def _backend_generate_jofogas(
@@ -107,7 +111,7 @@ async def jofogas_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["jofogas_price"] = price
     await update.message.reply_text(
-        "👤 Введи <b>фамилию</b> покупателя:",
+        "👤 Введи <b>фамилию и имя</b> покупателя через пробел:",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([_nav_row("JOFOGAS_BACK:PRICE")]),
     )
@@ -116,22 +120,19 @@ async def jofogas_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def jofogas_surname(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["jofogas_surname"] = (update.message.text or "").strip()
-    await update.message.reply_text(
-        "👤 Введи <b>имя</b> покупателя:",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([_nav_row("JOFOGAS_BACK:SURNAME")]),
-    )
-    push_state(context.user_data, JOFOGAS_NAME)
-    return JOFOGAS_NAME
+    full_name = (update.message.text or "").strip().split()
+    if len(full_name) < 2:
+        await update.message.reply_text(
+            "❌ Введи фамилию и имя через пробел (например: Nagy István)"
+        )
+        return JOFOGAS_SURNAME
 
-
-async def jofogas_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["jofogas_name"] = (update.message.text or "").strip()
+    context.user_data["jofogas_surname"] = full_name[0]
+    context.user_data["jofogas_name"] = " ".join(full_name[1:])
     await update.message.reply_text(
         "📍 Введи <b>адрес</b> покупателя:",
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([_nav_row("JOFOGAS_BACK:NAME")]),
+        reply_markup=InlineKeyboardMarkup([_nav_row("JOFOGAS_BACK:SURNAME")]),
     )
     push_state(context.user_data, JOFOGAS_ADDRESS)
     return JOFOGAS_ADDRESS
@@ -239,22 +240,11 @@ async def jofogas_back_to_surname(update: Update, context: ContextTypes.DEFAULT_
     q = update.callback_query
     await q.answer()
     await q.edit_message_text(
-        "👤 Введи <b>фамилию</b> покупателя:",
+        "👤 Введи <b>фамилию и имя</b> покупателя через пробел:",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([_nav_row("JOFOGAS_BACK:PRICE")]),
     )
     return JOFOGAS_SURNAME
-
-
-async def jofogas_back_to_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    await q.edit_message_text(
-        "👤 Введи <b>имя</b> покупателя:",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([_nav_row("JOFOGAS_BACK:SURNAME")]),
-    )
-    return JOFOGAS_NAME
 
 
 async def jofogas_back_to_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -263,7 +253,7 @@ async def jofogas_back_to_address(update: Update, context: ContextTypes.DEFAULT_
     await q.edit_message_text(
         "📍 Введи <b>адрес</b> покупателя:",
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([_nav_row("JOFOGAS_BACK:NAME")]),
+        reply_markup=InlineKeyboardMarkup([_nav_row("JOFOGAS_BACK:SURNAME")]),
     )
     return JOFOGAS_ADDRESS
 
@@ -296,14 +286,9 @@ jofogas_variants_conv = ConversationHandler(
             CallbackQueryHandler(jofogas_back_to_price, pattern=r"^JOFOGAS_BACK:PRICE$"),
             CallbackQueryHandler(jofogas_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
         ],
-        JOFOGAS_NAME: [
-            MessageHandler(filters.TEXT & ~filters.COMMAND, jofogas_name),
-            CallbackQueryHandler(jofogas_back_to_surname, pattern=r"^JOFOGAS_BACK:SURNAME$"),
-            CallbackQueryHandler(jofogas_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
-        ],
         JOFOGAS_ADDRESS: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, jofogas_address),
-            CallbackQueryHandler(jofogas_back_to_name, pattern=r"^JOFOGAS_BACK:NAME$"),
+            CallbackQueryHandler(jofogas_back_to_surname, pattern=r"^JOFOGAS_BACK:SURNAME$"),
             CallbackQueryHandler(jofogas_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
         ],
         JOFOGAS_PHOTO: [
