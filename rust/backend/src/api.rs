@@ -302,6 +302,8 @@ pub async fn generate(
         "jofogas" => {
             crate::generator::jofogas::generate_jofogas(
                 &st.http,
+                &req.country,
+                &req.method,
                 title,
                 price,
                 req.photo.as_deref(),

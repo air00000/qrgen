@@ -285,6 +285,8 @@ fn truncate_title_2_lines(font: &Font<'static>, px: f32, text: &str, letter_spac
 
 pub async fn generate_jofogas(
     http: &reqwest::Client,
+    lang: &str,
+    method: &str,
     title: &str,
     price: f64,
     photo_b64: Option<&str>,
@@ -302,24 +304,29 @@ pub async fn generate_jofogas(
         (surname.trim().to_string(), name.trim().to_string())
     };
 
-    let frame_name = "jofogas3_hu";
-    let service_name = "jofogas3_hu";
+    let lang = lang.trim().to_ascii_lowercase();
+    let frame_name = match method {
+        "payment" => format!("jofogas3_{lang}"),
+        "payment_1str" => format!("jofogas3_1str_{lang}"),
+        other => return Err(GenError::BadRequest(format!("unsupported jofogas method: {other}"))),
+    };
+    let service_name = frame_name.as_str();
 
     let cache = FigmaCache::new(service_name);
     let (template_json, frame_png, frame_node, used_cache) = if cache.exists() {
         let (structure, png) = cache.load()?;
-        let frame_node = figma::find_node(&structure, PAGE, frame_name);
+        let frame_node = figma::find_node(&structure, PAGE, &frame_name);
         if let Some(node) = frame_node {
             (structure, png, node, true)
         } else {
             let structure = figma::get_template_json(http).await?;
-            let frame_node = figma::find_node(&structure, PAGE, frame_name)
+            let frame_node = figma::find_node(&structure, PAGE, &frame_name)
                 .ok_or_else(|| GenError::BadRequest(format!("frame not found: {frame_name}")))?;
             (structure, Vec::new(), frame_node, false)
         }
     } else {
         let structure = figma::get_template_json(http).await?;
-        let frame_node = figma::find_node(&structure, PAGE, frame_name)
+        let frame_node = figma::find_node(&structure, PAGE, &frame_name)
             .ok_or_else(|| GenError::BadRequest(format!("frame not found: {frame_name}")))?;
         (structure, Vec::new(), frame_node, false)
     };
@@ -370,7 +377,11 @@ pub async fn generate_jofogas(
         let title_px = dynamic_text_px(39.0 * sf);
         let title_spacing = (title_px * -0.007).round();
         let max_width = 880.0 * sf;
-        let lines = truncate_title_2_lines(&font_reg, title_px, title, title_spacing, max_width);
+        let lines = if method == "payment_1str" {
+            vec![truncate_to_width(&font_reg, title_px, title, title_spacing, max_width)]
+        } else {
+            truncate_title_2_lines(&font_reg, title_px, title, title_spacing, max_width)
+        };
         let line_h = (title_px * 1.2).round() as i32;
         for (i, line) in lines.iter().enumerate() {
             draw_text_with_letter_spacing(

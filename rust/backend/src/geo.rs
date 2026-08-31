@@ -192,7 +192,8 @@ pub fn geo_config() -> Value {
         "services": {
           "jofogas": {
             "methods": {
-              "payment": {"endpoint": "/generate", "fields": ["title", "price", "photo", "surname", "name", "address"]}
+              "payment": {"endpoint": "/generate", "fields": ["title", "price", "photo", "surname", "name", "address"]},
+              "payment_1str": {"endpoint": "/generate", "fields": ["title", "price", "photo", "surname", "name", "address"]}
             }
           }
         }

@@ -24,6 +24,7 @@ from app.utils.state_stack import clear_stack, push_state
 
 logger = logging.getLogger(__name__)
 
+JOFOGAS_LAYOUT = 399
 JOFOGAS_TITLE = 400
 JOFOGAS_PRICE = 401
 JOFOGAS_SURNAME = 402
@@ -32,6 +33,7 @@ JOFOGAS_PHOTO = 405
 
 
 def _backend_generate_jofogas(
+    method: str,
     title: str,
     price: float,
     surname: str,
@@ -45,7 +47,7 @@ def _backend_generate_jofogas(
     payload = {
         "country": "hu",
         "service": "jofogas",
-        "method": "payment",
+        "method": method,
         "title": title,
         "price": price,
         "surname": surname,
@@ -82,8 +84,25 @@ async def jofogas_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.callback_query.answer()
     await update.callback_query.edit_message_text(
+        "🇭🇺 <b>Jófogás</b> — выбери макет:",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📄 Заголовок в 2 строки", callback_data="JOFOGAS:LAYOUT:payment")],
+            [InlineKeyboardButton("📃 Заголовок в 1 строку", callback_data="JOFOGAS:LAYOUT:payment_1str")],
+            _nav_row("QR:MENU"),
+        ]),
+        parse_mode="HTML",
+    )
+    push_state(context.user_data, JOFOGAS_LAYOUT)
+    return JOFOGAS_LAYOUT
+
+
+async def jofogas_layout(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    context.user_data["jofogas_method"] = q.data.rsplit(":", 1)[-1]
+    await q.edit_message_text(
         "🇭🇺 <b>Jófogás</b> — введи название товара:",
-        reply_markup=InlineKeyboardMarkup([_nav_row("QR:MENU")]),
+        reply_markup=InlineKeyboardMarkup([_nav_row("JOFOGAS_BACK:LAYOUT")]),
         parse_mode="HTML",
     )
     push_state(context.user_data, JOFOGAS_TITLE)
@@ -168,6 +187,7 @@ async def jofogas_skip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def _jofogas_generate(message, context: ContextTypes.DEFAULT_TYPE):
+    method = context.user_data.get("jofogas_method", "payment")
     title = context.user_data.get("jofogas_title", "")
     price = float(context.user_data.get("jofogas_price", 0.0))
     surname = context.user_data.get("jofogas_surname", "")
@@ -183,6 +203,7 @@ async def _jofogas_generate(message, context: ContextTypes.DEFAULT_TYPE):
         png_bytes = await generate_with_queue(
             executor,
             _backend_generate_jofogas,
+            method,
             title,
             price,
             surname,
@@ -219,7 +240,7 @@ async def jofogas_back_to_title(update: Update, context: ContextTypes.DEFAULT_TY
     await q.answer()
     await q.edit_message_text(
         "🇭🇺 <b>Jófogás</b> — введи название товара:",
-        reply_markup=InlineKeyboardMarkup([_nav_row("QR:MENU")]),
+        reply_markup=InlineKeyboardMarkup([_nav_row("JOFOGAS_BACK:LAYOUT")]),
         parse_mode="HTML",
     )
     return JOFOGAS_TITLE
@@ -272,7 +293,12 @@ async def jofogas_back_to_photo(update: Update, context: ContextTypes.DEFAULT_TY
 jofogas_variants_conv = ConversationHandler(
     entry_points=[CallbackQueryHandler(jofogas_start, pattern=r"^QR:JOFOGAS$")],
     states={
+        JOFOGAS_LAYOUT: [
+            CallbackQueryHandler(jofogas_layout, pattern=r"^JOFOGAS:LAYOUT:(payment|payment_1str)$"),
+            CallbackQueryHandler(jofogas_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
+        ],
         JOFOGAS_TITLE: [
+            CallbackQueryHandler(jofogas_start, pattern=r"^JOFOGAS_BACK:LAYOUT$"),
             MessageHandler(filters.TEXT & ~filters.COMMAND, jofogas_title),
             CallbackQueryHandler(jofogas_menu_cb, pattern=r"^(QR:MENU|MENU)$"),
         ],

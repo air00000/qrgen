@@ -401,6 +401,10 @@ GEO_CONFIG = {
                     "payment": {
                         "endpoint": "/generate",
                         "fields": ["title", "price", "photo", "surname", "name", "address"]
+                    },
+                    "payment_1str": {
+                        "endpoint": "/generate",
+                        "fields": ["title", "price", "photo", "surname", "name", "address"]
                     }
                 }
             }
@@ -533,6 +537,7 @@ async def generate(
         "address": req.address,
         "seller_name": req.seller_name,
         "seller_photo": req.seller_photo,
+        "surname": req.surname,
         "knopbook1": req.knopbook1,
         "knopbook2": req.knopbook2,
         "hotel_name": req.hotel_name,

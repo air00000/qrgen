@@ -146,7 +146,35 @@ TEST_DATA = [
             "photo": "ignored"
         }
     },
-    
+
+    # === HUNGARY - JOFOGAS ===
+    {
+        "name": "hu_jofogas_payment",
+        "data": {
+            "country": "hu",
+            "service": "jofogas",
+            "method": "payment",
+            "title": "Apple iPhone 15 Pro 256 GB",
+            "price": 349990,
+            "surname": "Nagy",
+            "name": "István",
+            "address": "Budapest"
+        }
+    },
+    {
+        "name": "hu_jofogas_payment_1str",
+        "data": {
+            "country": "hu",
+            "service": "jofogas",
+            "method": "payment_1str",
+            "title": "Apple iPhone 15 Pro 256 GB hosszú megnevezéssel",
+            "price": 349990,
+            "surname": "Nagy",
+            "name": "István",
+            "address": "Budapest"
+        }
+    },
+
     # === GERMANY ===
     {
         "name": "de_kleinanzeigen_qr",

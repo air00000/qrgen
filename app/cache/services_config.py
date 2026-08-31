@@ -391,6 +391,12 @@ SERVICES_CONFIG = {
         "frame": "jofogas3_hu",
         "scale": 2
     },
+    "jofogas3_1str_hu": {
+        "display_name": "Jófogás 1 line (HU)",
+        "page": "Page 2",
+        "frame": "jofogas3_1str_hu",
+        "scale": 2
+    },
 
     # === BOOKING (cache keys aligned with Rust booking generator) ===
     f"figma_{FILE_KEY}_Page_2_book_en": {"display_name": "Booking EN", "page": "Page 2", "frame": "book_en", "scale": 1},
@@ -509,7 +515,8 @@ def get_services_by_group():
             "depop_au_sms_confirm"
         ],
         "Jófogás": [
-            "jofogas3_hu"
+            "jofogas3_hu",
+            "jofogas3_1str_hu"
         ],
         "Booking": [
             f"figma_{FILE_KEY}_Page_2_book_en",
