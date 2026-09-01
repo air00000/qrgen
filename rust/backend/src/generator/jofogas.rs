@@ -489,7 +489,7 @@ pub async fn generate_jofogas(
             px,
             start_x.round() as i32,
             y as i32,
-            hex_color("#666666")?,
+            hex_color("#242424")?,
             &text,
             spacing,
         );
@@ -509,7 +509,7 @@ pub async fn generate_jofogas(
             px,
             start_x.round() as i32,
             y as i32,
-            hex_color("#666666")?,
+            hex_color("#242424")?,
             &text,
             spacing,
         );
